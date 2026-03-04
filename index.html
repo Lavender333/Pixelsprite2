@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pixel Creator — Draw, Color & Animate Pixel Art</title>
+
+<!-- SEO -->
+<meta name="description" content="Pixel Creator is a free pixel art app for mobile and desktop. Draw, color-in templates, animate, and export your creations as PNG or GIF.">
+<meta name="keywords" content="pixel art, pixel creator, coloring app, sprite maker, animation, kawaii, draw pixels, free art app">
+<meta name="author" content="Pixel Creator">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://pixelcreator.app/">
+
+<!-- Open Graph / Social -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://pixelcreator.app/">
+<meta property="og:title" content="Pixel Creator — Draw, Color & Animate Pixel Art">
+<meta property="og:description" content="Free pixel art studio for your phone. 30+ templates, color-in mode, animations, GIF export. No account needed.">
+<meta property="og:image" content="https://pixelcreator.app/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Pixel Creator — Draw, Color & Animate Pixel Art">
+<meta name="twitter:description" content="Free pixel art studio. 30+ templates, color-in mode, animations, GIF export.">
+<meta name="twitter:image" content="https://pixelcreator.app/og-image.png">
+
+<!-- PWA / App -->
+<meta name="theme-color" content="#09090E">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pixel Creator">
+<link rel="manifest" href="manifest.json">
+
+<!-- Icons -->
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+
+<!-- Service Worker registration -->
+
+<link rel="stylesheet" href="style.css">
+
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
+</script>
+</head>
+<body>
+
+<div id="app">
+
+<!-- HOME -->
+<div id="home-screen" class="screen active">
+  <div class="home-hero">
+    <div class="hero-eyebrow">✦ Smart UX Studio</div>
+    <h1 class="hero-title">PIXEL<br><span>CREATOR</span></h1>
+    <p class="hero-sub">Professional tools. Zero complexity.<br>Built for creators aged 9–15.</p>
+    <div class="hero-cta">
+      <button class="btn-primary" onclick="openStudio()">+ New Creation</button>
+      <button class="btn-secondary" onclick="showTab('closet')">My Work</button>
+    </div>
+  </div>
+  <div class="streak-bar">
+    <div class="streak-fire">🔥</div>
+    <div class="streak-info">
+      <div class="streak-n" id="streak-n">5</div>
+      <div class="streak-l">Day Streak</div>
+    </div>
+    <button class="streak-claim" onclick="claimStreak()">Claim Reward</button>
+  </div>
+  <div class="home-section">
+    <div class="sec-header">
+      <span class="sec-title">Quick Start</span>
+      <button class="sec-link" onclick="showTab('studio')">See All →</button>
+    </div>
+    <div class="templates-scroll" id="home-templates"></div>
+  </div>
+  <div class="home-section">
+    <div class="sec-header"><span class="sec-title">Today's Challenge</span></div>
+    <div class="challenge-card" onclick="showTab('challenges')">
+      <div class="cc-days" id="cc-days">3d left</div>
+      <div class="cc-label">Weekly Drop</div>
+      <div class="cc-title" id="cc-title">Cyber Sneaker</div>
+      <div class="cc-meta" id="cc-meta">581 entries · +150 XP reward</div>
+      <button class="cc-btn">Enter Challenge ↗</button>
+    </div>
+  </div>
+  <div class="xp-card">
+    <div class="xp-top">
+      <span class="xp-label">⚡ Level <span id="xp-lvl">3</span> Creator</span>
+      <span class="xp-val"><span id="xp-cur">420</span> / <span id="xp-max">600</span> XP</span>
+    </div>
+    <div class="xp-track"><div class="xp-fill" id="xp-fill" style="width:70%"></div></div>
+    <div class="xp-badges">
+      <div class="badge">🎨</div><div class="badge">⚡</div><div class="badge">🔥</div>
+      <div class="badge locked">👑</div><div class="badge locked">💎</div>
+    </div>
+  </div>
+</div>
+
+<!-- CANVAS -->
+<div id="canvas-screen" class="screen">
+  <div id="topbar">
+    <button class="tb" onclick="showTab('home')" title="Home">←</button>
+    <div id="pname" contenteditable="true" spellcheck="false" onblur="renameDone(this)">untitled.px</div>
+    <div id="coords">0,0</div>
+    <button class="tb" onclick="toggleGrid()" title="Grid" id="grid-btn">⊞</button>
+    <button class="layer-btn" id="layer-btn" onclick="toggleLayerPanel()" title="Layers">⊕ Layers</button>
+    <button class="tb tb-export" onclick="openExportModal()" title="Export">⬇ Export</button>
+    <button class="tb" onclick="saveProject()" title="Save">💾</button>
+    <div class="sdot"></div>
+  </div>
+  <div class="size-row">
+    <button class="sz-btn on" id="sz-16" onclick="changeSize(16)">16×16</button>
+    <button class="sz-btn" id="sz-32" onclick="changeSize(32)">32×32</button>
+    <button class="sz-btn" id="sz-64" onclick="changeSize(64)">64×64</button>
+  </div>
+  <div id="fx-menu">
+    <button class="fx-item" onclick="runFX('glow');closeFXMenu()"><span class="fx-icon">✨</span>Add Glow</button>
+    <button class="fx-item" onclick="runFX('sparkle');closeFXMenu()"><span class="fx-icon">⭐</span>Add Sparkles</button>
+    <button class="fx-item" onclick="runFX('outline');closeFXMenu()"><span class="fx-icon">◻️</span>Clean Outline</button>
+    <button class="fx-item" onclick="runFX('remix');closeFXMenu()"><span class="fx-icon">🎲</span>Color Remix</button>
+  </div>
+  <div id="anim-menu">
+    <div style="font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;padding:0 2px 4px">Animation Presets</div>
+    <button class="fx-item" onclick="animPreset('bounce');closeAnimMenu()"><span class="fx-icon">🏀</span>Bounce</button>
+    <button class="fx-item" onclick="animPreset('float');closeAnimMenu()"><span class="fx-icon">🌊</span>Float</button>
+    <button class="fx-item" onclick="animPreset('blink');closeAnimMenu()"><span class="fx-icon">👁️</span>Blink</button>
+    <button class="fx-item" onclick="animPreset('shake');closeAnimMenu()"><span class="fx-icon">⚡</span>Shake</button>
+  </div>
+  <div id="work">
+    <!-- Layer Panel (slides in from top-right) -->
+    <div id="layer-panel">
+      <div class="lp-hdr">
+        <span class="lp-title">Layers</span>
+        <button class="lp-add" onclick="addLayer()" title="Add layer">+</button>
+      </div>
+      <div id="layer-list"></div>
+      <div class="lp-opacity">
+        <div class="lp-op-label">Opacity</div>
+        <div class="lp-op-row">
+          <input type="range" class="lp-op-slider" id="layer-opacity" min="0" max="100" value="100"
+            oninput="setLayerOpacity(this.value)">
+          <span class="lp-op-val" id="layer-opacity-val">100%</span>
+        </div>
+      </div>
+    </div>
+    <div id="cvs-wrap">
+      <canvas id="oc"></canvas>
+      <canvas id="mc"></canvas>
+      <canvas id="sel-canvas"></canvas>
+      <canvas id="grid-canvas"></canvas>
+      <canvas id="outline-canvas"></canvas>
+      <div id="nudge-panel">
+        <span class="nudge-label">Move</span>
+        <button class="ndg" onclick="nudgeSel(0,-1)">↑</button>
+        <button class="ndg" onclick="nudgeSel(0,1)">↓</button>
+        <button class="ndg" onclick="nudgeSel(-1,0)">←</button>
+        <button class="ndg" onclick="nudgeSel(1,0)">→</button>
+        <div class="nudge-sep"></div>
+        <button class="ndg ndg-dup" onclick="dupSelToNextFrame()">⧉ Dup to next</button>
+        <button class="ndg-clear" onclick="clearSel()">✕</button>
+      </div>
+    </div>
+    <div id="rail">
+      <span class="rlbl">Draw</span>
+      <button class="rb on" id="t-pencil" data-t="pencil" onclick="setTool('pencil')" title="Pencil B">✏️</button>
+      <button class="rb" id="t-fill" data-t="fill" onclick="setTool('fill')" title="Fill F">🪣</button>
+      <button class="rb" id="t-eraser" data-t="eraser" onclick="setTool('eraser')" title="Eraser E">◻</button>
+      <button class="rb" id="t-eye" data-t="eyedrop" onclick="setTool('eyedrop')" title="Pick I">💧</button>
+      <button class="rb" id="t-select" data-t="select" onclick="setTool('select')" title="Select S">⬚</button>
+      <!-- Eraser size row — visible only when eraser active -->
+      <div id="eraser-sizes" style="display:none;flex-direction:column;align-items:center;gap:3px;width:100%">
+        <span class="rlbl">Size</span>
+        <button class="rb esz on" id="esz-1" data-es="1" onclick="setEraserSize(1)" title="1px" style="font-size:8px;width:26px;height:26px">1</button>
+        <button class="rb esz" id="esz-3" data-es="3" onclick="setEraserSize(3)" title="3px" style="font-size:8px;width:26px;height:26px">3</button>
+        <button class="rb esz" id="esz-6" data-es="6" onclick="setEraserSize(6)" title="6px" style="font-size:8px;width:26px;height:26px">6</button>
+      </div>
+      <div class="rsep"></div>
+      <span class="rlbl">Size</span>
+      <div class="bsz sel" id="bs-1" onclick="setBrush(1)" title="1px"><div class="bsz-dot" style="width:4px;height:4px"></div></div>
+      <div class="bsz" id="bs-2" onclick="setBrush(2)" title="2px"><div class="bsz-dot" style="width:7px;height:7px"></div></div>
+      <div class="bsz" id="bs-4" onclick="setBrush(4)" title="4px"><div class="bsz-dot" style="width:11px;height:11px"></div></div>
+      <div class="rsep"></div>
+      <button class="rb" onclick="undo()" title="Undo Ctrl+Z">↩️</button>
+      <button class="rb" onclick="redo()" title="Redo Ctrl+Y">↪️</button>
+      <button class="rb" onclick="clearCanvas()" title="Clear">🗑️</button>
+      <div class="rsep"></div>
+      <button class="rb" id="t-mirror" onclick="toggleMirror()" title="Mirror">⇌</button>
+      <button class="rb" id="t-onion" onclick="toggleOnion()" title="Onion">👻</button>
+      <div class="rsep"></div>
+      <button class="rb" onclick="toggleFXMenu()" title="Effects">⚡</button>
+      <div class="rsep"></div>
+      <span class="rlbl">Zoom</span>
+      <input type="range" id="zslider" min="2" max="28" value="10" oninput="setZoom(+this.value)">
+    </div>
+  </div>
+  <div id="pal-bar"><div id="pal-row"></div></div>
+  <div id="frames-bar">
+    <span class="fl">Frames</span>
+    <div id="frames-list"></div>
+    <button class="fadd" onclick="addFrame()" title="Add blank frame">+</button>
+    <div class="frames-actions">
+      <button class="fdup-btn" onclick="dupFrame()" title="Duplicate current frame">⧉</button>
+      <button class="magic-btn" onclick="toggleAnimMenu()" style="height:23px;padding:0 7px;font-size:10px">🪄</button>
+    </div>
+    <div class="fps-ctrl">
+      <span class="fps-l">FPS</span>
+      <span class="fps-v" id="fps-v">8</span>
+      <div class="fps-btns">
+        <button class="fpsbtn" onclick="adjFPS(-1)">−</button>
+        <button class="fpsbtn" onclick="adjFPS(1)">+</button>
+      </div>
+    </div>
+    <button class="playbtn" id="play-btn" onclick="togglePlay()">▶</button>
+  </div>
+</div>
+
+<!-- STUDIO -->
+<div id="studio-screen" class="screen">
+  <div class="studio-hdr">
+    <div class="studio-title">Creative Studio</div>
+    <div class="studio-sub">Start blank or pick a template</div>
+  </div>
+
+  <!-- Blank canvas card -->
+  <div class="blank-card" id="blank-card-area">
+    <div class="blank-card-icon">✦</div>
+    <div class="blank-card-text">
+      <div class="blank-card-title">Blank Canvas</div>
+      <div class="blank-card-sub">Start from scratch. Pick your size:</div>
+      <div class="blank-size-row">
+        <button class="blank-size-btn" onclick="startBlank(16);event.stopPropagation()">16×16</button>
+        <button class="blank-size-btn" onclick="startBlank(32);event.stopPropagation()">32×32</button>
+        <button class="blank-size-btn" onclick="startBlank(64);event.stopPropagation()">64×64</button>
+      </div>
+    </div>
+  </div>
+  <div class="studio-section">
+    <div class="ss-title">🎨 Color-In Templates</div>
+    <div class="coloring-section-sub">Outline locked · Fill the regions · Complete for XP</div>
+    <div class="tmpl-grid" id="tmpl-coloring"></div>
+  </div>
+  <div class="studio-section"><div class="ss-title">🏆 Challenge Templates</div><div class="tmpl-grid" id="tmpl-challenge"></div></div>
+  <div class="studio-section"><div class="ss-title">🎬 Animated Starters</div><div class="tmpl-grid" id="tmpl-anim"></div></div>
+  <div class="studio-section">
+    <div class="ss-title" style="display:flex;align-items:center;gap:6px">
+      <span>💎 Premium Pink Y2K Glitter Pack</span>
+      <span style="background:linear-gradient(90deg,#F6A5C0,#CE93D8);color:#fff;font-size:8px;font-weight:900;padding:2px 6px;border-radius:10px;letter-spacing:.06em">PREMIUM</span>
+    </div>
+    <div style="font-size:9px;color:var(--text3);margin-bottom:10px;line-height:1.5">Cohesive 32×32 pack · Dark rose outlines · 3-tone cel shading · Y2K glam palette</div>
+    <div class="tmpl-grid" id="tmpl-y2k"></div>
+  </div>
+  <div class="studio-section"><div class="ss-title">👟 Items &amp; Gear</div><div class="tmpl-grid" id="tmpl-items"></div></div>
+  <div class="studio-section"><div class="ss-title">🐾 Characters &amp; Pets</div><div class="tmpl-grid" id="tmpl-chars"></div></div>
+  <div class="studio-section"><div class="ss-title">🏠 Scenes &amp; Rooms</div><div class="tmpl-grid" id="tmpl-scenes"></div></div>
+  <div class="studio-section" style="padding-bottom:80px"><div class="ss-title">⚡ Smart Effects</div><div class="fx-grid" id="fx-grid"></div></div>
+</div>
+
+<!-- CLOSET -->
+<div id="closet-screen" class="screen" style="position:relative">
+  <div class="closet-hdr">
+    <div style="font-family:var(--ff-display);font-size:22px">My Closet</div>
+    <div style="font-size:12px;color:var(--text2);margin-top:3px">All your saved creations</div>
+  </div>
+  <div class="cat-row" id="closet-cats"></div>
+  <div class="cg" id="closet-grid"></div>
+  <button class="fab" onclick="openStudio()">+</button>
+</div>
+
+<!-- CHALLENGES -->
+<div id="chal-screen" class="screen">
+  <div class="chal-hero">
+    <div class="ch-eyebrow">This Week's Drop</div>
+    <div class="ch-name" id="ch-name">Cyber Sneaker</div>
+    <div class="ch-sub" id="ch-sub">581 entries · +150 XP · Ends in 3 days</div>
+    <div class="ch-actions">
+      <button class="ch-go" onclick="startChallenge()">Start Creating ↗</button>
+      <span class="ch-timer">⏱ 3 days left</span>
+    </div>
+  </div>
+  <div class="rank-card">
+    <div class="rank-title">🏅 This Week's Leaderboard</div>
+    <div class="rank-row" id="rank-row"></div>
+  </div>
+  <div style="padding:0 16px 8px;font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.1em">Upcoming Challenges</div>
+  <div class="up-list" id="upcoming-list"></div>
+  <div style="padding:0 16px 8px;font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-top:8px">Featured Entries</div>
+  <div class="chal-feed-grid" id="feed-grid"></div>
+</div>
+
+<!-- PROFILE -->
+<div id="profile-screen" class="screen">
+  <div class="prof-hero">
+    <canvas class="prof-av" id="prof-av" width="76" height="76"></canvas>
+    <div class="prof-name">PixelCreator</div>
+    <div class="prof-handle">@creator_001</div>
+    <div class="prof-level">⚡ Level 3 · Teen Mode at Level 10</div>
+  </div>
+  <div class="prof-stats">
+    <div class="pstat"><div class="pstat-n" id="ps-creations">0</div><div class="pstat-l">Creations</div></div>
+    <div class="pstat"><div class="pstat-n">5</div><div class="pstat-l">Streak 🔥</div></div>
+    <div class="pstat"><div class="pstat-n" id="ps-xp">420</div><div class="pstat-l">XP</div></div>
+  </div>
+  <div class="prof-section">
+    <div class="prof-sec-title">Badges</div>
+    <div class="pbadges">
+      <div class="pbadge">🎨</div><div class="pbadge">⚡</div><div class="pbadge">🔥</div>
+      <div class="pbadge locked">👑</div><div class="pbadge locked">💎</div><div class="pbadge locked">🌈</div>
+    </div>
+  </div>
+  <div class="ptoggle-list" id="ptog-list"></div>
+</div>
+
+</div><!-- #app -->
+
+<nav id="nav">
+  <button class="nt on" id="nav-home" onclick="showTab('home')"><span class="icon">🏠</span>Home</button>
+  <button class="nt" id="nav-studio" onclick="showTab('studio')"><span class="icon">🎨</span>Studio</button>
+  <button class="nt" id="nav-closet" onclick="showTab('closet')"><span class="icon">📁</span>Closet</button>
+  <button class="nt" id="nav-challenges" onclick="showTab('challenges')"><span class="icon">🏆</span>Wins</button>
+  <button class="nt" id="nav-profile" onclick="showTab('profile')"><span class="icon">👾</span>Me</button>
+</nav>
+
+<!-- COLOR MODAL -->
+<div id="color-modal" class="modal-bg" style="display:none">
+  <div class="msheet">
+    <div class="mhandle"></div>
+    <button class="mclose" onclick="closeColorModal()">✕</button>
+    <div class="mtitle">Color Picker</div>
+    <input type="color" class="cprev" id="color-native" value="#6C63FF" oninput="nativeCC(this.value)">
+    <input type="text" id="hex-in" placeholder="#6C63FF" oninput="hexCC(this.value)" maxlength="7">
+
+    <div class="cm-section-title">🕐 Recent</div>
+    <div id="cm-recent" class="cm-hrow"></div>
+
+    <div class="cm-section-title">⬜ Black → White</div>
+    <div class="cm-hrow" id="cm-bw"></div>
+
+    <div class="cm-section-title">🌈 Spectrum</div>
+    <div class="cm-hrow" id="cm-spectrum"></div>
+
+    <div class="cm-section-title">🍬 Pastels</div>
+    <div class="cm-hrow" id="cm-pastels"></div>
+
+    <div class="cm-section-title">✨ Neons</div>
+    <div class="cm-hrow" id="cm-neons"></div>
+
+    <div class="cm-section-title">🎨 Curated Palettes</div>
+    <div class="pp-grid" id="pp-grid"></div>
+
+    <button class="mbtn" onclick="addColorToPal()">＋ Add to My Palette</button>
+  </div>
+</div>
+
+<!-- EXPORT MODAL -->
+<div id="export-modal" class="modal-bg" style="display:none">
+  <div class="msheet">
+    <div class="mhandle"></div>
+    <button class="mclose" onclick="closeExportModal()">✕</button>
+    <div class="mtitle">Export</div>
+
+    <div class="exp-info" id="exp-info">Current frame · 16×16 px</div>
+
+    <div class="exp-grid">
+      <button class="exp-card" onclick="exportCanvas();closeExportModal()">
+        <div class="exp-icon">🖼</div>
+        <div class="exp-fmt">PNG</div>
+        <div class="exp-desc">Transparent background<br>Best for pixel art & game assets<br><span class="exp-dim" id="exp-png-dim">128×128 px (8× scaled)</span></div>
+      </button>
+      <button class="exp-card" onclick="exportJPEG();closeExportModal()">
+        <div class="exp-icon">📷</div>
+        <div class="exp-fmt">JPEG</div>
+        <div class="exp-desc">White background<br>Smaller file · no transparency<br><span class="exp-dim" id="exp-jpg-dim">128×128 px (8× scaled)</span></div>
+      </button>
+      <button class="exp-card exp-card-gif" onclick="closeExportModal();exportGIF()" id="exp-gif-card">
+        <div class="exp-icon">🎞</div>
+        <div class="exp-fmt">GIF</div>
+        <div class="exp-desc">Animated · all frames<br>Loops forever<br><span class="exp-dim" id="exp-gif-dim">128×128 px · 1 frame</span></div>
+      </button>
+    </div>
+
+    <div class="exp-note" id="exp-note">PNG and JPEG export the <strong>current frame</strong> at 8× scale.</div>
+  </div>
+</div>
+
+<!-- GIF PROGRESS -->
+<div id="gif-progress">
+  <div class="gif-box">
+    <div class="gif-title">🎞 Building GIF…</div>
+    <div class="gif-bar-wrap"><div class="gif-bar" id="gif-bar" style="width:0%"></div></div>
+    <div class="gif-pct" id="gif-pct">0%</div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

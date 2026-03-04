@@ -1,0 +1,62 @@
+{
+  "name": "Pixel Creator",
+  "short_name": "Pixel Creator",
+  "description": "Draw, color and animate pixel art on your phone or desktop. Free forever.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#09090E",
+  "theme_color": "#09090E",
+  "categories": ["games", "entertainment", "education"],
+  "lang": "en",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "apple touch icon"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "label": "Pixel Creator on mobile"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Canvas",
+      "short_name": "Draw",
+      "description": "Start a new blank canvas",
+      "url": "/?new=1",
+      "icons": [{ "src": "icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Studio",
+      "short_name": "Templates",
+      "description": "Browse templates",
+      "url": "/?tab=studio",
+      "icons": [{ "src": "icon-96.png", "sizes": "96x96" }]
+    }
+  ]
+}
