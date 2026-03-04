@@ -20,6 +20,60 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 ::-webkit-scrollbar{width:2px;height:2px}
 ::-webkit-scrollbar-thumb{background:var(--s4);border-radius:1px}
 
+#birthday-splash{
+  position:fixed;
+  inset:0;
+  z-index:9999;
+  display:grid;
+  place-items:center;
+  padding:24px;
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 20% 20%, #a855f7 0%, transparent 38%),
+    radial-gradient(circle at 80% 15%, #7c3aed 0%, transparent 42%),
+    radial-gradient(circle at 50% 90%, #6d28d9 0%, transparent 45%),
+    linear-gradient(160deg, #2e1065 0%, #4c1d95 45%, #6d28d9 100%);
+  transition:opacity .24s ease,visibility .24s ease;
+}
+#birthday-splash.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.birthday-glow{
+  position:absolute;
+  inset:0;
+  background:radial-gradient(circle at center,rgba(233,213,255,.28) 0%,transparent 55%);
+  filter:blur(6px);
+  pointer-events:none;
+}
+.birthday-card{
+  position:relative;
+  z-index:2;
+  text-align:center;
+  padding:40px 28px;
+  border-radius:24px;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.2);
+  backdrop-filter:blur(6px);
+}
+.birthday-subtitle{margin:0 0 10px;font-size:clamp(.9rem,2vw,1.1rem);letter-spacing:.16em;text-transform:uppercase;color:#f5d0fe}
+.birthday-title{margin:0;font-size:clamp(2rem,6vw,4rem);line-height:1.05;color:#fff;text-shadow:0 0 24px rgba(255,255,255,.45),0 0 42px rgba(192,132,252,.55)}
+.birthday-start-button{
+  margin-top:22px;border:none;border-radius:999px;padding:12px 24px;
+  font-size:1rem;font-weight:700;color:#3b0764;background:linear-gradient(135deg,#f5d0fe 0%,#fde68a 100%);
+  box-shadow:0 6px 16px rgba(251,191,36,.3),0 0 20px rgba(244,114,182,.35);
+  transition:transform .15s ease,box-shadow .15s ease;
+}
+.birthday-start-button:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 10px 22px rgba(251,191,36,.36),0 0 26px rgba(244,114,182,.45)}
+.birthday-start-button:active{transform:translateY(0) scale(.99)}
+.birthday-sparkle{
+  position:absolute;z-index:1;border-radius:999px;
+  background:linear-gradient(135deg,#fde68a 0%,#fff7ed 40%,#f5d0fe 100%);
+  box-shadow:0 0 10px rgba(255,255,255,.7),0 0 24px rgba(244,114,182,.45);
+  animation:sparkle-twinkle 2.4s ease-in-out infinite;
+}
+.birthday-sparkle::before,.birthday-sparkle::after{content:'';position:absolute;inset:50% auto auto 50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.88);border-radius:999px}
+.birthday-sparkle::before{width:2px;height:180%}
+.birthday-sparkle::after{width:180%;height:2px}
+@keyframes sparkle-twinkle{0%,100%{transform:scale(.65) rotate(0);opacity:.35}50%{transform:scale(1.15) rotate(45deg);opacity:1}}
+
 /* SHELL */
 #app{flex:1;overflow:hidden;position:relative}
 .screen{position:absolute;inset:0;overflow:hidden;display:none;flex-direction:column}
