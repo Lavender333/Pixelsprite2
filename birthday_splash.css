@@ -1,0 +1,256 @@
+/* birthday_splash.css — Mariah's 10th Birthday Splash Page */
+
+/* ---------- Reset & base ---------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  overflow: hidden;
+}
+
+/* ---------- Full-page purple gradient background ---------- */
+body {
+  background:
+    radial-gradient(circle at 15% 15%, #a855f7 0%, transparent 40%),
+    radial-gradient(circle at 85% 10%, #7c3aed 0%, transparent 42%),
+    radial-gradient(circle at 55% 95%, #6d28d9 0%, transparent 48%),
+    linear-gradient(160deg, #1e0a40 0%, #4c1d95 50%, #6d28d9 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ---------- Ambient glow layer ---------- */
+.bg-glow {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(233, 213, 255, 0.22) 0%, transparent 60%);
+  filter: blur(8px);
+  pointer-events: none;
+  animation: pulse-glow 4s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.7; }
+  50%       { opacity: 1; }
+}
+
+/* ---------- Floating sparkles ---------- */
+.sparkle {
+  position: fixed;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fde68a 0%, #fff7ed 40%, #f5d0fe 100%);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.75),
+              0 0 24px rgba(244, 114, 182, 0.5);
+  animation: sparkle-twinkle 2.4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Cross lines on each sparkle */
+.sparkle::before,
+.sparkle::after {
+  content: '';
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+}
+.sparkle::before { width: 2px;   height: 180%; }
+.sparkle::after  { width: 180%;  height: 2px;  }
+
+@keyframes sparkle-twinkle {
+  0%, 100% { transform: scale(0.6)  rotate(0deg);  opacity: 0.3; }
+  50%       { transform: scale(1.2)  rotate(45deg); opacity: 1;   }
+}
+
+/* ---------- Confetti ribbons ---------- */
+.ribbon {
+  position: fixed;
+  width: 8px;
+  height: 22px;
+  border-radius: 3px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+  animation: ribbon-fall 6s ease-in infinite;
+}
+
+@keyframes ribbon-fall {
+  0%   { transform: translateY(-60px) rotate(0deg);   opacity: 0; }
+  10%  { opacity: 0.85; }
+  90%  { opacity: 0.75; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+}
+
+/* ---------- Shimmer sweep (pseudo-element overlay) ---------- */
+.card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-sweep 3s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes shimmer-sweep {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+/* ---------- Card ---------- */
+.card {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: clamp(28px, 6vw, 56px) clamp(24px, 8vw, 64px);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  max-width: 600px;
+  width: 90%;
+  animation: card-entrance 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes card-entrance {
+  from { transform: scale(0.7) translateY(40px); opacity: 0; }
+  to   { transform: scale(1)   translateY(0);    opacity: 1; }
+}
+
+/* ---------- Balloon emoji row ---------- */
+.balloons {
+  font-size: clamp(2rem, 6vw, 3rem);
+  margin-bottom: 12px;
+  display: block;
+  animation: bounce-row 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes bounce-row {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-10px); }
+}
+
+/* ---------- Subtitle ---------- */
+.subtitle {
+  font-size: clamp(0.75rem, 2.2vw, 1rem);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #f5d0fe;
+  margin-bottom: 10px;
+}
+
+/* ---------- Main headline ---------- */
+.headline {
+  font-size: clamp(2.2rem, 7vw, 5rem);
+  font-weight: 900;
+  line-height: 1.05;
+  color: #ffffff;
+  text-shadow:
+    0 0 18px rgba(255, 255, 255, 0.5),
+    0 0 40px rgba(192, 132, 252, 0.65),
+    0 0 70px rgba(168, 85, 247, 0.45);
+  margin-bottom: 6px;
+  animation: headline-pulse 3s ease-in-out infinite;
+}
+
+@keyframes headline-pulse {
+  0%, 100% {
+    text-shadow:
+      0 0 18px rgba(255, 255, 255, 0.5),
+      0 0 40px rgba(192, 132, 252, 0.65),
+      0 0 70px rgba(168, 85, 247, 0.45);
+  }
+  50% {
+    text-shadow:
+      0 0 28px rgba(255, 255, 255, 0.75),
+      0 0 60px rgba(216, 180, 254, 0.85),
+      0 0 100px rgba(192, 132, 252, 0.65);
+  }
+}
+
+/* ---------- Name highlight ---------- */
+.name-highlight {
+  display: block;
+  color: #fde68a;
+  text-shadow:
+    0 0 20px rgba(253, 230, 138, 0.7),
+    0 0 50px rgba(251, 191, 36, 0.5);
+}
+
+/* ---------- Divider ---------- */
+.divider {
+  width: 60px;
+  height: 3px;
+  margin: 18px auto;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #a855f7, #fde68a, #f472b6);
+  animation: divider-grow 1s 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes divider-grow {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+
+/* ---------- Message text ---------- */
+.message {
+  font-size: clamp(0.9rem, 2.5vw, 1.15rem);
+  color: #e9d5ff;
+  line-height: 1.65;
+  max-width: 420px;
+  margin: 0 auto 26px;
+}
+
+/* ---------- CTA Button ---------- */
+.cta-btn {
+  display: inline-block;
+  border: none;
+  border-radius: 999px;
+  padding: 14px 36px;
+  font-size: clamp(0.95rem, 2.5vw, 1.1rem);
+  font-weight: 800;
+  color: #3b0764;
+  background: linear-gradient(135deg, #f5d0fe 0%, #fde68a 100%);
+  box-shadow:
+    0 6px 18px rgba(251, 191, 36, 0.35),
+    0 0 24px rgba(244, 114, 182, 0.4);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  text-decoration: none;
+}
+
+.cta-btn:hover {
+  transform: translateY(-3px) scale(1.04);
+  box-shadow:
+    0 12px 28px rgba(251, 191, 36, 0.45),
+    0 0 32px rgba(244, 114, 182, 0.55);
+}
+
+.cta-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* ---------- Responsive tweaks ---------- */
+@media (max-width: 480px) {
+  .card {
+    padding: 28px 20px;
+  }
+}
