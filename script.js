@@ -629,7 +629,7 @@ const UPCOMING = [
   {day:'Fri',  name:'Mystical Pet',    pts:120, color:'#CE93D8'},
 ];
 
-const TEMPLATES = {
+window.TEMPLATES = {
   challenge: [
     {id:'sneaker',    ico:'👟',  name:'Cyber Sneaker', tag:'hot',    cat:'challenge'},
     {id:'skate',      ico:'🛹',  name:'Skate Deck',    tag:'hot',    cat:'challenge'},
@@ -674,7 +674,7 @@ const TEMPLATES = {
 // ║   The engine reads back those pixels to build the locked bitmask    ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-const COLORING_TEMPLATES = [
+window.COLORING_TEMPLATES = [
 
 // ── KAWAII BUNNY ────────────────────────────────────────────────────────
 {
@@ -854,7 +854,7 @@ const COLORING_TEMPLATES = [
 ];
 
 // Animated multi-frame templates — each entry has frameDrawers array
-const ANIM_TEMPLATES = [
+window.ANIM_TEMPLATES = [
 // ── WALKING CAT ── detailed 4-frame walk with proper legs, head bob, tail sway
 {id:'walk_cat', ico:'🐱', name:'Walking Cat', tag:'new', frames:4,
  draw(ctx,sz,f){
@@ -1163,7 +1163,7 @@ const ANIM_TEMPLATES = [
 
 
 
-const EFFECTS_LIST = [
+window.EFFECTS_LIST = [
   {id:'glow',    ico:'✨', name:'Add Glow',       desc:'Edge light effect around your art'},
   {id:'sparkle', ico:'⭐', name:'Add Sparkles',   desc:'Magic twinkle pixels appear'},
   {id:'outline', ico:'◻️', name:'Clean Outline',  desc:'Bold 1px border around shapes'},
@@ -1174,6 +1174,10 @@ const EFFECTS_LIST = [
 function hexToRGB(hex){if(!hex||hex.length<7)return null;const h=hex.replace('#','');return{r:parseInt(h.slice(0,2),16),g:parseInt(h.slice(2,4),16),b:parseInt(h.slice(4,6),16)}}
 function rgbToHex(r,g,b){return'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('')}
 function cloneImageData(src){const o=new ImageData(src.width,src.height);o.data.set(src.data);return o;}
+// --- Apply antiwash palette upgrade after all templates are loaded ---
+if (typeof upgradeAllPalettesExtended === 'function') {
+  upgradeAllPalettesExtended();
+}
 
 // ── EXPORT STUBS FOR NEW FORMATS ─────
 function exportMinecraftSkin() {
