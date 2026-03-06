@@ -409,6 +409,11 @@
         <div class="exp-fmt">PNG</div>
         <div class="exp-desc">Transparent background<br>Best for pixel art & game assets<br><span class="exp-dim" id="exp-png-dim">128×128 px (8× scaled)</span></div>
       </button>
+      <button class="exp-card" onclick="exportJPEG();closeExportModal()">
+        <div class="exp-icon">🖼️</div>
+        <div class="exp-fmt">JPEG</div>
+        <div class="exp-desc">White background<br>For slides, docs, web<br><span class="exp-dim" id="exp-jpg-dim">128×128 px (8× scaled, white bg)</span></div>
+      </button>
       <button class="exp-card" onclick="exportMinecraftSkin();closeExportModal()">
         <div class="exp-icon">🟩</div>
         <div class="exp-fmt">Minecraft Skin</div>
@@ -442,7 +447,7 @@
       <button class="exp-card exp-card-gif" onclick="closeExportModal();exportGIF()" id="exp-gif-card">
         <div class="exp-icon">🎞</div>
         <div class="exp-fmt">Animated GIF</div>
-        <div class="exp-desc">Discord, websites, planners</div>
+        <div class="exp-desc">Discord, websites, planners<br><span class="exp-dim" id="exp-gif-dim">128×128 px · 1 frame · 8 FPS</span></div>
       </button>
       <button class="exp-card" onclick="exportSpriteSheet();closeExportModal()">
         <div class="exp-icon">🗃️</div>
