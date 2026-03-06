@@ -1,3 +1,26 @@
+  // Export current frame as transparent PNG (8x upscaled)
+  captureFrame();
+  const scale = 8;
+  const cvs = document.createElement('canvas');
+  cvs.width = ST.size * scale;
+  cvs.height = ST.size * scale;
+  const ctx = cvs.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  if (ST.frames[ST.currentFrame]) {
+    createImageBitmap(ST.frames[ST.currentFrame]).then(bmp => {
+      ctx.clearRect(0, 0, cvs.width, cvs.height);
+      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, 0, 0, cvs.width, cvs.height);
+      const a = document.createElement('a');
+      a.href = cvs.toDataURL('image/png');
+      a.download = 'transparent.png';
+      a.click();
+      SFX.share();
+      toast('Transparent PNG exported! 🟪');
+      addXP(6);
+      Economy.track('project:export', { format: 'transparent-png' });
+    });
+  }
+}
 
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║           P I X E L   S T U D I O   C O R E   v2.0                 ║
@@ -1152,27 +1175,453 @@ function hexToRGB(hex){if(!hex||hex.length<7)return null;const h=hex.replace('#'
 function rgbToHex(r,g,b){return'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('')}
 function cloneImageData(src){const o=new ImageData(src.width,src.height);o.data.set(src.data);return o;}
 
-// ── SOUND ENGINE (tiny, no deps) ──────────────────────
-const SFX = (() => {
-  let ctx = null;
-  function getCtx(){ if(!ctx){ try{ ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return ctx; }
-  function play(freq, dur, type='sine', vol=.12){
-    const c=getCtx(); if(!c) return;
-    const o=c.createOscillator(), g=c.createGain();
-    o.connect(g); g.connect(c.destination);
-    o.type=type; o.frequency.setValueAtTime(freq,c.currentTime);
-    g.gain.setValueAtTime(vol,c.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
-    o.start(c.currentTime); o.stop(c.currentTime+dur);
+// ── EXPORT STUBS FOR NEW FORMATS ─────
+function exportMinecraftSkin() {
+  // Export current frame as 64x64 PNG for Minecraft.net
+  captureFrame();
+  const targetSize = 64;
+  const cvs = document.createElement('canvas');
+  cvs.width = targetSize;
+  cvs.height = targetSize;
+  const ctx = cvs.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  // If the sprite is smaller, upscale to 64x64
+  if (ST.frames[ST.currentFrame]) {
+    createImageBitmap(ST.frames[ST.currentFrame]).then(bmp => {
+      ctx.clearRect(0, 0, targetSize, targetSize);
+      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, 0, 0, targetSize, targetSize);
+      const a = document.createElement('a');
+      a.href = cvs.toDataURL('image/png');
+      a.download = 'minecraft-skin.png';
+      a.click();
+      SFX.share();
+      toast('Minecraft Skin exported! 🟩');
+      addXP(7);
+      Economy.track('project:export', { format: 'minecraft-skin' });
+    });
   }
+}
+function exportMinecraftTexturePack() {
+  // Export zipped Minecraft resource pack with current frame as 64x64 PNG
+  captureFrame();
+  const targetSize = 64;
+  const cvs = document.createElement('canvas');
+  cvs.width = targetSize;
+  cvs.height = targetSize;
+  const ctx = cvs.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  if (ST.frames[ST.currentFrame]) {
+    createImageBitmap(ST.frames[ST.currentFrame]).then(bmp => {
+      ctx.clearRect(0, 0, targetSize, targetSize);
+      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, 0, 0, targetSize, targetSize);
+      cvs.toBlob(blob => {
+        // Minimal zip: [pack.mcmeta, assets/minecraft/textures/entity/skin.png]
+        const files = [];
+        // pack.mcmeta
+        files.push({
+          name: 'pack.mcmeta',
+          data: new TextEncoder().encode('{"pack":{"pack_format":15,"description":"PixelSprite Export"}}')
+        });
+        // PNG skin
+        files.push({
+          name: 'assets/minecraft/textures/entity/skin.png',
+          data: blob
+        });
+        // Simple zip (no compression, just store)
+        function zip(files) {
+          let offset = 0, central = [], out = [];
+          function dateBytes() {
+            const d = new Date();
+            const dosTime = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() / 2);
+            const dosDate = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+            return [dosTime, dosDate];
+          }
+          files.forEach((f, i) => {
+            const [dosTime, dosDate] = dateBytes();
+            const nameBytes = new TextEncoder().encode(f.name);
+            const localHeader = [
+              0x50,0x4b,3,4, // Local file header signature
+              20,0,0,0,0,0, // Version, flags, compression (0=store)
+              dosTime&0xFF, (dosTime>>8)&0xFF, dosDate&0xFF, (dosDate>>8)&0xFF,
+              0,0,0,0, // CRC32 (0 for now)
+              f.data.size||f.data.length,0,0,0, // Compressed size
+              f.data.size||f.data.length,0,0,0, // Uncompressed size
+              nameBytes.length,0,0,0 // File name length
+            ];
+            out.push(new Uint8Array(localHeader));
+            out.push(nameBytes);
+            out.push(f.data instanceof Blob ? f.data : new Uint8Array(f.data));
+            central.push({
+              offset,
+              nameBytes,
+              size: f.data.size||f.data.length
+            });
+            offset += localHeader.length + nameBytes.length + (f.data.size||f.data.length);
+          });
+          // Central directory
+          let centralStart = offset;
+          central.forEach((c, i) => {
+            const header = [
+              0x50,0x4b,1,2, // Central file header signature
+              20,0,0,0,0,0, // Version, flags, compression
+              0,0,0,0, // File time/date
+              0,0,0,0, // CRC32
+              c.size,0,0,0, // Compressed size
+              c.size,0,0,0, // Uncompressed size
+              c.nameBytes.length,0,0,0, // File name length
+              0,0,0,0,0,0,0,0,0,0, // Extra fields, comment, disk, etc.
+              c.offset&0xFF, (c.offset>>8)&0xFF, (c.offset>>16)&0xFF, (c.offset>>24)&0xFF
+            ];
+            out.push(new Uint8Array(header));
+            out.push(c.nameBytes);
+          });
+          // End of central directory
+          const end = [
+            0x50,0x4b,5,6, // End of central dir signature
+            0,0, // Disk numbers
+            files.length,0,files.length,0, // Entry count
+            (offset-centralStart)&0xFF, ((offset-centralStart)>>8)&0xFF, // Central dir size
+            centralStart&0xFF, (centralStart>>8)&0xFF, // Central dir offset
+            0,0 // Comment length
+          ];
+          out.push(new Uint8Array(end));
+          // Flatten
+          return new Blob(out, { type: 'application/zip' });
+        }
+        const zipBlob = zip(files);
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'minecraft-resource-pack.zip';
+        a.click();
+        SFX.share();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        toast('Minecraft Texture Pack exported! 📦');
+        addXP(10);
+        Economy.track('project:export', { format: 'minecraft-texture-pack' });
+      });
+    });
+  }
+}
+function exportRobloxShirt() {
+  // Export current frame as 585x559 PNG for Roblox shirts
+  captureFrame();
+  const targetW = 585, targetH = 559;
+  const cvs = document.createElement('canvas');
+  cvs.width = targetW;
+  cvs.height = targetH;
+  const ctx = cvs.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  // Center the sprite in the Roblox shirt template
+  const spriteSize = 64; // Standard Roblox shirt region size
+  const offsetX = Math.floor((targetW - spriteSize) / 2);
+  const offsetY = Math.floor((targetH - spriteSize) / 2);
+  if (ST.frames[ST.currentFrame]) {
+    createImageBitmap(ST.frames[ST.currentFrame]).then(bmp => {
+      ctx.clearRect(0, 0, targetW, targetH);
+      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, offsetX, offsetY, spriteSize, spriteSize);
+      const a = document.createElement('a');
+      a.href = cvs.toDataURL('image/png');
+      a.download = 'roblox-shirt.png';
+      a.click();
+      SFX.share();
+      toast('Roblox Shirt exported! 👕');
+      addXP(7);
+      Economy.track('project:export', { format: 'roblox-shirt' });
+    });
+  }
+}
+function exportRobloxPants() {
+  // Export current frame as 585x559 PNG for Roblox pants
+  captureFrame();
+  const targetW = 585, targetH = 559;
+  const cvs = document.createElement('canvas');
+  cvs.width = targetW;
+  cvs.height = targetH;
+  const ctx = cvs.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  // Center the sprite in the Roblox pants template
+  const spriteSize = 64; // Standard Roblox pants region size
+  const offsetX = Math.floor((targetW - spriteSize) / 2);
+  const offsetY = Math.floor((targetH - spriteSize) / 2);
+  if (ST.frames[ST.currentFrame]) {
+    createImageBitmap(ST.frames[ST.currentFrame]).then(bmp => {
+      ctx.clearRect(0, 0, targetW, targetH);
+      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, offsetX, offsetY, spriteSize, spriteSize);
+      const a = document.createElement('a');
+      a.href = cvs.toDataURL('image/png');
+      a.download = 'roblox-pants.png';
+      a.click();
+      SFX.share();
+      toast('Roblox Pants exported! 👖');
+      addXP(7);
+      Economy.track('project:export', { format: 'roblox-pants' });
+    });
+  }
+}
+function exportRobloxDecal() {
+  // Export current frame as square PNG for Roblox decals (512x512)
+  captureFrame();
+  const targetSize = 512;
+  const cvs = document.createElement('canvas');
+  cvs.width = targetSize;
+  cvs.height = targetSize;
+  const ctx = cvs.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  if (ST.frames[ST.currentFrame]) {
+    createImageBitmap(ST.frames[ST.currentFrame]).then(bmp => {
+      ctx.clearRect(0, 0, targetSize, targetSize);
+      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, 0, 0, targetSize, targetSize);
+      const a = document.createElement('a');
+      a.href = cvs.toDataURL('image/png');
+      a.download = 'roblox-decal.png';
+      a.click();
+      SFX.share();
+      toast('Roblox Decal exported! 🟦');
+      addXP(6);
+      Economy.track('project:export', { format: 'roblox-decal' });
+    });
+  }
+}
+function exportSpriteSheet() {
+  // Export all frames as a horizontal PNG sprite sheet (8x upscaled)
+  captureFrame();
+  const scale = 8;
+  const frameCount = ST.frames.length;
+  const sz = ST.size;
+  const cvs = document.createElement('canvas');
+  cvs.width = sz * scale * frameCount;
+  cvs.height = sz * scale;
+  const ctx = cvs.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  if (frameCount > 0) {
+    let x = 0;
+    Promise.all(ST.frames.map(f => createImageBitmap(f))).then(bitmaps => {
+      bitmaps.forEach(bmp => {
+        ctx.drawImage(bmp, 0, 0, sz, sz, x, 0, sz * scale, sz * scale);
+        x += sz * scale;
+      });
+      const a = document.createElement('a');
+      a.href = cvs.toDataURL('image/png');
+      a.download = 'sprite-sheet.png';
+      a.click();
+      SFX.share();
+      toast('Sprite Sheet exported! 🗂️');
+      addXP(10);
+      Economy.track('project:export', { format: 'sprite-sheet' });
+    });
+  }
+}
+function exportSticker() {
+  // Export current frame as high-res PNG (1024x1024) for stickers
+  captureFrame();
+  const targetSize = 1024;
+  const cvs = document.createElement('canvas');
+  cvs.width = targetSize;
+  cvs.height = targetSize;
+  const ctx = cvs.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  if (ST.frames[ST.currentFrame]) {
+    createImageBitmap(ST.frames[ST.currentFrame]).then(bmp => {
+      ctx.clearRect(0, 0, targetSize, targetSize);
+      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, 0, 0, targetSize, targetSize);
+      const a = document.createElement('a');
+      a.href = cvs.toDataURL('image/png');
+      a.download = 'sticker.png';
+      a.click();
+      SFX.share();
+      toast('Sticker exported! 🖨️');
+      addXP(8);
+      Economy.track('project:export', { format: 'sticker' });
+    });
+  }
+}
+function exportWallpaper() {
+  // Export current frame as 1080x1920 PNG for phone wallpaper
+  captureFrame();
+  const targetW = 1080, targetH = 1920;
+  const cvs = document.createElement('canvas');
+  cvs.width = targetW;
+  cvs.height = targetH;
+  const ctx = cvs.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  // Center the sprite
+  const spriteSize = Math.min(targetW, targetH) * 0.7; // 70% of width/height
+  const offsetX = Math.floor((targetW - spriteSize) / 2);
+  const offsetY = Math.floor((targetH - spriteSize) / 2);
+  if (ST.frames[ST.currentFrame]) {
+    createImageBitmap(ST.frames[ST.currentFrame]).then(bmp => {
+      ctx.clearRect(0, 0, targetW, targetH);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, targetW, targetH);
+      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, offsetX, offsetY, spriteSize, spriteSize);
+      const a = document.createElement('a');
+      a.href = cvs.toDataURL('image/png');
+      a.download = 'phone-wallpaper.png';
+      a.click();
+      SFX.share();
+      toast('Phone Wallpaper exported! 📱');
+      addXP(8);
+      Economy.track('project:export', { format: 'phone-wallpaper' });
+    });
+  }
+}
+function exportPlannerSticker() {
+  // Export current frame as 512x512 PNG with transparency for digital planners
+  captureFrame();
+  const targetSize = 512;
+  const cvs = document.createElement('canvas');
+  cvs.width = targetSize;
+  cvs.height = targetSize;
+  const ctx = cvs.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  if (ST.frames[ST.currentFrame]) {
+    createImageBitmap(ST.frames[ST.currentFrame]).then(bmp => {
+      ctx.clearRect(0, 0, targetSize, targetSize);
+      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, 0, 0, targetSize, targetSize);
+      const a = document.createElement('a');
+      a.href = cvs.toDataURL('image/png');
+      a.download = 'planner-sticker.png';
+      a.click();
+      SFX.share();
+      toast('Planner Sticker exported! 📒');
+      addXP(7);
+      Economy.track('project:export', { format: 'planner-sticker' });
+    });
+  }
+}
+function export3DTexture() {
+  // Export current frame as 1024x1024 PNG for 3D model base texture
+  captureFrame();
+  const targetSize = 1024;
+  const cvs = document.createElement('canvas');
+  cvs.width = targetSize;
+  cvs.height = targetSize;
+  const ctx = cvs.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  if (ST.frames[ST.currentFrame]) {
+    createImageBitmap(ST.frames[ST.currentFrame]).then(bmp => {
+      ctx.clearRect(0, 0, targetSize, targetSize);
+      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, 0, 0, targetSize, targetSize);
+      const a = document.createElement('a');
+      a.href = cvs.toDataURL('image/png');
+      a.download = '3d-base-texture.png';
+      a.click();
+      SFX.share();
+      toast('3D Model Texture exported! 🧊');
+      addXP(9);
+      Economy.track('project:export', { format: '3d-base-texture' });
+    });
+  }
+}
+// ── SOUND ENGINE: PIXELSPRITE SOLFEGGIO FRAMEWORK ─────
+const SFX = (() => {
+  const SOLFEGGIO = {
+    create: 528,      // creation / pixel placement / fill
+    collaborate: 639, // sharing / listing / send
+    unlock: 741,      // unlock / level-up / expansion
+    reset: 396,       // clear / undo / grounding
+  };
+
+  let ctx = null;
+  const lastPlay = Object.create(null);
+
+  function getCtx(){
+    if(!ctx){
+      try{ ctx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){}
+    }
+    if(ctx && ctx.state==='suspended') ctx.resume().catch(()=>{});
+    return ctx;
+  }
+
+  function canPlay(key, cooldownMs){
+    const now = Date.now();
+    if((now - (lastPlay[key]||0)) < cooldownMs) return false;
+    lastPlay[key] = now;
+    return true;
+  }
+
+  function solfeggioTone(freq, opts={}){
+    const {
+      dur = 0.36,
+      vol = 0.08,
+      popFreq = 1800,
+      popDur = 0.07,
+      popVol = 0.018,
+      cooldown = 90,
+      key = 'generic',
+    } = opts;
+
+    if(!canPlay(key, cooldown)) return;
+    const c = getCtx();
+    if(!c) return;
+    const t = c.currentTime;
+
+    // Healing bed: soft sine body on the target Solfeggio frequency.
+    const bed = c.createOscillator();
+    const bedGain = c.createGain();
+    bed.type = 'sine';
+    bed.frequency.setValueAtTime(freq, t);
+    bed.connect(bedGain);
+    bedGain.connect(c.destination);
+    bedGain.gain.setValueAtTime(0.0001, t);
+    bedGain.gain.exponentialRampToValueAtTime(vol, t + 0.03);
+    bedGain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    bed.start(t);
+    bed.stop(t + dur + 0.02);
+
+    // Light glass pop layered above the bed for UI tactility.
+    const pop = c.createOscillator();
+    const popGain = c.createGain();
+    pop.type = 'triangle';
+    pop.frequency.setValueAtTime(popFreq, t);
+    pop.frequency.exponentialRampToValueAtTime(popFreq * 0.65, t + popDur);
+    pop.connect(popGain);
+    popGain.connect(c.destination);
+    popGain.gain.setValueAtTime(popVol, t);
+    popGain.gain.exponentialRampToValueAtTime(0.001, t + popDur);
+    pop.start(t);
+    pop.stop(t + popDur + 0.01);
+  }
+
+  function tinyClick(){
+    const c = getCtx();
+    if(!c || !canPlay('tiny-click', 35)) return;
+    const t = c.currentTime;
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(980, t);
+    o.connect(g); g.connect(c.destination);
+    g.gain.setValueAtTime(0.018, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+    o.start(t); o.stop(t + 0.035);
+  }
+
   return {
-    draw(){ play(800,.04,'square',.06); },
-    fill(){ play(440,.12,'sine',.1); },
-    save(){ play(660,.08,'sine',.12); setTimeout(()=>play(880,.08,'sine',.08),80); },
-    undo(){ play(300,.08,'sawtooth',.08); },
-    levelUp(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>play(f,.15,'sine',.14),i*100)); },
-    click(){ play(1000,.03,'square',.04); },
-    erase(){ play(200,.06,'sawtooth',.05); },
+    // 528 Hz: creation actions
+    draw(){ solfeggioTone(SOLFEGGIO.create, { dur:0.34, vol:0.055, popFreq:1920, popDur:0.05, popVol:0.014, cooldown:95, key:'create-draw' }); },
+    fill(){ solfeggioTone(SOLFEGGIO.create, { dur:0.44, vol:0.08, popFreq:1680, popDur:0.06, popVol:0.016, cooldown:130, key:'create-fill' }); },
+    save(){ solfeggioTone(SOLFEGGIO.create, { dur:0.42, vol:0.082, popFreq:1540, popDur:0.08, popVol:0.017, cooldown:220, key:'create-save' }); },
+
+    // 639 Hz: collaboration / sharing
+    share(){ solfeggioTone(SOLFEGGIO.collaborate, { dur:0.42, vol:0.085, popFreq:1720, popDur:0.07, popVol:0.017, cooldown:180, key:'collab' }); },
+
+    // 741 Hz: unlocking / expansion
+    unlock(){ solfeggioTone(SOLFEGGIO.unlock, { dur:0.5, vol:0.1, popFreq:1320, popDur:0.1, popVol:0.02, cooldown:260, key:'unlock' }); },
+    levelUp(){
+      // Warm 741-centered swell + gentle overtone for celebratory expansion.
+      solfeggioTone(SOLFEGGIO.unlock, { dur:0.52, vol:0.11, popFreq:1260, popDur:0.11, popVol:0.024, cooldown:240, key:'levelup-main' });
+      setTimeout(()=>solfeggioTone(SOLFEGGIO.unlock*1.5, { dur:0.28, vol:0.05, popFreq:1860, popDur:0.06, popVol:0.012, cooldown:220, key:'levelup-harm' }), 120);
+    },
+
+    // 396 Hz: reset / grounding
+    undo(){ solfeggioTone(SOLFEGGIO.reset, { dur:0.34, vol:0.075, popFreq:980, popDur:0.05, popVol:0.012, cooldown:120, key:'reset-undo' }); },
+    reset(){ solfeggioTone(SOLFEGGIO.reset, { dur:0.4, vol:0.08, popFreq:920, popDur:0.06, popVol:0.013, cooldown:150, key:'reset-clear' }); },
+
+    // Utility micro-actions
+    click(){ tinyClick(); },
+    erase(){ solfeggioTone(SOLFEGGIO.reset, { dur:0.2, vol:0.04, popFreq:860, popDur:0.03, popVol:0.009, cooldown:90, key:'erase' }); },
   };
 })();
 
@@ -3071,6 +3520,7 @@ function setEraserSize(n){
   document.querySelectorAll('.esz').forEach(b=>b.classList.toggle('on', +b.dataset.es===n));
 }
 function setTool(t){
+  if(t==='select'&&!requireUnlock('teen-mode')) return;
   if(ST.tool==='select'&&t!=='select') clearSel();
   ST.tool=t;
   Store.dispatch({ type:'tool:set', tool:t });
@@ -3079,13 +3529,13 @@ function setTool(t){
   if(esizes) esizes.style.display=(t==='eraser')?'flex':'none';
   SFX.click();
 }
-function toggleMirror(){ST.mirror=!ST.mirror;Store.dispatch({type:'tool:toggleMirror'});document.getElementById('t-mirror').classList.toggle('tog',ST.mirror);toast(ST.mirror?'Mirror ON ⇌':'Mirror OFF');}
+function toggleMirror(){if(!requireUnlock('mirror-draw')) return;ST.mirror=!ST.mirror;Store.dispatch({type:'tool:toggleMirror'});document.getElementById('t-mirror').classList.toggle('tog',ST.mirror);toast(ST.mirror?'Mirror ON ⇌':'Mirror OFF');}
 function toggleOnion(){ST.onion=!ST.onion;Store.dispatch({type:'tool:toggleOnion'});document.getElementById('t-onion').classList.toggle('tog',ST.onion);drawOnion(ST.currentFrame);}
-function clearCanvas(){document.getElementById('mc').getContext('2d').clearRect(0,0,ST.size,ST.size);captureFrame();pushHistory();}
+function clearCanvas(){document.getElementById('mc').getContext('2d').clearRect(0,0,ST.size,ST.size);captureFrame();pushHistory();SFX.reset();}
 function flash(){const mc=document.getElementById('mc');mc.classList.add('effect-flash');setTimeout(()=>mc.classList.remove('effect-flash'),600);}
 function toggleFXMenu(){document.getElementById('fx-menu').classList.toggle('open');document.getElementById('anim-menu').classList.remove('open');}
 function closeFXMenu(){document.getElementById('fx-menu').classList.remove('open');}
-function toggleAnimMenu(){document.getElementById('anim-menu').classList.toggle('open');document.getElementById('fx-menu').classList.remove('open');}
+function toggleAnimMenu(){if(!requireUnlock('teen-mode')) return;document.getElementById('anim-menu').classList.toggle('open');document.getElementById('fx-menu').classList.remove('open');}
 function closeAnimMenu(){document.getElementById('anim-menu').classList.remove('open');}
 document.addEventListener('click',e=>{if(!e.target.closest('#fx-menu')&&!e.target.closest('#anim-menu')&&!e.target.closest('#rail')&&!e.target.closest('.magic-btn')){closeFXMenu();closeAnimMenu();}});
 
@@ -3098,6 +3548,9 @@ function renameDone(el){
 
 // ── SMART EFFECTS ─────────────────────────────────────
 function runFX(type){
+  const fxToUnlock={glow:'glow-brush',outline:'auto-outline',remix:'fx-remix'};
+  const need=fxToUnlock[type];
+  if(need&&!requireUnlock(need)) return;
   if(!ST.frames.length) return;
   captureFrame();
   const mc=document.getElementById('mc'), sz=ST.size;
@@ -3167,6 +3620,7 @@ function runFX(type){
 
 // ── ANIMATION PRESETS ─────────────────────────────────
 function animPreset(type){
+  if(!requireUnlock('teen-mode')) return;
   if(!ST.frames.length) return;
   captureFrame();
   const base=ST.frames[ST.currentFrame], sz=ST.size;
@@ -3300,6 +3754,7 @@ function buildPalRow(){
   const remix=document.createElement('button');remix.className='sw-remix';remix.title='Color Remix';remix.textContent='🎲';remix.onclick=()=>runFX('remix');row.appendChild(remix);
   PALETTE.forEach((c,i)=>{const sw=document.createElement('div');sw.className='sw'+(i===0?' sel':'');sw.style.background=c;sw.onclick=()=>pickSwatch(i,c);row.appendChild(sw);});
   const add=document.createElement('button');add.className='sw-add';add.innerHTML='+';add.onclick=openColorModal;row.appendChild(add);
+  syncCanvasUnlockUI();
 }
 function pickSwatch(i,c){ST.color=c;ST.palIdx=i;document.querySelectorAll('.sw').forEach((s,idx)=>s.classList.toggle('sel',idx===i));}
 let RECENT_COLORS = [];
@@ -3378,6 +3833,7 @@ function exportCanvas(){
     createImageBitmap(ST.frames[ST.currentFrame]).then(bmp=>{
       ctx.drawImage(bmp,0,0,ST.size*scale,ST.size*scale);
       const a=document.createElement('a');a.href=cvs.toDataURL('image/png');a.download='pixel-creator.png';a.click();
+      SFX.share();
       toast('PNG exported! 🎉');addXP(5);Economy.track('project:export',{format:'png'});
     });
   }
@@ -3392,6 +3848,7 @@ function exportJPEG(){
     createImageBitmap(ST.frames[ST.currentFrame]).then(bmp=>{
       ctx.drawImage(bmp,0,0,ST.size*scale,ST.size*scale);
       const a=document.createElement('a');a.href=cvs.toDataURL('image/jpeg',0.95);a.download='pixel-creator.jpg';a.click();
+      SFX.share();
       toast('JPEG exported! 🖼');addXP(5);Economy.track('project:export',{format:'jpeg'});
     });
   }
@@ -3508,6 +3965,7 @@ function _buildGIF(){
       const blob=new Blob([new Uint8Array(bytes)],{type:'image/gif'});
       const url=URL.createObjectURL(blob);
       const a=document.createElement('a');a.href=url;a.download='pixel-creator.gif';a.click();
+      SFX.share();
       setTimeout(()=>URL.revokeObjectURL(url),1000);
       prog.classList.remove('show');
       toast('🎞 GIF exported!');addXP(15);confetti();Economy.track('project:export',{format:'gif'});
@@ -3621,20 +4079,63 @@ function buildHomeProof(){
 }
 
 const HOME_UNLOCKS=[
-  {lvl:2,name:'Mirror Draw',meta:'Symmetry assist'},
-  {lvl:4,name:'Glow Brush',meta:'Cinematic bloom'},
-  {lvl:6,name:'Auto Outline',meta:'One-tap cleanup'},
-  {lvl:8,name:'FX Remix',meta:'Palette harmonizer'},
-  {lvl:10,name:'Teen Mode',meta:'Advanced toolkit'},
+  {key:'mirror-draw',lvl:2,name:'Mirror Draw',meta:'Symmetry assist'},
+  {key:'glow-brush',lvl:4,name:'Glow Brush',meta:'Cinematic bloom'},
+  {key:'auto-outline',lvl:6,name:'Auto Outline',meta:'One-tap cleanup'},
+  {key:'fx-remix',lvl:8,name:'FX Remix',meta:'Palette harmonizer'},
+  {key:'teen-mode',lvl:10,name:'Teen Mode',meta:'Advanced toolkit'},
 ];
+
+function unlockLevelFor(key){
+  return HOME_UNLOCKS.find(u=>u.key===key)?.lvl ?? 1;
+}
+
+function isUnlockAvailable(key){
+  return ST.level>=unlockLevelFor(key);
+}
+
+function unlockNotice(key){
+  const lvl=unlockLevelFor(key);
+  const name=HOME_UNLOCKS.find(u=>u.key===key)?.name||'Feature';
+  return `🔒 ${name} unlocks at Level ${lvl}`;
+}
+
+function requireUnlock(key){
+  if(isUnlockAvailable(key)) return true;
+  toast(unlockNotice(key));
+  return false;
+}
+
+function syncCanvasUnlockUI(){
+  const bindings=[
+    {sel:'#t-mirror',key:'mirror-draw'},
+    {sel:'#t-select',key:'teen-mode'},
+    {sel:'#fx-glow',key:'glow-brush'},
+    {sel:'#fx-outline',key:'auto-outline'},
+    {sel:'#fx-remix',key:'fx-remix'},
+    {sel:'.sw-remix',key:'fx-remix'},
+    {sel:'.magic-btn',key:'teen-mode'},
+    {sel:'#anim-menu .fx-item',key:'teen-mode'},
+  ];
+  bindings.forEach(({sel,key})=>{
+    const lvl=unlockLevelFor(key);
+    const locked=!isUnlockAvailable(key);
+    document.querySelectorAll(sel).forEach(el=>{
+      el.classList.toggle('locked',locked);
+      const baseTitle=el.getAttribute('title')||el.textContent.trim();
+      if(!el.dataset.baseTitle) el.dataset.baseTitle=baseTitle;
+      el.title=locked?`${el.dataset.baseTitle} (Unlocks at Lv ${lvl})`:el.dataset.baseTitle;
+    });
+  });
+}
 
 function buildHomeUnlocks(){
   const wrap=document.getElementById('home-unlocks');
   if(!wrap) return;
   wrap.innerHTML='';
-  const visible=HOME_UNLOCKS.slice(0,3);
+  const visible=HOME_UNLOCKS;
   visible.forEach(tool=>{
-    const unlocked=ST.level>=tool.lvl;
+    const unlocked=isUnlockAvailable(tool.key);
     const d=document.createElement('div');
     d.className='unlock-pill '+(unlocked?'unlocked':'locked');
     d.innerHTML=`<div class="unlock-name">${unlocked?'Unlocked':'Lv '+tool.lvl} ${tool.name}</div><div class="unlock-meta">${unlocked?tool.meta:'Keep creating to unlock'}</div>`;
@@ -3645,7 +4146,7 @@ function buildHomeUnlocks(){
 function updateXPNextUnlock(){
   const out=document.getElementById('xp-next');
   if(!out) return;
-  const next=HOME_UNLOCKS.find(t=>ST.level<t.lvl);
+  const next=HOME_UNLOCKS.find(t=>!isUnlockAvailable(t.key));
   if(!next){out.textContent='All core tools unlocked. Weekly Drop grants bonus XP.';return;}
   const needed=Math.max(0,ST.xpMax-ST.xp);
   out.textContent=`${needed} XP to unlock: ${next.name}`;
@@ -3924,6 +4425,7 @@ function addXP(n){
   const xpl=document.getElementById('xp-lvl');if(xpl)xpl.textContent=ST.level;
   updateXPNextUnlock();
   buildHomeUnlocks();
+  syncCanvasUnlockUI();
 }
 function claimStreak(){
   if(!canClaimStreakToday()){toast('Streak already claimed today. Come back tomorrow.');return;}
@@ -3932,7 +4434,7 @@ function claimStreak(){
   localStorage.setItem('pc2_streak_claim_day',dayStamp());
   refreshStreakUI();
   updateHomeNavState();
-  addXP(15);confetti();toast('🔥 Streak reward! +15 XP');SFX.save();
+  addXP(15);confetti();toast('🔥 Streak reward! +15 XP');SFX.unlock();
 }
 
 // ── PROFILE ───────────────────────────────────────────
@@ -4196,6 +4698,7 @@ function boot(){
   buildProfile();
   document.getElementById('ps-creations').textContent=ST.projects.length;
   initCanvas(16);
+  syncCanvasUnlockUI();
   buildLayerPanel();
   document.getElementById('sz-16').classList.add('on');
   document.getElementById('sz-32').classList.remove('on');
