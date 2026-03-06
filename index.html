@@ -156,10 +156,10 @@
     <button class="sz-btn" id="sz-64" onclick="changeSize(64)">64×64</button>
   </div>
   <div id="fx-menu">
-    <button class="fx-item" onclick="runFX('glow');closeFXMenu()"><span class="fx-icon">✨</span>Add Glow</button>
+    <button class="fx-item" id="fx-glow" onclick="runFX('glow');closeFXMenu()"><span class="fx-icon">✨</span>Add Glow</button>
     <button class="fx-item" onclick="runFX('sparkle');closeFXMenu()"><span class="fx-icon">⭐</span>Add Sparkles</button>
-    <button class="fx-item" onclick="runFX('outline');closeFXMenu()"><span class="fx-icon">◻️</span>Clean Outline</button>
-    <button class="fx-item" onclick="runFX('remix');closeFXMenu()"><span class="fx-icon">🎲</span>Color Remix</button>
+    <button class="fx-item" id="fx-outline" onclick="runFX('outline');closeFXMenu()"><span class="fx-icon">◻️</span>Clean Outline</button>
+    <button class="fx-item" id="fx-remix" onclick="runFX('remix');closeFXMenu()"><span class="fx-icon">🎲</span>Color Remix</button>
   </div>
   <div id="anim-menu">
     <div style="font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;padding:0 2px 4px">Animation Presets</div>
@@ -408,31 +408,140 @@
         <div class="exp-fmt">PNG</div>
         <div class="exp-desc">Transparent background<br>Best for pixel art & game assets<br><span class="exp-dim" id="exp-png-dim">128×128 px (8× scaled)</span></div>
       </button>
-      <button class="exp-card" onclick="exportJPEG();closeExportModal()">
-        <div class="exp-icon">📷</div>
-        <div class="exp-fmt">JPEG</div>
-        <div class="exp-desc">White background<br>Smaller file · no transparency<br><span class="exp-dim" id="exp-jpg-dim">128×128 px (8× scaled)</span></div>
+      <button class="exp-card" onclick="exportMinecraftSkin();closeExportModal()">
+        <div class="exp-icon">🟩</div>
+        <div class="exp-fmt">Minecraft Skin</div>
+        <div class="exp-desc">64×64 PNG<br>minecraft.net → Profile → Change Skin</div>
+      </button>
+      <button class="exp-card" onclick="exportMinecraftTexturePack();closeExportModal()">
+        <div class="exp-icon">🗂️</div>
+        <div class="exp-fmt">Minecraft Texture Pack</div>
+        <div class="exp-desc">Zipped Resource Pack<br>Resource Pack folder (game settings)</div>
+      </button>
+      <button class="exp-card" onclick="exportRobloxShirt();closeExportModal()">
+        <div class="exp-icon">👕</div>
+        <div class="exp-fmt">Roblox Shirt Template</div>
+        <div class="exp-desc">585×559 PNG<br>Roblox → Create → Shirts</div>
+      </button>
+      <button class="exp-card" onclick="exportRobloxPants();closeExportModal()">
+        <div class="exp-icon">👖</div>
+        <div class="exp-fmt">Roblox Pants Template</div>
+        <div class="exp-desc">585×559 PNG<br>Roblox → Create → Pants</div>
+      </button>
+      <button class="exp-card" onclick="exportRobloxDecal();closeExportModal()">
+        <div class="exp-icon">🖼️</div>
+        <div class="exp-fmt">Roblox Decal</div>
+        <div class="exp-desc">Square PNG<br>Roblox → Create → Decals</div>
+      </button>
+      <button class="exp-card" onclick="exportCanvas();closeExportModal()">
+        <div class="exp-icon">🖼</div>
+        <div class="exp-fmt">Transparent PNG</div>
+        <div class="exp-desc">Universal<br>Scratch, Canva, Slides, etc.</div>
       </button>
       <button class="exp-card exp-card-gif" onclick="closeExportModal();exportGIF()" id="exp-gif-card">
         <div class="exp-icon">🎞</div>
-        <div class="exp-fmt">GIF</div>
-        <div class="exp-desc">Animated · all frames<br>Loops forever<br><span class="exp-dim" id="exp-gif-dim">128×128 px · 1 frame</span></div>
+        <div class="exp-fmt">Animated GIF</div>
+        <div class="exp-desc">Discord, websites, planners</div>
       </button>
-    </div>
-
-    <div class="exp-note" id="exp-note">PNG and JPEG export the <strong>current frame</strong> at 8× scale.</div>
-  </div>
-</div>
+      <button class="exp-card" onclick="exportSpriteSheet();closeExportModal()">
+        <div class="exp-icon">🗃️</div>
+        <div class="exp-fmt">Sprite Sheet</div>
+        <div class="exp-desc">PNG grid<br>Unity, Godot, game engines</div>
+      </button>
+      <button class="exp-card" onclick="exportSticker();closeExportModal()">
+        <div class="exp-icon">🏷️</div>
+        <div class="exp-fmt">Stickers (Print Ready)</div>
+        <div class="exp-desc">High-res PNG/PDF<br>Cricut, Sticker printing</div>
+      </button>
+      <button class="exp-card" onclick="exportWallpaper();closeExportModal()">
+        <div class="exp-icon">📱</div>
+        <div class="exp-fmt">Phone Wallpaper</div>
+        <div class="exp-desc">1080×1920 PNG<br>iPhone/Android</div>
+      </button>
+      <button class="exp-card" onclick="exportPlannerSticker();closeExportModal()">
+        <div class="exp-icon">📒</div>
+        <div class="exp-fmt">Digital Planner Stickers</div>
+        <div class="exp-desc">PNG w/ transparency<br>GoodNotes, Notability</div>
+      </button>
+      <button class="exp-card" onclick="export3DTexture();closeExportModal()">
+        <div class="exp-icon">🧊</div>
+        <div class="exp-fmt">3D Model Base Texture</div>
+        <div class="exp-desc">PNG<br>Blender / Roblox Studio</div>
+      </button>
 
 <!-- GIF PROGRESS -->
 <div id="gif-progress">
   <div class="gif-box">
     <div class="gif-title">🎞 Building GIF…</div>
     <div class="gif-bar-wrap"><div class="gif-bar" id="gif-bar" style="width:0%"></div></div>
-    <div class="gif-pct" id="gif-pct">0%</div>
-  </div>
-</div>
+    <div class="msheet">
+      <div class="mhandle"></div>
+      <button class="mclose" onclick="closeExportModal()">✕</button>
+      <div class="mtitle">PixelSprite — Export</div>
+      <div class="exp-info" id="exp-info">Export your creation for games, avatars, and more.</div>
+      <div class="exp-grid">
+        <div class="exp-section-label">🧱 Block Character Skin</div>
+        <button class="exp-card" onclick="exportMinecraftSkin();closeExportModal()">
+          <div class="exp-icon">🧱</div>
+          <div class="exp-fmt">64×64 PNG</div>
+          <div class="exp-desc">Create a custom character skin formatted for standard 64×64 block-style game uploads.</div>
+        </button>
+        <div class="exp-helper">For use in games that support 64×64 character skins.</div>
 
-<script src="script.js"></script>
-</body>
-</html>
+        <div class="exp-section-label">👕 Avatar Shirt Template</div>
+        <button class="exp-card" onclick="exportRobloxShirt();closeExportModal()">
+          <div class="exp-icon">👕</div>
+          <div class="exp-fmt">585×559 PNG</div>
+          <div class="exp-desc">Design custom avatar clothing using the standard wrap-around shirt layout.</div>
+        </button>
+        <div class="exp-helper">Formatted for classic avatar clothing uploads.</div>
+
+        <div class="exp-section-label">👖 Avatar Pants Template</div>
+        <button class="exp-card" onclick="exportRobloxPants();closeExportModal()">
+          <div class="exp-icon">👖</div>
+          <div class="exp-fmt">585×559 PNG</div>
+          <div class="exp-desc">Create custom avatar pants using the standard classic layout.</div>
+        </button>
+        <div class="exp-helper">Compatible with platforms that support classic clothing templates.</div>
+
+        <div class="exp-section-label">🖼 Avatar Image / Decal</div>
+        <button class="exp-card" onclick="exportRobloxDecal();closeExportModal()">
+          <div class="exp-icon">🖼️</div>
+          <div class="exp-fmt">Square PNG (Transparent)</div>
+          <div class="exp-desc">Export your design as a square image for use in avatar worlds and creative platforms.</div>
+        </button>
+        <div class="exp-helper">Works with platforms that allow user image uploads.</div>
+
+        <div class="exp-section-label">🧩 Block World Texture Pack</div>
+        <button class="exp-card" onclick="exportMinecraftTexturePack();closeExportModal()">
+          <div class="exp-icon">🧩</div>
+          <div class="exp-fmt">Resource Pack (.zip)</div>
+          <div class="exp-desc">Export custom textures formatted in a standard resource pack structure for block-based sandbox games.</div>
+        </button>
+        <div class="exp-helper">For platforms that support custom texture packs.</div>
+
+        <div class="exp-section-label">🌎 Universal PNG</div>
+        <button class="exp-card" onclick="exportCanvas();closeExportModal()">
+          <div class="exp-icon">🌎</div>
+          <div class="exp-fmt">Transparent Background</div>
+          <div class="exp-desc">Use anywhere images are supported — games, slides, planners, creative tools.</div>
+        </button>
+
+        <div class="exp-section-label">🎞 Animated Sprite</div>
+        <button class="exp-card exp-card-gif" onclick="closeExportModal();exportGIF()" id="exp-gif-card">
+          <div class="exp-icon">🎞</div>
+          <div class="exp-fmt">Looping GIF</div>
+          <div class="exp-desc">Export your sprite animation for sharing on supported messaging and creative platforms.</div>
+        </button>
+
+        <div class="exp-section-label">🧠 Developer Sprite Sheet</div>
+        <button class="exp-card" onclick="exportSpriteSheet();closeExportModal()">
+          <div class="exp-icon">🧠</div>
+          <div class="exp-fmt">PNG Grid Format</div>
+          <div class="exp-desc">Export a sprite sheet arranged for import into compatible game engines.</div>
+        </button>
+        <div class="exp-helper">Supports engines that accept PNG sprite sheets.</div>
+      </div>
+      <div class="exp-note" id="exp-note">PixelSprite is not affiliated with, endorsed by, or sponsored by any third-party game or platform. All product names, trademarks, and registered trademarks are the property of their respective owners and are referenced for compatibility purposes only.</div>
+    </div>
+    <div class="export-legal-footer">PixelSprite is not affiliated with, endorsed by, or sponsored by Roblox Corporation or Mojang Studios. Roblox and Minecraft are registered trademarks of their respective owners.</div>
