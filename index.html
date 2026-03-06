@@ -396,15 +396,13 @@
   </div>
 </div>
 
-<!-- EXPORT MODAL -->
+<!-- EXPORT MODAL (SINGLE, FULL VERSION) -->
 <div id="export-modal" class="modal-bg" style="display:none">
   <div class="msheet">
     <div class="mhandle"></div>
     <button class="mclose" onclick="closeExportModal()">✕</button>
     <div class="mtitle">Export</div>
-
     <div class="exp-info" id="exp-info">Current frame · 16×16 px</div>
-
     <div class="exp-grid">
       <button class="exp-card" onclick="exportCanvas();closeExportModal()">
         <div class="exp-icon">🖼</div>
@@ -471,80 +469,8 @@
         <div class="exp-fmt">3D Model Base Texture</div>
         <div class="exp-desc">PNG<br>Blender / Roblox Studio</div>
       </button>
-
-<!-- GIF PROGRESS -->
-<div id="gif-progress">
-  <div class="gif-box">
-    <div class="gif-title">🎞 Building GIF…</div>
-    <div class="gif-bar-wrap"><div class="gif-bar" id="gif-bar" style="width:0%"></div></div>
-    <div class="msheet">
-      <div class="mhandle"></div>
-      <button class="mclose" onclick="closeExportModal()">✕</button>
-      <div class="mtitle">PixelSprite — Export</div>
-      <div class="exp-info" id="exp-info">Export your creation for games, avatars, and more.</div>
-      <div class="exp-grid">
-        <div class="exp-section-label">🧱 Block Character Skin</div>
-        <button class="exp-card" onclick="exportMinecraftSkin();closeExportModal()">
-          <div class="exp-icon">🧱</div>
-          <div class="exp-fmt">64×64 PNG</div>
-          <div class="exp-desc">Create a custom character skin formatted for standard 64×64 block-style game uploads.</div>
-        </button>
-        <div class="exp-helper">For use in games that support 64×64 character skins.</div>
-
-        <div class="exp-section-label">👕 Avatar Shirt Template</div>
-        <button class="exp-card" onclick="exportRobloxShirt();closeExportModal()">
-          <div class="exp-icon">👕</div>
-          <div class="exp-fmt">585×559 PNG</div>
-          <div class="exp-desc">Design custom avatar clothing using the standard wrap-around shirt layout.</div>
-        </button>
-        <div class="exp-helper">Formatted for classic avatar clothing uploads.</div>
-
-        <div class="exp-section-label">👖 Avatar Pants Template</div>
-        <button class="exp-card" onclick="exportRobloxPants();closeExportModal()">
-          <div class="exp-icon">👖</div>
-          <div class="exp-fmt">585×559 PNG</div>
-          <div class="exp-desc">Create custom avatar pants using the standard classic layout.</div>
-        </button>
-        <div class="exp-helper">Compatible with platforms that support classic clothing templates.</div>
-
-        <div class="exp-section-label">🖼 Avatar Image / Decal</div>
-        <button class="exp-card" onclick="exportRobloxDecal();closeExportModal()">
-          <div class="exp-icon">🖼️</div>
-          <div class="exp-fmt">Square PNG (Transparent)</div>
-          <div class="exp-desc">Export your design as a square image for use in avatar worlds and creative platforms.</div>
-        </button>
-        <div class="exp-helper">Works with platforms that allow user image uploads.</div>
-
-        <div class="exp-section-label">🧩 Block World Texture Pack</div>
-        <button class="exp-card" onclick="exportMinecraftTexturePack();closeExportModal()">
-          <div class="exp-icon">🧩</div>
-          <div class="exp-fmt">Resource Pack (.zip)</div>
-          <div class="exp-desc">Export custom textures formatted in a standard resource pack structure for block-based sandbox games.</div>
-        </button>
-        <div class="exp-helper">For platforms that support custom texture packs.</div>
-
-        <div class="exp-section-label">🌎 Universal PNG</div>
-        <button class="exp-card" onclick="exportCanvas();closeExportModal()">
-          <div class="exp-icon">🌎</div>
-          <div class="exp-fmt">Transparent Background</div>
-          <div class="exp-desc">Use anywhere images are supported — games, slides, planners, creative tools.</div>
-        </button>
-
-        <div class="exp-section-label">🎞 Animated Sprite</div>
-        <button class="exp-card exp-card-gif" onclick="closeExportModal();exportGIF()" id="exp-gif-card">
-          <div class="exp-icon">🎞</div>
-          <div class="exp-fmt">Looping GIF</div>
-          <div class="exp-desc">Export your sprite animation for sharing on supported messaging and creative platforms.</div>
-        </button>
-
-        <div class="exp-section-label">🧠 Developer Sprite Sheet</div>
-        <button class="exp-card" onclick="exportSpriteSheet();closeExportModal()">
-          <div class="exp-icon">🧠</div>
-          <div class="exp-fmt">PNG Grid Format</div>
-          <div class="exp-desc">Export a sprite sheet arranged for import into compatible game engines.</div>
-        </button>
-        <div class="exp-helper">Supports engines that accept PNG sprite sheets.</div>
-      </div>
-      <div class="exp-note" id="exp-note">PixelSprite is not affiliated with, endorsed by, or sponsored by any third-party game or platform. All product names, trademarks, and registered trademarks are the property of their respective owners and are referenced for compatibility purposes only.</div>
     </div>
+    <div class="exp-note" id="exp-note">PixelSprite is not affiliated with, endorsed by, or sponsored by any third-party game or platform. All product names, trademarks, and registered trademarks are the property of their respective owners and are referenced for compatibility purposes only.</div>
     <div class="export-legal-footer">PixelSprite is not affiliated with, endorsed by, or sponsored by Roblox Corporation or Mojang Studios. Roblox and Minecraft are registered trademarks of their respective owners.</div>
+  </div>
+</div>
