@@ -3808,23 +3808,6 @@ function addColorToPal(){PALETTE.push(ST.color);buildPalRow();pickSwatch(PALETTE
 
 // ── EXPORT: PNG ───────────────────────────────────────
 function openExportModal(){
-  const sz=ST.size, frames=ST.frames.length, scale=8;
-  const dim=`${sz*scale}×${sz*scale} px`;
-  document.getElementById('exp-info').textContent=`Frame ${ST.currentFrame+1} of ${frames} · ${sz}×${sz} px · ${frames} frame${frames!==1?'s':''}`;
-  document.getElementById('exp-png-dim').textContent=`${dim} (8× upscaled)`;
-  document.getElementById('exp-jpg-dim').textContent=`${dim} (8× upscaled, white bg)`;
-  document.getElementById('exp-gif-dim').textContent=`${dim} · ${frames} frame${frames!==1?'s':''} · ${ST.fps} FPS`;
-  // Dim GIF card and add note if only 1 frame
-  const gifCard=document.getElementById('exp-gif-card');
-  if(frames<2){
-    gifCard.style.opacity='.45';
-    gifCard.title='Add more frames to export GIF';
-    document.getElementById('exp-note').innerHTML='PNG and JPEG export the <strong>current frame</strong>. Add more frames to unlock GIF export.';
-  } else {
-    gifCard.style.opacity='1';
-    gifCard.title='Export animated GIF';
-    document.getElementById('exp-note').innerHTML='PNG and JPEG export the <strong>current frame</strong> at 8× scale. GIF exports <strong>all frames</strong>.';
-  }
   document.getElementById('export-modal').style.display='flex';
 }
 function closeExportModal(){document.getElementById('export-modal').style.display='none';}
