@@ -4695,4 +4695,9 @@ function boot(){
 }
 function startAutoSave(){setInterval(()=>{if(ST.frames.length&&ST.projects.length>0)captureFrame();},6000);}
 
+function toggleExpertMode(checked){
+  const grid=document.getElementById('export-options-grid');
+  if(grid) grid.classList.toggle('expert-mode',checked);
+}
+
 boot();
