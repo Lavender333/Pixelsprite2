@@ -3563,7 +3563,109 @@ function saveProject(){
   if(idx>=0) ST.projects[idx]=proj; else ST.projects.push(proj);
   saveProjects();
   document.getElementById('ps-creations').textContent=ST.projects.length;
+  buildHomeGallery();
   confetti();addXP(20);toast('✦ Saved to Closet!');SFX.save();Economy.track('project:save');
+}
+
+function dayStamp(){
+  const d=new Date();
+  return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+}
+
+function canClaimStreakToday(){
+  return localStorage.getItem('pc2_streak_claim_day')!==dayStamp();
+}
+
+function refreshStreakUI(){
+  const streakEl=document.getElementById('streak-n');
+  if(streakEl) streakEl.textContent=String(ST.streak||0);
+  const btn=document.getElementById('streak-claim');
+  if(!btn) return;
+  const ready=canClaimStreakToday();
+  btn.textContent=ready?'Claim':'Claimed';
+  btn.classList.toggle('off',!ready);
+}
+
+function buildHomeGallery(){
+  const wrap=document.getElementById('home-gallery-strip');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  if(!ST.projects.length){
+    wrap.innerHTML='<button class="gallery-empty" onclick="showTab(\'studio\')">Start your first piece to build your gallery.</button>';
+    return;
+  }
+  [...ST.projects].slice(-3).reverse().forEach((proj,idx)=>{
+    const card=document.createElement('button');
+    card.className='gallery-item';
+    card.onclick=()=>showTab('closet');
+    const cvs=document.createElement('canvas');
+    cvs.width=proj.size||16;
+    cvs.height=proj.size||16;
+    if(proj.frames&&proj.frames[0]) cvs.getContext('2d').putImageData(proj.frames[0],0,0);
+    const lbl=document.createElement('div');
+    lbl.className='gallery-label';
+    lbl.textContent=proj.name||`Creation ${idx+1}`;
+    card.appendChild(cvs);
+    card.appendChild(lbl);
+    wrap.appendChild(card);
+  });
+}
+
+function buildHomeProof(){
+  const proof=document.getElementById('home-proof');
+  if(!proof) return;
+  const doy=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/(86400*1000));
+  const joined=560+((doy*37)%260);
+  const trends=['Top style: Neon Sneaker','Top style: Kawaii Room','Top style: Anime Eyes','Top style: Chrome Stickers'];
+  proof.textContent=`${joined} creators joined this week. ${trends[doy%trends.length]}.`;
+}
+
+const HOME_UNLOCKS=[
+  {lvl:2,name:'Mirror Draw',meta:'Symmetry assist'},
+  {lvl:4,name:'Glow Brush',meta:'Cinematic bloom'},
+  {lvl:6,name:'Auto Outline',meta:'One-tap cleanup'},
+  {lvl:8,name:'FX Remix',meta:'Palette harmonizer'},
+  {lvl:10,name:'Teen Mode',meta:'Advanced toolkit'},
+];
+
+function buildHomeUnlocks(){
+  const wrap=document.getElementById('home-unlocks');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  const visible=HOME_UNLOCKS.slice(0,3);
+  visible.forEach(tool=>{
+    const unlocked=ST.level>=tool.lvl;
+    const d=document.createElement('div');
+    d.className='unlock-pill '+(unlocked?'unlocked':'locked');
+    d.innerHTML=`<div class="unlock-name">${unlocked?'Unlocked':'Lv '+tool.lvl} ${tool.name}</div><div class="unlock-meta">${unlocked?tool.meta:'Keep creating to unlock'}</div>`;
+    wrap.appendChild(d);
+  });
+}
+
+function updateXPNextUnlock(){
+  const out=document.getElementById('xp-next');
+  if(!out) return;
+  const next=HOME_UNLOCKS.find(t=>ST.level<t.lvl);
+  if(!next){out.textContent='All core tools unlocked. Weekly Drop grants bonus XP.';return;}
+  const needed=Math.max(0,ST.xpMax-ST.xp);
+  out.textContent=`${needed} XP to unlock: ${next.name}`;
+}
+
+function updateHomeNavState(activeTab){
+  const nav=document.getElementById('nav-home');
+  if(!nav) return;
+  const today=dayStamp();
+  if(activeTab==='home') localStorage.setItem('pc2_home_seen_day',today);
+  const seen=localStorage.getItem('pc2_home_seen_day');
+  nav.classList.toggle('reward-ready',canClaimStreakToday());
+  nav.classList.toggle('fresh-drop',seen!==today&&activeTab!=='home');
+}
+
+function loadEngagementState(){
+  const savedStreak=Number(localStorage.getItem('pc2_streak'));
+  if(Number.isFinite(savedStreak)&&savedStreak>0) ST.streak=savedStreak;
+  refreshStreakUI();
+  updateHomeNavState('home');
 }
 function buildClosetCats(){
   const el=document.getElementById('closet-cats');
@@ -3601,6 +3703,7 @@ function deleteProject(idx){
   if(!confirm(`Delete "${ST.projects[idx].name}"?`)) return;
   ST.projects.splice(idx,1);saveProjects();
   document.getElementById('ps-creations').textContent=ST.projects.length;
+  buildHomeGallery();
   renderCloset();toast('Deleted');
 }
 function exportProject(idx){
@@ -3819,8 +3922,18 @@ function addXP(n){
   ['xp-cur','ps-xp'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=ST.xp;});
   const xpm=document.getElementById('xp-max');if(xpm)xpm.textContent=ST.xpMax;
   const xpl=document.getElementById('xp-lvl');if(xpl)xpl.textContent=ST.level;
+  updateXPNextUnlock();
+  buildHomeUnlocks();
 }
-function claimStreak(){addXP(15);confetti();toast('🔥 Streak reward! +15 XP');SFX.save();}
+function claimStreak(){
+  if(!canClaimStreakToday()){toast('Streak already claimed today. Come back tomorrow.');return;}
+  ST.streak+=1;
+  localStorage.setItem('pc2_streak',String(ST.streak));
+  localStorage.setItem('pc2_streak_claim_day',dayStamp());
+  refreshStreakUI();
+  updateHomeNavState();
+  addXP(15);confetti();toast('🔥 Streak reward! +15 XP');SFX.save();
+}
 
 // ── PROFILE ───────────────────────────────────────────
 function buildProfile(){
@@ -3845,6 +3958,14 @@ function showTab(tab){
   const nb=document.getElementById('nav-'+tab);if(nb)nb.classList.add('on');
   if(tab==='create'&&!ST.frames.length) setTimeout(()=>initCanvas(),50);
   if(tab==='closet') renderCloset();
+  if(tab==='home'){
+    buildHomeProof();
+    buildHomeGallery();
+    buildHomeUnlocks();
+    refreshStreakUI();
+    updateXPNextUnlock();
+  }
+  updateHomeNavState(tab);
   closeFXMenu();closeAnimMenu();
 }
 function openStudio(){showTab('studio');}
@@ -4054,7 +4175,12 @@ captureFrame = function(){
 function boot(){
   initStore();
   buildPalRow();
+  loadProjects();
+  loadEngagementState();
   buildHomeTemplates();
+  buildHomeProof();
+  buildHomeGallery();
+  buildHomeUnlocks();
   buildTemplateGrid('tmpl-challenge',TEMPLATES.challenge);
   buildTemplateGrid('tmpl-items',TEMPLATES.items);
   buildTemplateGrid('tmpl-chars',TEMPLATES.chars);
@@ -4066,8 +4192,9 @@ function boot(){
   buildFXGrid();
   buildClosetCats();
   buildChallenges();
+  updateXPNextUnlock();
   buildProfile();
-  loadProjects();
+  document.getElementById('ps-creations').textContent=ST.projects.length;
   initCanvas(16);
   buildLayerPanel();
   document.getElementById('sz-16').classList.add('on');

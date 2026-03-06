@@ -85,23 +85,8 @@
       <button class="btn-secondary" onclick="showTab('closet')">My Work</button>
     </div>
   </div>
-  <div class="streak-bar">
-    <div class="streak-fire">🔥</div>
-    <div class="streak-info">
-      <div class="streak-n" id="streak-n">5</div>
-      <div class="streak-l">Day Streak</div>
-    </div>
-    <button class="streak-claim" onclick="claimStreak()">Claim Reward</button>
-  </div>
   <div class="home-section">
-    <div class="sec-header">
-      <span class="sec-title">Quick Start</span>
-      <button class="sec-link" onclick="showTab('studio')">See All →</button>
-    </div>
-    <div class="templates-scroll" id="home-templates"></div>
-  </div>
-  <div class="home-section">
-    <div class="sec-header"><span class="sec-title">Today's Challenge</span></div>
+    <div class="sec-header"><span class="sec-title">Weekly Drop</span></div>
     <div class="challenge-card" onclick="showTab('challenges')">
       <div class="cc-days" id="cc-days">3d left</div>
       <div class="cc-label">Weekly Drop</div>
@@ -116,10 +101,40 @@
       <span class="xp-val"><span id="xp-cur">420</span> / <span id="xp-max">600</span> XP</span>
     </div>
     <div class="xp-track"><div class="xp-fill" id="xp-fill" style="width:70%"></div></div>
+    <div class="xp-next" id="xp-next">180 XP to unlock: Glow Brush</div>
     <div class="xp-badges">
       <div class="badge">🎨</div><div class="badge">⚡</div><div class="badge">🔥</div>
       <div class="badge locked">👑</div><div class="badge locked">💎</div>
     </div>
+  </div>
+  <div class="home-meta-row">
+    <div class="streak-bar">
+      <div class="streak-fire">🔥</div>
+      <div class="streak-info">
+        <div class="streak-n" id="streak-n">5</div>
+        <div class="streak-l">Day Streak</div>
+      </div>
+      <button class="streak-claim" id="streak-claim" onclick="claimStreak()">Claim</button>
+    </div>
+    <div class="proof-pill" id="home-proof">581 creators joined this week</div>
+  </div>
+  <div class="home-section">
+    <div class="sec-header">
+      <span class="sec-title">Gallery</span>
+      <button class="sec-link" onclick="showTab('closet')">Open Closet →</button>
+    </div>
+    <div class="gallery-strip" id="home-gallery-strip"></div>
+  </div>
+  <div class="home-section">
+    <div class="sec-header"><span class="sec-title">Unlockable Tools</span></div>
+    <div class="unlock-row" id="home-unlocks"></div>
+  </div>
+  <div class="home-section">
+    <div class="sec-header">
+      <span class="sec-title">Quick Start</span>
+      <button class="sec-link" onclick="showTab('studio')">See All →</button>
+    </div>
+    <div class="templates-scroll" id="home-templates"></div>
   </div>
 </div>
 
@@ -340,7 +355,7 @@
 </div><!-- #app -->
 
 <nav id="nav">
-  <button class="nt on" id="nav-home" onclick="showTab('home')"><span class="icon">🏠</span>Home</button>
+  <button class="nt nt-home on" id="nav-home" onclick="showTab('home')"><span class="icon">🏠<span class="nt-dot" id="home-dot"></span></span><span class="nt-label" id="home-label">Home</span></button>
   <button class="nt" id="nav-studio" onclick="showTab('studio')"><span class="icon">🎨</span>Studio</button>
   <button class="nt" id="nav-closet" onclick="showTab('closet')"><span class="icon">📁</span>Closet</button>
   <button class="nt" id="nav-challenges" onclick="showTab('challenges')"><span class="icon">🏆</span>Wins</button>
