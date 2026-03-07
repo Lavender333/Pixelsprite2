@@ -3809,6 +3809,19 @@ function addColorToPal(){PALETTE.push(ST.color);buildPalRow();pickSwatch(PALETTE
 // ── EXPORT: PNG ───────────────────────────────────────
 function openExportModal(){
   document.getElementById('export-modal').style.display='flex';
+  const sz = ST.size || 16;
+  const scale = 8;
+  const dim = sz * scale;
+  const fc = (ST.frames || []).length;
+  const fps = ST.fps || 8;
+  const infoEl = document.getElementById('exp-info');
+  if(infoEl) infoEl.textContent = `Current frame · ${sz}×${sz} px`;
+  const pngDim = document.getElementById('exp-png-dim');
+  if(pngDim) pngDim.textContent = `${dim}×${dim} px (8× scaled)`;
+  const jpgDim = document.getElementById('exp-jpg-dim');
+  if(jpgDim) jpgDim.textContent = `${dim}×${dim} px (8× scaled, white bg)`;
+  const gifDim = document.getElementById('exp-gif-dim');
+  if(gifDim) gifDim.textContent = `${dim}×${dim} px · ${fc} frame${fc!==1?'s':''} · ${fps} FPS`;
 }
 function closeExportModal(){document.getElementById('export-modal').style.display='none';}
 
