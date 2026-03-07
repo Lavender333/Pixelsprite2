@@ -1740,6 +1740,10 @@ const D='#1a0a00'; // dark outline
  [17,12,'#E07830'],[18,11,'#FF9A50'],[19,10,'#FFAA60'],[20,10,'#E07830'],
  [17,13,'#CC6820'],[18,12,'#E07830'],[19,11,'#FFAA60'],
  [20,11,'#CC6820'],[21,11,'#E07830'],[21,12,'#CC6820'],
+ // form separation + grounding shadow
+ [10,18,'#8A4A20'],[10,19,'#6A3418'],
+ [4,21,'#10182C'],[5,21,'#10182C'],[6,21,'#10182C'],[7,21,'#10182C'],[8,21,'#10182C'],
+ [12,21,'#10182C'],[13,21,'#10182C'],[14,21,'#10182C'],[15,21,'#10182C'],[16,21,'#10182C'],
 ].forEach(([x,y,c])=>$(x,y,c));
 });
 },
@@ -1814,6 +1818,11 @@ const D='#1a0800',G='#D4A030',DG='#9A7020',LG='#F0CC70',WG='#FCEAA8';
 // --- TAIL ---
  [18,14,G],[19,13,LG],[20,12,G],[21,11,LG],[21,10,G],[20,10,DG],
  [18,15,DG],[19,14,G],[20,13,DG],
+ // under-chin / leg-seam / grounding improvements
+ [8,12,'#7A5318'],[9,12,'#7A5318'],[10,12,'#7A5318'],
+ [10,19,'#6A4A18'],[10,20,'#6A4A18'],[10,21,'#6A4A18'],
+ [5,24,'#10182C'],[6,24,'#10182C'],[7,24,'#10182C'],[8,24,'#10182C'],[9,24,'#10182C'],
+ [14,24,'#10182C'],[15,24,'#10182C'],[16,24,'#10182C'],[17,24,'#10182C'],[18,24,'#10182C'],
 ].forEach(([x,y,c])=>$(x,y,c));
 });
 },
@@ -1841,6 +1850,9 @@ const draw16=()=>{
   [[2,6,'#FF6B6B'],[3,5,'#FF5555'],[4,5,'#FF6B6B'],[5,6,'#FF5555'],[6,7,'#FF6B6B'],[7,7,'#FF5555']].forEach(([x,y,c])=>$(x,y,c));
   // laces (2 dots)
   $(4,3,'#FFF');$(6,3,'#FFF');$(8,3,'#FFF');
+  // hard highlight plane + darker lower hem
+  $(9,4,'#FFFFFF');$(8,4,'#FFFFFF');$(7,4,'#F5F5FF');
+  $(1,8,'#4A44BB');$(2,8,'#4A44BB');$(3,8,'#4A44BB');
   // tongue
   for(let y=1;y<=3;y++) for(let x=3;x<=7;x++) $(x,y,(y===1)?'#5252CC':'#9090DD');
   // outline
@@ -1881,6 +1893,8 @@ const draw32=()=>{
   for(let y=6;y<=13;y++) for(let x=19;x<=26;x++){
     $(x,y,(x===19||y===6)?'#CCCCEE':'#F0F0FF');
   }
+  // hard highlight plane
+  $(21,8,'#FFFFFF');$(22,8,'#FFFFFF');$(23,8,'#FFFFFF');$(21,9,'#FFFFFF');
   $(20,7,'#FFFFFF');$(21,7,'#FFFFFF');$(20,8,'#FFFFFF');// toe shine
   // ── swoosh (arc) ──
   [[2,11,'#FF6B6B'],[3,10,'#FF5555'],[4,10,'#FF6B6B'],[5,9,'#FF5555'],[6,9,'#FF6B6B'],
@@ -1944,6 +1958,8 @@ const draw64=()=>{
   for(let x=4;x<=14;x++) $(x,9,'#7a76EE');
   // ── outsole logo ──
   $(22,27,'#CCCCCC');$(23,27,'#CCCCCC');$(24,27,'#CCCCCC');$(25,27,'#AAAAAA');
+  // stronger lower hem shadow for depth
+  for(let x=2;x<=52;x++) $(x,23,'#353090');
   // ── outline ──
   for(let y=0;y<=24;y++) $(0,y,'#111');
   for(let x=0;x<=55;x++) $(x,28,'#444');
@@ -2060,6 +2076,8 @@ for(let x=5;x<=8;x++) $(x,9,LV);
 $(5,10,LV);$(6,10,LV);
 for(let x=15;x<=18;x++) $(x,9,LV);
 $(17,10,LV);$(18,10,LV);
+// hard highlight plane (top-left light source)
+$(6,8,'#B6B0FF');$(7,8,'#B6B0FF');$(8,8,'#B6B0FF');$(6,9,'#B6B0FF');
 // ── drawstring hole + cord ──
 $(11,7,XDV);$(12,7,XDV);
 $(10,8,'#4a3a80');$(13,8,'#4a3a80');
@@ -2081,6 +2099,9 @@ for(let x=3;x<=20;x++){
   $(x,20,x%2===0?XDV:DV);
   $(x,21,x%2===0?DV:XDV);
 }
+// stronger under-arm folds + grounding row
+for(let y=13;y<=16;y++){ $(4,y,'#2A2588'); $(19,y,'#2A2588'); }
+for(let x=4;x<=19;x++) $(x,22,'#10182C');
 });
 },
 
@@ -2179,6 +2200,9 @@ for(let y=rug_y;y<=rug_y+3;y++) for(let x=3;x<=sz-5;x++){
   $(x,y,(y===rug_y||y===rug_y+3||x===3||x===sz-5)?'#3a2060':'#2a1850');
 }
 for(let x=5;x<sz-6;x+=4) $(x,rug_y+1,'#4a30A0');
+// depth anchors: object contact shadows + atmospheric fade on far wall
+for(let x=4;x<=16;x++) $(x,dy+3,'#1a102b');
+for(let y=0;y<Math.floor(sz*0.25);y++) for(let x=0;x<sz;x++) if((x+y)%7===0) $(x,y,'rgba(180,160,255,0.08)');
 },
 
 character(ctx,sz){
@@ -2247,6 +2271,9 @@ $(4,19,'#3030AA');$(7,18,'#3030AA');
  [2,23,'#333'],[3,23,'#444'],[4,23,'#555'],[5,23,'#333'],
  [6,23,'#333'],[7,23,'#444'],[8,23,'#555'],[9,23,'#333'],
 ].forEach(([x,y,c])=>$(x,y,c));
+// separation + grounding
+$(6,18,'#1b1b58');$(6,19,'#1b1b58');
+for(let x=2;x<=9;x++) $(x,24,'#10182C');
 },
 
 dragon(ctx,sz){
@@ -2313,6 +2340,8 @@ $(20,7,D);$(20,8,D);// nostril slits
 // front legs
 for(let y=22;y<=26;y++) for(let x=9;x<=11;x++) $(x,y,(x===9)?DG:G);
 for(let y=22;y<=26;y++) for(let x=17;x<=19;x++) $(x,y,(x===19)?DG:G);
+// clear form separation at torso/legs
+for(let y=19;y<=23;y++){ $(13,y,'#145743'); $(14,y,'#145743'); }
 // claws
 [[8,26,D],[9,26,'#88EEC0'],[10,26,'#88EEC0'],[11,26,'#88EEC0'],[12,26,D],
  [16,26,D],[17,26,'#88EEC0'],[18,26,'#88EEC0'],[19,26,'#88EEC0'],[20,26,D],
@@ -2327,6 +2356,9 @@ for(let y=22;y<=26;y++) for(let x=17;x<=19;x++) $(x,y,(x===19)?DG:G);
 ].forEach(([x,y,c])=>$(x,y,c));
 // tail
 $(21,20,G);$(22,21,G);$(23,22,LG);$(24,22,G);$(24,21,DG);$(23,21,DG);
+// under-chin and grounding shadow
+$(11,12,'#145743');$(12,12,'#145743');$(13,12,'#145743');
+for(let x=8;x<=20;x++) $(x,28,'#10182C');
 });
 },
 
@@ -2369,6 +2401,10 @@ const L='#E0E0FF',M='#B8B8EE',D='#6060AA',W='#ffffff',S='#8888CC';
  [5,11,'#111'],[6,11,'#111'],[7,12,'#111'],[8,11,'#111'],[9,11,'#111'],[10,12,'#111'],[11,11,'#111'],[12,11,'#111'],
 // top sheen
  [7,2,W],[8,2,W],[9,2,W],[7,3,W],[8,3,'#F0F0FF'],
+ // hard highlight slab + base grounding to avoid floating
+ [6,4,'#FFFFFF'],[7,4,'#FFFFFF'],[8,4,'#FFFFFF'],[6,5,'#F4F4FF'],
+ [3,16,'#10182C'],[4,16,'#10182C'],[5,16,'#10182C'],[6,16,'#10182C'],
+ [10,16,'#10182C'],[11,16,'#10182C'],[12,16,'#10182C'],[13,16,'#10182C'],
 ].forEach(([x,y,c])=>$(x,y,c));
 });
 },
@@ -2420,6 +2456,9 @@ for(let y=13;y<=20;y++) for(let x=6;x<=12;x++) $(x,y,(x===6||x===12)?DG:y>=18?DG
 [[6,21,DG],[7,21,G],[7,22,DG],[6,23,D],[7,23,LG],[8,23,LG],[9,23,D],
  [11,21,DG],[12,21,G],[12,22,DG],[11,23,D],[12,23,LG],[13,23,LG],[14,23,D],
 ].forEach(([x,y,c])=>$(x,y,c));
+// hard highlight plane + underbody shadow
+$(5,3,'#C8FFE8');$(6,3,'#C8FFE8');$(7,3,'#C8FFE8');$(5,4,'#C8FFE8');
+for(let x=6;x<=13;x++) $(x,24,'#10182C');
 });
 },
 
@@ -2560,6 +2599,9 @@ for(let x=0;x<sz;x++){
  [18,sz-8,'#FF00AA'],[19,sz-8,'#FF00AA'],[20,sz-8,'#FF00AA'],[21,sz-8,'#FF00AA'],
  [12,sz-6,'#FFE080'],[12,sz-5,'#FFE080'],[12,sz-4,'#555'],[12,sz-3,'#444'],
 ].forEach(([x,y,c])=>{if(x>=0&&x<sz&&y>=0&&y<sz) $(x,y,c);});
+// depth pass: atmospheric haze + stronger foreground darkness
+for(let y=Math.floor(sz*0.15);y<Math.floor(sz*0.45);y++) for(let x=0;x<sz;x++) if((x*3+y)%13===0) $(x,y,'rgba(120,80,180,0.1)');
+for(let y=sz-8;y<sz;y++) for(let x=0;x<sz;x++) if((x+y)%2===0) $(x,y,'rgba(0,0,0,0.15)');
 },
 
 bag(ctx,sz){
@@ -2728,6 +2770,9 @@ for(let x=3;x<=13;x++) $(x,11,'rgba(0,0,0,0.2)');
  [7,10,'#EEC055'],[8,10,'#FFFACC'],[9,10,'#EEC055'],
  [7,11,'#CC9900'],[8,11,'#FFD166'],[9,11,'#AA7700'],
 ].forEach(([x,y,c])=>$(x,y,c));
+// rim shadow + highlight slab for stronger plane separation
+for(let y=6;y<=18;y++) $(13,y,'#8C5E00');
+$(4,2,'#FFF1A8');$(5,2,'#FFF1A8');$(6,2,'#FFE27A');
 });
 },
 
@@ -2771,6 +2816,9 @@ for(let i=0;i<8;i++){
 [[2,2,'#FFFACC'],[3,2,'#FFFACC'],[4,2,'#FFFACC'],
  [2,3,'#FFE088'],[2,4,'#FFE088'],[3,3,'#FFFACC'],
 ].forEach(([x,y,c])=>$(x,y,c));
+// darker lower quadrant + rim shadow for icon depth
+for(let y=10;y<=16;y++) for(let x=9;x<=16;x++) if(Math.sqrt((x-8)**2+(y-8)**2)<=8.5) $(x,y,'#C69228');
+for(let y=5;y<=16;y++) $(15,y,'#8D6200');
 });
 },
 
