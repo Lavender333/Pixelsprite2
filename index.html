@@ -45,7 +45,9 @@
 <link rel="stylesheet" href="style.css">
 
 <script>
-  if ('serviceWorker' in navigator) {
+  const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
+  const canUseSW = 'serviceWorker' in navigator && window.isSecureContext && !isSafari;
+  if (canUseSW) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
     });

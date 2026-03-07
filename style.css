@@ -40,8 +40,17 @@
   --r:10px; --r2:16px; --nav-h:64px; --top-h:50px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;overflow:hidden;-webkit-font-smoothing:antialiased}
+html,body{height:100%;min-height:100%;overflow:hidden;-webkit-font-smoothing:antialiased}
 body{background:var(--bg);color:var(--text);font-family:var(--ff-body);display:flex;flex-direction:column;max-width:430px;margin:0 auto;border-left:1px solid var(--border);border-right:1px solid var(--border)}
+
+/* Safari/iOS viewport fallback to prevent clipped layouts. */
+@supports (height: 100dvh){
+  html,body{height:100dvh}
+}
+@supports (-webkit-touch-callout: none){
+  html{height:-webkit-fill-available}
+  body{min-height:-webkit-fill-available}
+}
 button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 ::-webkit-scrollbar{width:2px;height:2px}
 ::-webkit-scrollbar-thumb{background:var(--s4);border-radius:1px}
@@ -77,6 +86,7 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
   border-radius:24px;
   background:rgba(255,255,255,.08);
   border:1px solid rgba(255,255,255,.2);
+  -webkit-backdrop-filter:blur(6px);
   backdrop-filter:blur(6px);
 }
 .birthday-subtitle{margin:0 0 10px;font-size:clamp(.9rem,2vw,1.1rem);letter-spacing:.16em;text-transform:uppercase;color:#f5d0fe}
@@ -416,7 +426,9 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
   background:rgba(0,0,0,.65);
   color:#fff;font-size:8px;font-weight:800;
   padding:2px 7px;border-radius:20px;
-  letter-spacing:.04em;backdrop-filter:blur(4px);
+  letter-spacing:.04em;
+  -webkit-backdrop-filter:blur(4px);
+  backdrop-filter:blur(4px);
 }
 
 .fx-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
@@ -632,8 +644,15 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .tog input:checked~.tog-th{left:22px}
 
 /* COLOR MODAL */
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);z-index:900;display:flex;align-items:flex-end;animation:fi .18s ease;overflow-y:auto}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.78);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);z-index:900;display:flex;align-items:flex-end;animation:fi .18s ease;overflow-y:auto}
 @keyframes fi{from{opacity:0}to{opacity:1}}
+
+/* Fallback for older Safari/WebKit where backdrop blur is unreliable. */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .modal-bg{background:rgba(0,0,0,.9)}
+  .birthday-card{background:rgba(24,24,31,.94)}
+  .tmpl-frames-pill{background:rgba(0,0,0,.85)}
+}
 
 /* BIRTHDAY SPLASH */
 #birthday-splash{
@@ -667,6 +686,7 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
   border-radius:24px;
   background:rgba(255,255,255,.08);
   border:1px solid rgba(255,255,255,.2);
+  -webkit-backdrop-filter:blur(6px);
   backdrop-filter:blur(6px);
 }
 .birthday-subtitle{margin:0 0 10px;font-size:clamp(.9rem,2vw,1.1rem);letter-spacing:.16em;text-transform:uppercase;color:#f5d0fe}
