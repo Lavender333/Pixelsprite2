@@ -177,12 +177,43 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
     radial-gradient(circle at 30% 22%, rgba(255,255,255,.38), rgba(255,255,255,0) 60%),
     linear-gradient(180deg, #fdf2f8 0%, #fce7f3 52%, #fbcfe8 100%);
 }
+.tcard.bunny .tcard-preview::after{
+  content:"";
+  position:absolute;inset:0;
+  background:
+    radial-gradient(circle at 20% 18%, rgba(255,255,255,.9) 0 2px, transparent 3px),
+    radial-gradient(circle at 72% 28%, rgba(255,255,255,.8) 0 1px, transparent 2px),
+    radial-gradient(circle at 35% 70%, rgba(255,255,255,.7) 0 1px, transparent 2px),
+    radial-gradient(circle at 80% 74%, rgba(255,255,255,.9) 0 2px, transparent 3px);
+  opacity:.8;
+  animation:tcard-sparkle 2.6s ease-in-out infinite;
+  pointer-events:none;
+}
 .tcard.bunny .tcard-preview canvas{
   filter:drop-shadow(0 5px 12px rgba(20,24,36,.45));
+}
+.tcard.premium .tcard-preview::before{
+  content:"";
+  position:absolute;inset:-20% -40%;
+  background:linear-gradient(120deg, transparent 0%, rgba(255,255,255,.35) 45%, rgba(255,255,255,.6) 50%, rgba(255,255,255,.35) 55%, transparent 100%);
+  transform:translateX(-30%) rotate(2deg);
+  animation:tcard-shimmer 3.6s ease-in-out infinite;
+  pointer-events:none;
+  mix-blend-mode:screen;
 }
 .tcard.premium{border-color:rgba(255,183,213,.6);box-shadow:0 6px 18px rgba(255,111,165,.18)}
 .tcard.premium:hover{border-color:#ff9cb6}
 .tcard.premium .tcard-tag{background:rgba(255,156,182,.25);color:#ffb3c7}
+
+@keyframes tcard-sparkle{
+  0%,100%{opacity:.55;transform:translateY(0)}
+  50%{opacity:1;transform:translateY(-2px)}
+}
+@keyframes tcard-shimmer{
+  0%{transform:translateX(-40%) rotate(2deg);opacity:.15}
+  50%{transform:translateX(10%) rotate(2deg);opacity:.6}
+  100%{transform:translateX(40%) rotate(2deg);opacity:.2}
+}
 .tcard-icon{font-size:30px;line-height:1;display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:1;background:var(--s3)}
 .tcard-bottom{padding:6px 7px 7px}
 .tcard-name{font-size:10px;font-weight:800;color:var(--text);letter-spacing:.01em;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
