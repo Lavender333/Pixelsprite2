@@ -4198,7 +4198,8 @@ function unlockLevelFor(key){
 }
 
 function isUnlockAvailable(key){
-  return ST.level>=unlockLevelFor(key);
+  // All tools unlocked.
+  return true;
 }
 
 function unlockNotice(key){
@@ -4208,9 +4209,8 @@ function unlockNotice(key){
 }
 
 function requireUnlock(key){
-  if(isUnlockAvailable(key)) return true;
-  toast(unlockNotice(key));
-  return false;
+  // Backward-compatible gate check; always allow.
+  return true;
 }
 
 function syncCanvasUnlockUI(){
