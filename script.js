@@ -800,6 +800,72 @@ window.COLORING_TEMPLATES = [
   },
 },
 
+// ── COLOR-ZONE CAT (A/B/C body zones + D eyes + E scarf + F nose) ───
+{
+  id: 'color_zone_cat',
+  name: 'Color-Zone Cat',
+  ico: '🐱',
+  tag: 'new',
+  size: 32,
+  palette: ['#CBA8F7','#9D7BDA','#9ED8F4','#2D2B63','#F4714A','#F7F3FF'],
+  paletteNames: ['A Body Base','B Body Shadow','C Body Highlight','D Eyes','E Scarf','F Nose'],
+  drawOutline(ctx) {
+    const B = '#1E1E1E';
+    const px = (arr) => arr.forEach(([x,y]) => { ctx.fillStyle=B; ctx.fillRect(x,y,1,1); });
+    const h = (x1,x2,y) => { for(let x=x1; x<=x2; x++) ctx.fillRect(x,y,1,1); };
+    const v = (x,y1,y2) => { for(let y=y1; y<=y2; y++) ctx.fillRect(x,y,1,1); };
+    const box = (x,y,w,hg) => { h(x,x+w-1,y); h(x,x+w-1,y+hg-1); v(x,y,y+hg-1); v(x+w-1,y,y+hg-1); };
+    ctx.fillStyle = B;
+
+    // Ears (slightly triangular)
+    px([[11,1],[12,1],[13,1],[19,1],[20,1],[21,1]]);
+    h(10,14,2); h(18,22,2);
+    v(10,2,4); v(14,2,4); v(18,2,4); v(22,2,4);
+
+    // Head outline (rounder than a box)
+    h(11,21,4);
+    v(9,5,10); v(23,5,10);
+    h(10,22,11);
+    h(11,21,12);
+
+    // Scarf band and hanging tail
+    h(10,22,13);
+    v(10,13,15); v(22,13,15);
+    h(11,21,15);
+    box(21,15,3,5); // scarf tail flap
+
+    // Body outline + feet
+    v(9,16,24); v(22,16,24);
+    h(10,21,16);
+    h(10,22,24);
+    h(10,14,27); h(16,20,27); h(22,23,27);
+    v(10,24,27); v(14,24,27); v(16,24,27); v(20,24,27); v(22,24,27); v(23,24,27);
+
+    // Fluffy tail (stepped contour)
+    h(4,8,16);
+    v(3,17,22);
+    v(9,17,24);
+    h(3,9,23);
+    h(4,8,24);
+    h(5,7,25);
+    px([[8,25],[9,24],[9,22],[8,21],[7,21],[6,22],[5,22],[4,21]]);
+
+    // Face details: eyes + nose zones
+    box(13,8,2,3);
+    box(17,8,2,3);
+    box(15,11,2,2);
+
+    // Internal zone separators (A/B/C)
+    box(10,6,5,5);   // B: head shadow
+    box(9,17,5,6);   // B: body shadow
+    box(4,18,3,5);   // B: tail shadow
+
+    box(18,6,3,4);   // C: head highlight
+    box(15,18,6,5);  // C: chest/body highlight
+    box(6,17,3,3);   // C: tail highlight
+  },
+},
+
 // ── PIXEL HEART (simpler coloring template — good for beginners) ──────
 {
   id: 'color_heart',
@@ -3372,7 +3438,7 @@ function loadColoringTemplate(id){
 
     flash();
     Economy.track('template:load', { id: tmpl.id, type: 'coloring' });
-    toast(`🐰 ${tmpl.name} — color it in!`);
+    toast(`${tmpl.ico || '🎨'} ${tmpl.name} — color it in!`);
   }, 50);
 }
 
@@ -3460,15 +3526,25 @@ function showColoringBanner(tmpl){
       position:absolute;top:0;left:0;right:0;z-index:60;
       background:linear-gradient(90deg,rgba(255,107,171,.9),rgba(255,182,193,.9));
       color:#1E1E1E;font-size:10px;font-weight:800;
-      padding:5px 10px;display:flex;align-items:center;justify-content:space-between;
+      padding:6px 10px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
       border-bottom:1px solid rgba(255,107,171,.5);letter-spacing:.04em;
       -webkit-backdrop-filter:blur(4px);
       backdrop-filter:blur(4px);
     `;
     document.getElementById('cvs-wrap').appendChild(banner);
   }
+  const legend = (Array.isArray(tmpl.palette) && Array.isArray(tmpl.paletteNames))
+    ? tmpl.palette.map((col, i) => {
+        const label = tmpl.paletteNames[i];
+        if(!label) return '';
+        return `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.22);padding:1px 5px;border-radius:999px"><i style="width:8px;height:8px;border-radius:2px;background:${col};border:1px solid rgba(0,0,0,.2)"></i>${label}</span>`;
+      }).join('')
+    : '';
   banner.innerHTML = `
-    <span>🐰 Color-In Mode · ${tmpl.name}</span>
+    <div style="display:flex;flex-direction:column;gap:4px;min-width:0">
+      <span>${tmpl.ico || '🎨'} Color-In Mode · ${tmpl.name}</span>
+      ${legend ? `<div style="display:flex;flex-wrap:wrap;gap:4px;font-size:9px;letter-spacing:.02em">${legend}</div>` : ''}
+    </div>
     <button onclick="clearColoringMode()" style="background:none;border:none;color:#1E1E1E;font-size:12px;font-weight:900;cursor:pointer;padding:0 4px">✕</button>
   `;
   banner.style.display = 'flex';
@@ -4185,78 +4261,20 @@ function buildHomeProof(){
   proof.textContent=`${joined} creators joined this week. ${trends[doy%trends.length]}.`;
 }
 
-const HOME_UNLOCKS=[
-  {key:'mirror-draw',lvl:2,name:'Mirror Draw',meta:'Symmetry assist'},
-  {key:'glow-brush',lvl:4,name:'Glow Brush',meta:'Cinematic bloom'},
-  {key:'auto-outline',lvl:6,name:'Auto Outline',meta:'One-tap cleanup'},
-  {key:'fx-remix',lvl:8,name:'FX Remix',meta:'Palette harmonizer'},
-  {key:'teen-mode',lvl:10,name:'Teen Mode',meta:'Advanced toolkit'},
-];
-
-function unlockLevelFor(key){
-  return HOME_UNLOCKS.find(u=>u.key===key)?.lvl ?? 1;
-}
-
-function isUnlockAvailable(key){
-  // All tools unlocked.
-  return true;
-}
-
-function unlockNotice(key){
-  const lvl=unlockLevelFor(key);
-  const name=HOME_UNLOCKS.find(u=>u.key===key)?.name||'Feature';
-  return `🔒 ${name} unlocks at Level ${lvl}`;
-}
-
 function requireUnlock(key){
   // Backward-compatible gate check; always allow.
   return true;
 }
 
 function syncCanvasUnlockUI(){
-  const bindings=[
-    {sel:'#t-mirror',key:'mirror-draw'},
-    {sel:'#t-select',key:'teen-mode'},
-    {sel:'#fx-glow',key:'glow-brush'},
-    {sel:'#fx-outline',key:'auto-outline'},
-    {sel:'#fx-remix',key:'fx-remix'},
-    {sel:'.sw-remix',key:'fx-remix'},
-    {sel:'.magic-btn',key:'teen-mode'},
-    {sel:'#anim-menu .fx-item',key:'teen-mode'},
-  ];
-  bindings.forEach(({sel,key})=>{
-    const lvl=unlockLevelFor(key);
-    const locked=!isUnlockAvailable(key);
-    document.querySelectorAll(sel).forEach(el=>{
-      el.classList.toggle('locked',locked);
-      const baseTitle=el.getAttribute('title')||el.textContent.trim();
-      if(!el.dataset.baseTitle) el.dataset.baseTitle=baseTitle;
-      el.title=locked?`${el.dataset.baseTitle} (Unlocks at Lv ${lvl})`:el.dataset.baseTitle;
-    });
-  });
-}
-
-function buildHomeUnlocks(){
-  const wrap=document.getElementById('home-unlocks');
-  if(!wrap) return;
-  wrap.innerHTML='';
-  const visible=HOME_UNLOCKS;
-  visible.forEach(tool=>{
-    const unlocked=isUnlockAvailable(tool.key);
-    const d=document.createElement('div');
-    d.className='unlock-pill '+(unlocked?'unlocked':'locked');
-    d.innerHTML=`<div class="unlock-name">${unlocked?'Unlocked':'Lv '+tool.lvl} ${tool.name}</div><div class="unlock-meta">${unlocked?tool.meta:'Keep creating to unlock'}</div>`;
-    wrap.appendChild(d);
-  });
+  // Clear any stale lock styling left by older cached versions.
+  document.querySelectorAll('.locked').forEach(el=>el.classList.remove('locked'));
 }
 
 function updateXPNextUnlock(){
   const out=document.getElementById('xp-next');
   if(!out) return;
-  const next=HOME_UNLOCKS.find(t=>!isUnlockAvailable(t.key));
-  if(!next){out.textContent='All core tools unlocked. Weekly Drop grants bonus XP.';return;}
-  const needed=Math.max(0,ST.xpMax-ST.xp);
-  out.textContent=`${needed} XP to unlock: ${next.name}`;
+  out.textContent='All tools unlocked. Keep creating to earn XP and streak rewards.';
 }
 
 function updateHomeNavState(activeTab){
@@ -4639,7 +4657,6 @@ function addXP(n){
   const xpm=document.getElementById('xp-max');if(xpm)xpm.textContent=ST.xpMax;
   const xpl=document.getElementById('xp-lvl');if(xpl)xpl.textContent=ST.level;
   updateXPNextUnlock();
-  buildHomeUnlocks();
   syncCanvasUnlockUI();
 }
 function claimStreak(){
@@ -4678,7 +4695,6 @@ function showTab(tab){
   if(tab==='home'){
     buildHomeProof();
     buildHomeGallery();
-    buildHomeUnlocks();
     refreshStreakUI();
     updateXPNextUnlock();
   }
@@ -4897,7 +4913,6 @@ function boot(){
   buildHomeTemplates();
   buildHomeProof();
   buildHomeGallery();
-  buildHomeUnlocks();
   buildTemplateGrid('tmpl-challenge',TEMPLATES.challenge);
   buildTemplateGrid('tmpl-items',TEMPLATES.items);
   buildTemplateGrid('tmpl-chars',TEMPLATES.chars);

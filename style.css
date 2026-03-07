@@ -89,6 +89,16 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
   -webkit-backdrop-filter:blur(6px);
   backdrop-filter:blur(6px);
 }
+.birthday-logo{
+  display:block;
+  width:clamp(84px,24vw,128px);
+  height:auto;
+  margin:0 auto 10px;
+  border-radius:20px;
+  box-shadow:0 12px 28px rgba(46,16,101,.36), 0 0 24px rgba(233,213,255,.32);
+  animation:birthday-logo-float 3s ease-in-out infinite;
+}
+@keyframes birthday-logo-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 .birthday-subtitle{margin:0 0 10px;font-size:clamp(.9rem,2vw,1.1rem);letter-spacing:.16em;text-transform:uppercase;color:#f5d0fe}
 .birthday-title{margin:0;font-size:clamp(2rem,6vw,4rem);line-height:1.05;color:#fff;text-shadow:0 0 24px rgba(255,255,255,.45),0 0 42px rgba(192,132,252,.55)}
 .birthday-start-button{
@@ -689,6 +699,16 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
   -webkit-backdrop-filter:blur(6px);
   backdrop-filter:blur(6px);
 }
+.birthday-logo{
+  display:block;
+  width:clamp(84px,24vw,128px);
+  height:auto;
+  margin:0 auto 10px;
+  border-radius:20px;
+  box-shadow:0 12px 28px rgba(46,16,101,.36), 0 0 24px rgba(233,213,255,.32);
+  animation:birthday-logo-float 3s ease-in-out infinite;
+}
+@keyframes birthday-logo-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 .birthday-subtitle{margin:0 0 10px;font-size:clamp(.9rem,2vw,1.1rem);letter-spacing:.16em;text-transform:uppercase;color:#f5d0fe}
 .birthday-title{margin:0;font-size:clamp(2rem,6vw,4rem);line-height:1.05;color:#fff;text-shadow:0 0 24px rgba(255,255,255,.45),0 0 42px rgba(192,132,252,.55)}
 .birthday-start-button{
