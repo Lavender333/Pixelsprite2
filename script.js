@@ -1188,8 +1188,11 @@ function hexToRGB(hex){if(!hex||hex.length<7)return null;const h=hex.replace('#'
 function rgbToHex(r,g,b){return'#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('')}
 function cloneImageData(src){const o=new ImageData(src.width,src.height);o.data.set(src.data);return o;}
 // --- Apply antiwash palette upgrade after all templates are loaded ---
-if (typeof upgradeAllPalettesExtended === 'function') {
-  upgradeAllPalettesExtended();
+if (typeof upgradeAllPalettesExtended === 'function' && !window.__pcPalettesUpgraded) {
+  window.__pcPalettesUpgraded = true;
+  setTimeout(()=>{
+    try { upgradeAllPalettesExtended(); } catch(e) { console.warn('[PaletteUpgrade]', e); }
+  }, 0);
 }
 
 // ── EXPORT STUBS FOR NEW FORMATS ─────

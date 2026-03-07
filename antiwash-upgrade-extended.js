@@ -134,7 +134,8 @@ function upgradeAllPalettesExtended() {
       if (e.palette) e.palette = upgradePalette(e.palette, guessFamily(e.name));
     });
   }
-  alert('All palettes upgraded (Phase 1: Anti-Wash, Extended)!');
+  // Keep this non-blocking so startup UX and button taps are never interrupted.
+  console.info('All palettes upgraded (Phase 1: Anti-Wash, Extended).');
 }
 
 // To use: open dev console and run upgradeAllPalettesExtended();
