@@ -3810,6 +3810,10 @@ function addColorToPal(){PALETTE.push(ST.color);buildPalRow();pickSwatch(PALETTE
 // ── EXPORT: PNG ───────────────────────────────────────
 function openExportModal(){
   document.getElementById('export-modal').style.display='flex';
+  document.querySelectorAll('#export-options-grid .exp-card').forEach(card=>{
+    // Ensure no stale inline style hides an export option.
+    card.style.display='flex';
+  });
   const sz = ST.size || 16;
   const scale = 8;
   const dim = sz * scale;

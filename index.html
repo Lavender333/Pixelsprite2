@@ -401,6 +401,7 @@
     <div class="mtitle">Export</div>
     <div class="exp-info" id="exp-info">Current frame · 16×16 px</div>
     <div class="exp-grid" id="export-options-grid">
+      <div class="exp-section-label">Quick Exports</div>
       <button class="exp-card" onclick="exportCanvas();closeExportModal()">
         <div class="exp-icon">🖼</div>
         <div class="exp-fmt">PNG</div>
@@ -411,6 +412,13 @@
         <div class="exp-fmt">JPEG</div>
         <div class="exp-desc">White background<br>For slides, docs, web<br><span class="exp-dim" id="exp-jpg-dim">128×128 px (8× scaled, white bg)</span></div>
       </button>
+      <button class="exp-card" onclick="exportTransparentPNG();closeExportModal()">
+        <div class="exp-icon">🖼</div>
+        <div class="exp-fmt">Transparent PNG</div>
+        <div class="exp-desc">Universal<br>Scratch, Canva, Slides, etc.</div>
+      </button>
+
+      <div class="exp-section-label">Platform Templates</div>
       <button class="exp-card" onclick="exportMinecraftSkin();closeExportModal()">
         <div class="exp-icon">🟩</div>
         <div class="exp-fmt">Minecraft Skin</div>
@@ -436,11 +444,8 @@
         <div class="exp-fmt">Roblox Decal</div>
         <div class="exp-desc">Square PNG<br>Roblox → Create → Decals</div>
       </button>
-      <button class="exp-card" onclick="exportTransparentPNG();closeExportModal()">
-        <div class="exp-icon">🖼</div>
-        <div class="exp-fmt">Transparent PNG</div>
-        <div class="exp-desc">Universal<br>Scratch, Canva, Slides, etc.</div>
-      </button>
+
+      <div class="exp-section-label">Animation & Game</div>
       <button class="exp-card exp-card-gif" onclick="closeExportModal();exportGIF()" id="exp-gif-card">
         <div class="exp-icon">🎞</div>
         <div class="exp-fmt">Animated GIF</div>
@@ -451,6 +456,13 @@
         <div class="exp-fmt">Sprite Sheet</div>
         <div class="exp-desc">PNG grid<br>Unity, Godot, game engines</div>
       </button>
+      <button class="exp-card" onclick="export3DTexture();closeExportModal()">
+        <div class="exp-icon">🧊</div>
+        <div class="exp-fmt">3D Model Base Texture</div>
+        <div class="exp-desc">PNG<br>Blender / Roblox Studio</div>
+      </button>
+
+      <div class="exp-section-label">Creator Kits</div>
       <button class="exp-card" onclick="exportSticker();closeExportModal()">
         <div class="exp-icon">🏷️</div>
         <div class="exp-fmt">Stickers (Print Ready)</div>
@@ -465,11 +477,6 @@
         <div class="exp-icon">📒</div>
         <div class="exp-fmt">Digital Planner Stickers</div>
         <div class="exp-desc">PNG w/ transparency<br>GoodNotes, Notability</div>
-      </button>
-      <button class="exp-card" onclick="export3DTexture();closeExportModal()">
-        <div class="exp-icon">🧊</div>
-        <div class="exp-fmt">3D Model Base Texture</div>
-        <div class="exp-desc">PNG<br>Blender / Roblox Studio</div>
       </button>
     </div>
     <div class="exp-note" id="exp-note">PixelSprite is not affiliated with, endorsed by, or sponsored by any third-party game or platform. All product names, trademarks, and registered trademarks are the property of their respective owners and are referenced for compatibility purposes only.</div>

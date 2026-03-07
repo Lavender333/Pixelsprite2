@@ -1,9 +1,11 @@
 /* EXPORT MODAL SECTION LABELS & HELPERS */
 .exp-section-label {
+  grid-column: 1 / -1;
+  display: block;
   font-size: 13px;
   font-weight: 700;
   color: var(--ind2, #7a7a9a);
-  margin: 18px 0 2px 2px;
+  margin: 10px 0 2px 2px;
   letter-spacing: 0.01em;
   text-transform: none;
 }
@@ -630,7 +632,7 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .tog input:checked~.tog-th{left:22px}
 
 /* COLOR MODAL */
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);z-index:900;display:flex;align-items:flex-end;animation:fi .18s ease}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);z-index:900;display:flex;align-items:flex-end;animation:fi .18s ease;overflow-y:auto}
 @keyframes fi{from{opacity:0}to{opacity:1}}
 
 /* BIRTHDAY SPLASH */
@@ -687,7 +689,7 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .birthday-sparkle::before{width:2px;height:180%}
 .birthday-sparkle::after{width:180%;height:2px}
 @keyframes sparkle-twinkle{0%,100%{transform:scale(.65) rotate(0);opacity:.35}50%{transform:scale(1.15) rotate(45deg);opacity:1}}
-.msheet{width:100%;background:var(--s1);border-radius:22px 22px 0 0;padding:18px;animation:su .26s cubic-bezier(.22,1,.36,1);position:relative;max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.msheet{width:100%;background:var(--s1);border-radius:22px 22px 0 0;padding:18px;animation:su .26s cubic-bezier(.22,1,.36,1);position:relative;max-height:calc(100vh - 12px);overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:calc(18px + env(safe-area-inset-bottom,0px))}
 @keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .mhandle{width:32px;height:4px;background:var(--s4);border-radius:2px;margin:0 auto 14px}
 .mtitle{font-family:var(--ff-display);font-size:20px;margin-bottom:12px}
@@ -712,7 +714,7 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 
 /* EXPORT MODAL */
 .exp-info{font-size:11px;color:var(--text3);font-family:var(--ff-mono);background:var(--s3);border-radius:8px;padding:8px 12px;margin-bottom:14px;text-align:center}
-.exp-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.exp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px}
 .exp-card{background:var(--s2);border:1.5px solid var(--border2);border-radius:16px;padding:14px 12px;display:flex;flex-direction:column;align-items:flex-start;gap:6px;cursor:pointer;text-align:left;transition:.15s;color:var(--text)}
 .exp-card:hover{border-color:var(--ind);background:var(--s3);transform:translateY(-1px)}
 .exp-card:active{transform:scale(.98)}
@@ -740,6 +742,10 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 @keyframes tin{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 .cp{position:fixed;border-radius:2px;z-index:9998;pointer-events:none;animation:cfall linear forwards}
 @keyframes cfall{0%{transform:translateY(-10px) rotate(0deg);opacity:1}100%{transform:translateY(105vh) rotate(720deg);opacity:0}}
+
+@media (max-width:380px){
+  .exp-grid{grid-template-columns:1fr}
+}
 
 .birthday-policy-link {
   margin-top: 14px;
