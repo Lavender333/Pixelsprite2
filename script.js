@@ -699,24 +699,24 @@ const bunnySprite = {
     const BG = '#FFF4FA';
     const BG_EDGE = '#F5D1E5';
     const fur = {
-      base: '#E8D8FF',
-      shadow: '#BDA6F0',
-      deep: '#8E79CC',
-      highlight: '#FBF7FF'
+      base: '#E4D6FF',
+      shadow: '#B79AE8',
+      deep: '#9076C9',
+      highlight: '#FFF7FF'
     };
-    const ear = '#FFB4CF';
+    const ear = '#FFB9D5';
     const eye = {
-      base: '#2B2F5C',
-      shade: '#1A1F44',
-      shine: '#BFD1FF'
+      base: '#2A2C63',
+      shade: '#171A3E',
+      shine: '#C7D5FF'
     };
     const scarf = {
-      base: '#F06A59',
-      shadow: '#C94F43',
-      highlight: '#FF8A78'
+      base: '#F06262',
+      shadow: '#C94B4B',
+      highlight: '#FF8C8C'
     };
-    const blush = '#FFD1E8';
-    const nose = '#FF9BC0';
+    const blush = '#FFD7EC';
+    const nose = '#FF9EC8';
 
     const px = (x, y, c) => {
       ctx.fillStyle = c;
@@ -761,88 +761,83 @@ const bunnySprite = {
       if (i > 1 && i < 10) px(10 + i, 27, 'rgba(60,45,80,0.1)');
     }
 
-    // Ears
-    rectOutline(8, 2, 5, 10, OUT);
-    rectOutline(19, 2, 5, 10, OUT);
-    fill(9, 3, 3, 8, fur.base);
-    fill(20, 3, 3, 8, fur.base);
-    fill(10, 5, 1, 4, ear);
+    // Ears (tall, simple)
+    rectOutline(9, 2, 4, 9, OUT);
+    rectOutline(19, 2, 4, 9, OUT);
+    fill(10, 3, 2, 7, fur.base);
+    fill(20, 3, 2, 7, fur.base);
+    fill(11, 5, 1, 4, ear);
     fill(21, 5, 1, 4, ear);
 
-    // Head and body blobs
+    // Head and body blobs (big head, tiny body)
     const headRows = [
-      [9, 12, 19],
-      [10, 11, 20],
+      [7, 13, 18],
+      [8, 12, 19],
+      [9, 11, 20],
+      [10, 10, 21],
       [11, 10, 21],
       [12, 10, 21],
       [13, 10, 21],
       [14, 10, 21],
-      [15, 10, 21],
-      [16, 11, 20],
-      [17, 12, 19],
-      [18, 13, 18]
+      [15, 11, 20],
+      [16, 12, 19],
+      [17, 13, 18]
     ];
     const bodyRows = [
-      [18, 12, 19],
-      [19, 11, 20],
-      [20, 11, 20],
-      [21, 11, 20],
-      [22, 12, 19],
-      [23, 12, 19],
-      [24, 12, 19],
-      [25, 13, 18]
+      [18, 14, 17],
+      [19, 13, 18],
+      [20, 13, 18],
+      [21, 13, 18],
+      [22, 14, 17],
+      [23, 14, 17],
+      [24, 15, 16]
     ];
     drawBlob(headRows, fur.base, OUT);
     drawBlob(bodyRows, fur.base, OUT);
 
-    // Tail
+    // Tail puff
     const tailRows = [
-      [18, 6, 9],
-      [19, 5, 9],
-      [20, 5, 10],
-      [21, 6, 10],
-      [22, 7, 10],
-      [23, 7, 9]
+      [18, 6, 8],
+      [19, 5, 8],
+      [20, 5, 9],
+      [21, 6, 9],
+      [22, 6, 8]
     ];
     drawBlob(tailRows, fur.base, OUT);
 
-    // Shadows
-    fill(18, 14, 4, 3, fur.shadow);
-    fill(18, 19, 3, 2, fur.shadow);
-    fill(17, 21, 4, 2, fur.shadow);
-    fill(8, 19, 3, 3, fur.shadow);
+    // Shadows + highlights
+    fill(18, 12, 3, 3, fur.shadow);
+    fill(17, 18, 3, 2, fur.shadow);
+    fill(8, 19, 2, 2, fur.shadow);
+    px(20, 11, fur.deep);
     px(20, 12, fur.deep);
-    px(20, 13, fur.deep);
-    px(20, 14, fur.deep);
-
-    // Highlights
-    fill(12, 12, 3, 2, fur.highlight);
-    fill(12, 20, 3, 1, fur.highlight);
+    fill(12, 11, 3, 2, fur.highlight);
+    fill(12, 19, 2, 1, fur.highlight);
     px(7, 20, fur.highlight);
 
-    // Scarf
-    fill(11, 18, 11, 3, scarf.base);
-    fill(19, 19, 4, 5, scarf.base);
-    fill(11, 18, 11, 1, scarf.highlight);
-    fill(11, 20, 11, 1, scarf.shadow);
-    fill(20, 20, 2, 3, scarf.shadow);
+    // Scarf (thin, below face)
+    fill(12, 19, 8, 2, scarf.base);
+    fill(18, 20, 4, 4, scarf.base);
+    fill(12, 19, 8, 1, scarf.highlight);
+    fill(12, 20, 8, 1, scarf.shadow);
+    fill(19, 21, 2, 2, scarf.shadow);
 
     // Face
-    fill(13, 14, 3, 4, eye.base);
-    fill(18, 14, 3, 4, eye.base);
-    px(13, 15, eye.shine);
-    px(18, 15, eye.shine);
-    px(14, 17, eye.shade);
-    px(19, 17, eye.shade);
-    fill(12, 17, 2, 1, blush);
-    fill(20, 17, 2, 1, blush);
-    px(16, 17, nose);
-    px(15, 18, OUT);
-    px(17, 18, OUT);
+    fill(13, 13, 2, 3, eye.base);
+    fill(18, 13, 2, 3, eye.base);
+    px(13, 14, eye.shine);
+    px(18, 14, eye.shine);
+    px(14, 15, eye.shade);
+    px(19, 15, eye.shade);
+    fill(12, 16, 2, 1, blush);
+    fill(19, 16, 2, 1, blush);
+    px(16, 16, nose);
+    px(15, 17, OUT);
+    px(17, 17, OUT);
 
     // Feet
-    fill(12, 25, 2, 1, OUT_LIT);
-    fill(18, 25, 2, 1, OUT_LIT);
+    fill(13, 24, 2, 1, OUT_LIT);
+    fill(17, 24, 2, 1, OUT_LIT);
   }
 };
 
@@ -861,27 +856,27 @@ const premiumBunnyTemplate = {
     const fur = {
       highlight: '#FFFFFF',
       light: '#F4E9FF',
-      base: '#E6D2FF',
-      mid: '#C7ADF7',
-      shadow: '#9A7EDB',
-      deep: '#6C55B8'
+      base: '#DEC9FF',
+      mid: '#C3A3F2',
+      shadow: '#9877D6',
+      deep: '#6E55B6'
     };
 
     const eye = {
       highlight: '#FFFFFF',
-      light: '#B8C6FF',
-      base: '#5567E6',
+      light: '#C3D0FF',
+      base: '#5165E6',
       shadow: '#2B2F5C'
     };
 
     const scarf = {
-      highlight: '#FFB1A5',
-      base: '#FF775F',
-      shadow: '#D85849'
+      highlight: '#FFB2AA',
+      base: '#FF6F61',
+      shadow: '#D8564B'
     };
 
-    const blush = '#FFD2EA';
-    const nose = '#FF9BC0';
+    const blush = '#FFD7EC';
+    const nose = '#FF9EC8';
 
     const px = (x, y, c) => {
       ctx.fillStyle = c;
@@ -933,89 +928,86 @@ const premiumBunnyTemplate = {
     }
 
     // Ears
-    rectOutline(8, 2, 5, 10, OUT);
-    rectOutline(19, 2, 5, 10, OUT);
-    fill(9, 3, 3, 8, fur.base);
-    fill(20, 3, 3, 8, fur.base);
-    fill(10, 5, 1, 4, '#FFB7D2');
+    rectOutline(9, 2, 4, 9, OUT);
+    rectOutline(19, 2, 4, 9, OUT);
+    fill(10, 3, 2, 7, fur.base);
+    fill(20, 3, 2, 7, fur.base);
+    fill(11, 5, 1, 4, '#FFB7D2');
     fill(21, 5, 1, 4, '#FFB7D2');
 
     // Head and body blobs
     const headRows = [
-      [9, 12, 19],
-      [10, 11, 20],
+      [7, 13, 18],
+      [8, 12, 19],
+      [9, 11, 20],
+      [10, 10, 21],
       [11, 10, 21],
       [12, 10, 21],
       [13, 10, 21],
       [14, 10, 21],
-      [15, 10, 21],
-      [16, 11, 20],
-      [17, 12, 19],
-      [18, 13, 18]
+      [15, 11, 20],
+      [16, 12, 19],
+      [17, 13, 18]
     ];
     const bodyRows = [
-      [18, 12, 19],
-      [19, 11, 20],
-      [20, 11, 20],
-      [21, 11, 20],
-      [22, 12, 19],
-      [23, 12, 19],
-      [24, 12, 19],
-      [25, 13, 18]
+      [18, 14, 17],
+      [19, 13, 18],
+      [20, 13, 18],
+      [21, 13, 18],
+      [22, 14, 17],
+      [23, 14, 17],
+      [24, 15, 16]
     ];
     drawBlob(headRows, fur.base, OUT);
     drawBlob(bodyRows, fur.base, OUT);
 
     // Tail
     const tailRows = [
-      [18, 6, 9],
-      [19, 5, 9],
-      [20, 5, 10],
-      [21, 6, 10],
-      [22, 7, 10],
-      [23, 7, 9]
+      [18, 6, 8],
+      [19, 5, 8],
+      [20, 5, 9],
+      [21, 6, 9],
+      [22, 6, 8]
     ];
     drawBlob(tailRows, fur.base, OUT);
 
     // Fur shading
-    fill(18, 13, 4, 3, fur.mid);
-    fill(18, 18, 3, 3, fur.shadow);
-    fill(17, 21, 4, 2, fur.shadow);
-    fill(8, 19, 3, 3, fur.mid);
+    fill(18, 12, 3, 3, fur.mid);
+    fill(17, 18, 3, 2, fur.shadow);
+    fill(8, 19, 2, 2, fur.mid);
+    px(20, 11, fur.deep);
     px(20, 12, fur.deep);
-    px(20, 13, fur.deep);
-    px(20, 14, fur.deep);
-    fill(12, 12, 3, 2, fur.highlight);
-    fill(12, 20, 3, 1, fur.light);
+    fill(12, 11, 3, 2, fur.highlight);
+    fill(12, 19, 2, 1, fur.light);
     px(7, 20, fur.highlight);
 
     // Scarf
-    fill(11, 18, 11, 3, scarf.base);
-    fill(19, 19, 4, 5, scarf.base);
-    fill(11, 18, 11, 1, scarf.highlight);
-    fill(11, 20, 11, 1, scarf.shadow);
-    fill(20, 20, 2, 3, scarf.shadow);
-    px(19, 20, scarf.highlight);
-    px(19, 22, scarf.highlight);
+    fill(12, 19, 8, 2, scarf.base);
+    fill(18, 20, 4, 4, scarf.base);
+    fill(12, 19, 8, 1, scarf.highlight);
+    fill(12, 20, 8, 1, scarf.shadow);
+    fill(19, 21, 2, 2, scarf.shadow);
+    px(18, 21, scarf.highlight);
+    px(18, 23, scarf.highlight);
 
     // Face
-    fill(13, 14, 3, 4, eye.base);
-    fill(18, 14, 3, 4, eye.base);
-    px(13, 15, eye.light);
-    px(18, 15, eye.light);
-    px(14, 17, eye.shadow);
-    px(19, 17, eye.shadow);
-    fill(12, 17, 2, 1, blush);
-    fill(20, 17, 2, 1, blush);
-    px(16, 17, nose);
-    px(15, 18, OUT);
-    px(17, 18, OUT);
+    fill(13, 13, 2, 3, eye.base);
+    fill(18, 13, 2, 3, eye.base);
+    px(13, 14, eye.light);
+    px(18, 14, eye.light);
+    px(14, 15, eye.shadow);
+    px(19, 15, eye.shadow);
+    fill(12, 16, 2, 1, blush);
+    fill(19, 16, 2, 1, blush);
+    px(16, 16, nose);
+    px(15, 17, OUT);
+    px(17, 17, OUT);
 
     // Rim light + feet
     px(21, 12, '#ECE6FF');
     px(21, 13, '#ECE6FF');
-    fill(12, 25, 2, 1, OUT_LIT);
-    fill(18, 25, 2, 1, OUT_LIT);
+    fill(13, 24, 2, 1, OUT_LIT);
+    fill(17, 24, 2, 1, OUT_LIT);
   }
 };
 
