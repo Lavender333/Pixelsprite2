@@ -44,9 +44,6 @@
 
 <link rel="stylesheet" href="style.css">
 
-<!-- Antiwash Palette Upgrade System -->
-<script src="antiwash-upgrade-extended.js"></script>
-
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -401,9 +398,9 @@
   <div class="msheet">
     <div class="mhandle"></div>
     <button class="mclose" onclick="closeExportModal()">✕</button>
-    <div class="mtitle">Export</div>
+    <div class="mtitle">Export <label class="expert-toggle"><input type="checkbox" onchange="toggleExpertMode(this.checked)"> Expert</label></div>
     <div class="exp-info" id="exp-info">Current frame · 16×16 px</div>
-    <div class="exp-grid">
+    <div class="exp-grid" id="export-options-grid">
       <button class="exp-card" onclick="exportCanvas();closeExportModal()">
         <div class="exp-icon">🖼</div>
         <div class="exp-fmt">PNG</div>
@@ -414,27 +411,27 @@
         <div class="exp-fmt">JPEG</div>
         <div class="exp-desc">White background<br>For slides, docs, web<br><span class="exp-dim" id="exp-jpg-dim">128×128 px (8× scaled, white bg)</span></div>
       </button>
-      <button class="exp-card" onclick="exportMinecraftSkin();closeExportModal()">
+      <button class="exp-card expert-only" onclick="exportMinecraftSkin();closeExportModal()">
         <div class="exp-icon">🟩</div>
         <div class="exp-fmt">Minecraft Skin</div>
         <div class="exp-desc">64×64 PNG<br>minecraft.net → Profile → Change Skin</div>
       </button>
-      <button class="exp-card" onclick="exportMinecraftTexturePack();closeExportModal()">
+      <button class="exp-card expert-only" onclick="exportMinecraftTexturePack();closeExportModal()">
         <div class="exp-icon">🗂️</div>
         <div class="exp-fmt">Minecraft Texture Pack</div>
         <div class="exp-desc">Zipped Resource Pack<br>Resource Pack folder (game settings)</div>
       </button>
-      <button class="exp-card" onclick="exportRobloxShirt();closeExportModal()">
+      <button class="exp-card expert-only" onclick="exportRobloxShirt();closeExportModal()">
         <div class="exp-icon">👕</div>
         <div class="exp-fmt">Roblox Shirt Template</div>
         <div class="exp-desc">585×559 PNG<br>Roblox → Create → Shirts</div>
       </button>
-      <button class="exp-card" onclick="exportRobloxPants();closeExportModal()">
+      <button class="exp-card expert-only" onclick="exportRobloxPants();closeExportModal()">
         <div class="exp-icon">👖</div>
         <div class="exp-fmt">Roblox Pants Template</div>
         <div class="exp-desc">585×559 PNG<br>Roblox → Create → Pants</div>
       </button>
-      <button class="exp-card" onclick="exportRobloxDecal();closeExportModal()">
+      <button class="exp-card expert-only" onclick="exportRobloxDecal();closeExportModal()">
         <div class="exp-icon">🖼️</div>
         <div class="exp-fmt">Roblox Decal</div>
         <div class="exp-desc">Square PNG<br>Roblox → Create → Decals</div>
@@ -449,7 +446,7 @@
         <div class="exp-fmt">Animated GIF</div>
         <div class="exp-desc">Discord, websites, planners<br><span class="exp-dim" id="exp-gif-dim">128×128 px · 1 frame · 8 FPS</span></div>
       </button>
-      <button class="exp-card" onclick="exportSpriteSheet();closeExportModal()">
+      <button class="exp-card expert-only" onclick="exportSpriteSheet();closeExportModal()">
         <div class="exp-icon">🗃️</div>
         <div class="exp-fmt">Sprite Sheet</div>
         <div class="exp-desc">PNG grid<br>Unity, Godot, game engines</div>
@@ -469,7 +466,7 @@
         <div class="exp-fmt">Digital Planner Stickers</div>
         <div class="exp-desc">PNG w/ transparency<br>GoodNotes, Notability</div>
       </button>
-      <button class="exp-card" onclick="export3DTexture();closeExportModal()">
+      <button class="exp-card expert-only" onclick="export3DTexture();closeExportModal()">
         <div class="exp-icon">🧊</div>
         <div class="exp-fmt">3D Model Base Texture</div>
         <div class="exp-desc">PNG<br>Blender / Roblox Studio</div>
@@ -479,3 +476,8 @@
     <div class="export-legal-footer">PixelSprite is not affiliated with, endorsed by, or sponsored by Roblox Corporation or Mojang Studios. Roblox and Minecraft are registered trademarks of their respective owners.</div>
   </div>
 </div>
+<!-- Antiwash Palette Upgrade System -->
+<script src="antiwash-upgrade-extended.js"></script>
+<script src="script.js"></script>
+</body>
+</html>

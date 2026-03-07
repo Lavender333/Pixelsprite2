@@ -753,3 +753,9 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .birthday-policy-link:hover {
   color: #fff7ed;
 }
+
+/* Expert Mode export toggle */
+.expert-only{display:none}
+.expert-mode .expert-only{display:flex}
+.expert-toggle{font-size:12px;font-weight:600;cursor:pointer;margin-left:10px;vertical-align:middle;user-select:none}
+.expert-toggle input{margin-right:4px;cursor:pointer}
