@@ -3511,6 +3511,51 @@ function changeSize(sz){
   SFX.click();
 }
 
+function triggerImageImport(){
+  const input = document.getElementById('image-import-input');
+  if(!input) return;
+  input.value = '';
+  input.click();
+}
+
+function handleImageImport(evt){
+  const file = evt?.target?.files?.[0];
+  if(!file) return;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      placeImportedImage(img);
+      evt.target.value = '';
+    };
+    img.onerror = () => toast('Could not load that image.');
+    img.src = e.target.result;
+  };
+  reader.onerror = () => toast('Could not read that file.');
+  reader.readAsDataURL(file);
+}
+
+function placeImportedImage(img){
+  const ctx = document.getElementById('mc').getContext('2d');
+  const maxSide = Math.max(1, Math.floor(ST.size * 0.75));
+  const scale = Math.min(maxSide / img.width, maxSide / img.height, 1);
+  const w = Math.max(1, Math.round(img.width * scale));
+  const h = Math.max(1, Math.round(img.height * scale));
+  const x = Math.floor((ST.size - w) / 2);
+  const y = Math.floor((ST.size - h) / 2);
+
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, 0, 0, img.width, img.height, x, y, w, h);
+  ctx.restore();
+
+  captureFrame();
+  pushHistory();
+  setTool('select');
+  toast('🖼️ Image placed. Use Select to move/edit it.');
+}
+
 // ── GRID OVERLAY ──────────────────────────────────────
 function toggleGrid(){
   ST.showGrid=!ST.showGrid;
