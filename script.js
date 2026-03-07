@@ -4351,6 +4351,75 @@ function exportProject(idx){
 }
 
 // ── TEMPLATES ─────────────────────────────────────────
+function inferTemplateStyleProfile(id,name=''){
+  const key=String(id||name||'').toLowerCase();
+  if(/room|city|forest|space|scene/.test(key)) return 'scene';
+  if(/hoodie|cap|sneaker|boot|shirt|pants|bag|wear/.test(key)) return 'wearable';
+  if(/shield|badge|sword|icon/.test(key)) return 'icon';
+  if(/cat|dog|dragon|ghost|character|alien|pet|avatar/.test(key)) return 'avatar';
+  return 'default';
+}
+
+function applyTemplateStylePass(ctx,w,h,profile='default'){
+  const img=ctx.getImageData(0,0,w,h);
+  const d=img.data;
+  const idx=(x,y)=>((y*w+x)*4);
+  const alphaAt=(x,y)=>{
+    if(x<0||y<0||x>=w||y>=h) return 0;
+    return d[idx(x,y)+3];
+  };
+  const clamp=(v)=>Math.max(0,Math.min(255,v));
+
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const i=idx(x,y);
+      if(d[i+3]<10) continue;
+
+      // Flat color + controlled shading: hard 3-4 value bands.
+      let r=Math.round(d[i]/32)*32;
+      let g=Math.round(d[i+1]/32)*32;
+      let b=Math.round(d[i+2]/32)*32;
+
+      const topEdge=alphaAt(x,y-1)<10;
+      const leftEdge=alphaAt(x-1,y)<10;
+      const rightEdge=alphaAt(x+1,y)<10;
+      const bottomEdge=alphaAt(x,y+1)<10;
+
+      // Global light: top-left brighter, underside darker.
+      if(y < h*0.34 || topEdge || leftEdge){ r+=14; g+=14; b+=14; }
+      if(y > h*0.72 || bottomEdge || rightEdge){ r-=18; g-=18; b-=18; }
+
+      // Category tuning.
+      if(profile==='scene'){
+        if(y < h*0.5){ r-=4; g-=4; b-=4; }
+        else { r-=8; g-=8; b-=8; }
+      } else if(profile==='wearable'){
+        if(bottomEdge) { r-=10; g-=10; b-=10; }
+      } else if(profile==='icon'){
+        if(topEdge||leftEdge){ r+=8; g+=8; b+=8; }
+      }
+
+      d[i]=clamp(r); d[i+1]=clamp(g); d[i+2]=clamp(b);
+    }
+  }
+
+  // Depth anchor: 1px grounding shadow where forms contact empty space.
+  if(profile!=='scene'){
+    for(let x=0;x<w;x++){
+      let yFound=-1;
+      for(let y=h-2;y>=0;y--){
+        if(alphaAt(x,y)>10){ yFound=y; break; }
+      }
+      if(yFound>=0 && alphaAt(x,yFound+1)<10){
+        const si=idx(x,yFound+1);
+        d[si]=16; d[si+1]=24; d[si+2]=44; d[si+3]=170;
+      }
+    }
+  }
+
+  ctx.putImageData(img,0,0);
+}
+
 // ── Shared helper: build a tmpl card with live pixel preview ──
 function makeTmplCard({cls='', badgeTag='', onclick, name, previewFn, frameCount, y2kStyle=false, coloringStyle=false}){
   const d = document.createElement('div');
@@ -4407,11 +4476,12 @@ function makeTmplCard({cls='', badgeTag='', onclick, name, previewFn, frameCount
 function buildTemplateGrid(containerId, items){
   const el = document.getElementById(containerId); if(!el) return; el.innerHTML='';
   items.forEach(t=>{
+    const profile=inferTemplateStyleProfile(t.id,t.name);
     const card = makeTmplCard({
       cls: t.cat==='challenge' ? 'challenge-t' : '',
       badgeTag: t.tag,
       name: t.name,
-      previewFn: DRAWERS[t.id] ? (ctx,sz)=>DRAWERS[t.id](ctx,sz) : null,
+      previewFn: DRAWERS[t.id] ? (ctx,sz)=>{DRAWERS[t.id](ctx,sz);applyTemplateStylePass(ctx,sz,sz,profile);} : null,
       onclick: ()=>loadTemplate(t.id, t.name),
     });
     el.appendChild(card);
@@ -4421,11 +4491,12 @@ function buildTemplateGrid(containerId, items){
 function buildAnimGrid(){
   const el = document.getElementById('tmpl-anim'); if(!el) return; el.innerHTML='';
   ANIM_TEMPLATES.forEach(t=>{
+    const profile=inferTemplateStyleProfile(t.id,t.name);
     const card = makeTmplCard({
       badgeTag: t.tag,
       name: t.name,
       frameCount: t.frames,
-      previewFn: (ctx,sz)=>t.draw(ctx,sz,0),
+      previewFn: (ctx,sz)=>{t.draw(ctx,sz,0);applyTemplateStylePass(ctx,sz,sz,profile);},
       onclick: ()=>loadAnimTemplate(t),
     });
     el.appendChild(card);
@@ -4435,11 +4506,12 @@ function buildAnimGrid(){
 function buildY2KGrid(){
   const el = document.getElementById('tmpl-y2k'); if(!el) return; el.innerHTML='';
   TEMPLATES.y2k.forEach(t=>{
+    const profile=inferTemplateStyleProfile(t.id,t.name);
     const card = makeTmplCard({
       badgeTag: t.tag,
       name: t.name,
       y2kStyle: true,
-      previewFn: DRAWERS[t.id] ? (ctx,sz)=>DRAWERS[t.id](ctx,sz) : null,
+      previewFn: DRAWERS[t.id] ? (ctx,sz)=>{DRAWERS[t.id](ctx,sz);applyTemplateStylePass(ctx,sz,sz,profile);} : null,
       onclick: ()=>loadTemplate(t.id, t.name),
     });
     el.appendChild(card);
@@ -4455,7 +4527,11 @@ function buildHomeTemplates(){
     const prev=document.createElement('div');prev.className='tcard-preview';
     if(DRAWERS[t.id]){
       const cvs=document.createElement('canvas');cvs.width=32;cvs.height=32;
-      try{DRAWERS[t.id](cvs.getContext('2d'),32);}catch(e){}
+      try{
+        const cctx=cvs.getContext('2d');
+        DRAWERS[t.id](cctx,32);
+        applyTemplateStylePass(cctx,32,32,inferTemplateStyleProfile(t.id,t.name));
+      }catch(e){}
       prev.appendChild(cvs);
     } else {
       prev.className='tcard-icon';prev.textContent=t.ico;
@@ -4474,7 +4550,10 @@ function loadTemplate(id,name){
     document.getElementById('pname').textContent=name.toLowerCase().replace(/ /g,'-')+'.px';
     if(DRAWERS[id]){
       const ctx=document.getElementById('mc').getContext('2d');
-      ctx.clearRect(0,0,ST.size,ST.size);DRAWERS[id](ctx,ST.size);captureFrame();pushHistory();flash();toast(`✦ ${name} loaded!`);
+      ctx.clearRect(0,0,ST.size,ST.size);
+      DRAWERS[id](ctx,ST.size);
+      applyTemplateStylePass(ctx,ST.size,ST.size,inferTemplateStyleProfile(id,name));
+      captureFrame();pushHistory();flash();toast(`✦ ${name} loaded!`);
     }
   },50);
 }
@@ -4489,6 +4568,7 @@ function loadAnimTemplate(tmpl){
       const tmp=document.createElement('canvas');tmp.width=ST.size;tmp.height=ST.size;
       const tctx=tmp.getContext('2d');
       tmpl.draw(tctx,ST.size,f);
+      applyTemplateStylePass(tctx,ST.size,ST.size,inferTemplateStyleProfile(tmpl.id,tmpl.name));
       const id=tctx.getImageData(0,0,ST.size,ST.size);
       ST.frames.push(id);
       ST.undoStacks.push([cloneImageData(id)]);
