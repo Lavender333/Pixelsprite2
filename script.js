@@ -657,6 +657,7 @@ window.TEMPLATES = {
     {id:'badge',      ico:'🏅',  name:'Badge',          tag:'new'},
   ],
   chars: [
+    {id:'kawaii_bunny', ico:'🐰', name:'Kawaii Bunny', tag:'new'},
     {id:'cat',        ico:'🐱',  name:'Pixel Cat',     tag:''},
     {id:'dog',        ico:'🐶',  name:'Pixel Dog',     tag:''},
     {id:'ghost',      ico:'👻',  name:'Ghost Pet',     tag:'hot'},
@@ -677,7 +678,244 @@ window.TEMPLATES = {
     {id:'y2k_clip',   ico:'🦋',  name:'Butterfly Clips', tag:'new'},
     {id:'y2k_heart',  ico:'💗',  name:'Neon Heart Sign', tag:'hot'},
     {id:'y2k_mirror', ico:'🪞',  name:'Vanity Mirror',   tag:'new'},
+    {id:'premium_bunny', ico:'🐰', name:'Kawaii Bunny Premium', tag:'pro'},
   ],
+};
+
+// ── Kawaii Bunny sprite (full-color draw helper) ─────────────────────
+const bunnySprite = {
+  id: 'color_bunny',
+  name: 'Kawaii Bunny',
+  ico: '🐰',
+  tag: 'new',
+  size: 32,
+
+  palette: ['#FFF8F6', '#F8B7CD', '#FF6FA5', '#E9E1DD', '#2B2F5C', '#FFFFFF'],
+  paletteNames: ['Body Base', 'Inner Ear', 'Bow', 'Shadow', 'Eyes', 'White'],
+
+  draw(ctx) {
+    const p = this.palette;
+
+    // ───────── COLOR SYSTEM (Shade Helper) ─────────
+    const shade = (hex, percent) => {
+      const num = parseInt(hex.slice(1), 16);
+      let r = (num >> 16) + percent;
+      let g = ((num >> 8) & 0x00FF) + percent;
+      let b = (num & 0x0000FF) + percent;
+      r = Math.min(255, Math.max(0, r));
+      g = Math.min(255, Math.max(0, g));
+      b = Math.min(255, Math.max(0, b));
+      return '#' + (r << 16 | g << 8 | b).toString(16).padStart(6, '0');
+    };
+
+    const base = p[0];
+    const highlight = shade(base, 25);
+    const shadow = shade(base, -15);
+    const deepShadow = shade(base, -40);
+    const OUTER = '#1A1F2E';
+
+    // ───────── HELPERS ─────────
+    const px = (color, arr) => {
+      ctx.fillStyle = color;
+      arr.forEach(([x, y]) => ctx.fillRect(x, y, 1, 1));
+    };
+
+    // ───────── 1. OUTLINE ─────────
+    px(OUTER, [
+      // Left Ear
+      [6,2],[7,2],[8,2],[9,2],[5,3],[5,4],[5,5],[5,6],[5,7],[5,8],[10,3],[10,4],[10,5],[10,6],[10,7],[10,8],
+      // Right Ear
+      [22,2],[23,2],[24,2],[25,2],[21,3],[21,4],[21,5],[21,6],[21,7],[21,8],[26,3],[26,4],[26,5],[26,6],[26,7],[26,8],
+      // Head/Body
+      [11,9],[12,9],[13,9],[14,9],[15,9],[16,9],[17,9],[18,9],[19,9],[20,9],
+      [9,10],[22,10],[8,11],[23,11],[7,12],[24,12],[7,13],[24,13],[7,14],[24,14],
+      [7,15],[24,15],[7,16],[24,16],[7,17],[24,17],[8,18],[23,18],[9,19],[22,19],
+      [10,20],[21,20],[11,21],[12,21],[13,21],[14,21],[15,21],[16,21],[17,21],[18,21],[19,21],[20,21]
+    ]);
+
+    // ───────── 2. BASE FILL ─────────
+    ctx.fillStyle = base;
+    ctx.fillRect(8, 12, 16, 7); // Lower head
+    ctx.fillRect(11, 10, 10, 2); // Upper head
+    ctx.fillRect(6, 3, 4, 6);   // Left ear fill
+    ctx.fillRect(22, 3, 4, 6);  // Right ear fill
+
+    // ───────── 3. INNER EARS ─────────
+    ctx.fillStyle = p[1];
+    ctx.fillRect(7, 4, 2, 4);
+    ctx.fillRect(23, 4, 2, 4);
+
+    // ───────── 4. SHADOWS & HIGHLIGHTS ─────────
+    ctx.fillStyle = shadow;
+    ctx.fillRect(21, 13, 3, 5); // Side shadow
+    ctx.fillRect(12, 19, 9, 2); // Bottom shadow
+
+    ctx.fillStyle = highlight;
+    ctx.fillRect(9, 11, 4, 2);  // Forehead highlight
+
+    // ───────── 5. THE BOW ─────────
+    ctx.fillStyle = p[2];
+    ctx.fillRect(13, 8, 6, 3);  // Main bow
+    ctx.fillRect(15, 8, 2, 3);  // Center knot
+    ctx.fillStyle = shade(p[2], -30);
+    ctx.fillRect(13, 10, 6, 1); // Bow depth
+
+    // ───────── 6. EYES (3-TONE) ─────────
+    const eyeBase = p[4];
+    const eyeShadow = shade(eyeBase, -40);
+
+    // Left Eye
+    ctx.fillStyle = eyeShadow; ctx.fillRect(11, 16, 3, 2);
+    ctx.fillStyle = eyeBase;   ctx.fillRect(11, 15, 3, 1);
+    ctx.fillStyle = p[5];      ctx.fillRect(11, 15, 1, 1); // Sparkle
+
+    // Right Eye
+    ctx.fillStyle = eyeShadow; ctx.fillRect(18, 16, 3, 2);
+    ctx.fillStyle = eyeBase;   ctx.fillRect(18, 15, 3, 1);
+    ctx.fillStyle = p[5];      ctx.fillRect(18, 15, 1, 1); // Sparkle
+
+    // Tiny Nose
+    ctx.fillStyle = OUTER;
+    ctx.fillRect(15, 17, 2, 1);
+  }
+};
+
+// ── Premium bunny template (full-color) ──────────────────────────────
+const premiumBunnyTemplate = {
+  id: 'premium_bunny',
+  name: 'Kawaii Bunny Premium',
+  size: 32,
+
+  draw(ctx) {
+
+    const OUTLINE = '#141824';
+    const RIM = '#EDE7FF';
+
+    const fur = {
+      highlight: '#FFFFFF',
+      light: '#FFF4FA',
+      base: '#FFDCEB',
+      mid: '#F8B7CD',
+      shadow: '#E48AAE',
+      deep: '#C45A82'
+    };
+
+    const eye = {
+      highlight: '#FFFFFF',
+      light: '#8EA2FF',
+      base: '#4F63D9',
+      shadow: '#2B2F5C',
+      deep: '#1A1F44'
+    };
+
+    const bow = {
+      highlight: '#FF9CB6',
+      base: '#FF6FA5',
+      shadow: '#C9487A'
+    };
+
+    const blush = '#FFD3E1';
+
+    const px = (color, arr) => {
+      ctx.fillStyle = color;
+      arr.forEach(([x,y]) => ctx.fillRect(x,y,1,1));
+    };
+
+    // ───────── BASE FUR MASS ─────────
+    ctx.fillStyle = fur.base;
+    ctx.fillRect(8, 12, 16, 9); // head
+    ctx.fillRect(10, 26, 12, 5); // body
+    ctx.fillRect(6, 3, 4, 6);   // left ear fill
+    ctx.fillRect(22, 3, 4, 6);  // right ear fill
+
+    // ───────── INNER EARS ─────────
+    ctx.fillStyle = fur.mid;
+    ctx.fillRect(7, 4, 2, 4);
+    ctx.fillRect(23, 4, 2, 4);
+
+    // ───────── SHADOWS ─────────
+    px(fur.shadow, [
+      [20,14],[20,15],[20,16],
+      [19,18],[20,18],[21,18],
+      [12,20],[13,20],[14,20],[15,20],[16,20]
+    ]);
+    px(fur.deep, [
+      [17,29],[18,29],[19,29],
+      [16,30],[17,30]
+    ]);
+
+    // ───────── HIGHLIGHTS ─────────
+    px(fur.light, [
+      [10,12],[11,12],[12,12],
+      [9,13],[10,13],
+      [11,14]
+    ]);
+    px(fur.highlight, [
+      [10,11],[11,11]
+    ]);
+
+    // ───────── BOW WITH DEPTH ─────────
+    px(bow.base, [
+      [13,8],[14,8],[15,8],[16,8],[17,8],
+      [12,9],[13,9],[14,9],[15,9],[16,9],[17,9],[18,9]
+    ]);
+    px(bow.shadow, [
+      [13,10],[14,10],[15,10],[16,10],[17,10]
+    ]);
+    px(bow.highlight, [
+      [14,7],[15,7]
+    ]);
+
+    // ───────── EYES (LARGE + SPARKLE) ─────────
+    px(eye.shadow, [
+      [12,16],[13,16],[14,16],
+      [17,16],[18,16],[19,16]
+    ]);
+    px(eye.base, [
+      [12,15],[13,15],[14,15],
+      [17,15],[18,15],[19,15]
+    ]);
+    px(eye.light, [
+      [13,14],[18,14]
+    ]);
+    px(eye.highlight, [
+      [13,15],[18,15]
+    ]);
+
+    // ───────── BLUSH + NOSE + MOUTH ─────────
+    px(blush, [
+      [11,18],[12,18],[19,18],[20,18]
+    ]);
+    px(OUTLINE, [
+      [15,18],[16,18],
+      [14,20],[15,21],[16,21],[17,20]
+    ]);
+
+    // ───────── RIM LIGHT (RIGHT EDGE) ─────────
+    px(RIM, [
+      [21,12],[21,13],[21,14],[21,15],[21,16]
+    ]);
+
+    // ───────── OUTLINE ─────────
+    px(OUTLINE, [
+      // Ears outer
+      [5,3],[5,4],[5,5],[5,6],[5,7],[5,8],[6,2],[7,2],[8,2],[9,2],[10,3],[10,4],[10,5],[10,6],[10,7],[10,8],
+      [21,3],[21,4],[21,5],[21,6],[21,7],[21,8],[22,2],[23,2],[24,2],[25,2],[26,3],[26,4],[26,5],[26,6],[26,7],[26,8],
+      // Head outline
+      [11,8],[12,7],[13,7],[14,7],[15,7],[16,7],[17,7],[18,7],[19,7],[20,8],
+      [9,10],[8,11],[7,12],[7,13],[7,14],[7,15],[7,16],[7,17],[8,18],[9,19],[10,20],
+      [22,10],[23,11],[24,12],[24,13],[24,14],[24,15],[24,16],[24,17],[23,18],[22,19],[21,20],
+      [11,21],[12,21],[13,21],[14,21],[15,21],[16,21],[17,21],[18,21],[19,21],[20,21],
+      // Body outline
+      [11,26],[10,27],[9,28],[9,29],[10,30],[11,31],[12,31],
+      [20,26],[21,27],[22,28],[22,29],[21,30],[20,31],[19,31],
+      [13,31],[14,31],[15,31],[16,31],[17,31],[18,31],
+      // Arms
+      [8,27],[8,28],[8,29],[8,30],[23,27],[23,28],[23,29],[23,30],
+      // Feet
+      [10,30],[11,30],[12,30],[17,30],[18,30],[19,30],[20,30],[21,30]
+    ]);
+  }
 };
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -3169,6 +3407,12 @@ for(let y=5;y<=16;y++) $(15,y,'#8D6200');
   },
 
 sneaker_b(ctx,sz){ DRAWERS.sneaker(ctx,sz); },
+kawaii_bunny(ctx,sz){
+  this._scaled(ctx,sz,32,32,(_c)=>{ bunnySprite.draw(_c); });
+},
+premium_bunny(ctx,sz){
+  this._scaled(ctx,sz,32,32,(_c)=>{ premiumBunnyTemplate.draw(_c); });
+},
 };
 
 
@@ -4377,8 +4621,12 @@ function inferTemplateStyleProfile(id,name=''){
   if(/room|city|forest|space|scene/.test(key)) return 'scene';
   if(/hoodie|cap|sneaker|boot|shirt|pants|bag|wear/.test(key)) return 'wearable';
   if(/shield|badge|sword|icon/.test(key)) return 'icon';
-  if(/cat|dog|dragon|ghost|character|alien|pet|avatar/.test(key)) return 'avatar';
+  if(/cat|dog|dragon|ghost|character|alien|pet|avatar|bunny/.test(key)) return 'avatar';
   return 'default';
+}
+
+function shouldSkipTemplateStylePass(id){
+  return id === 'kawaii_bunny' || id === 'premium_bunny';
 }
 
 function applyTemplateStylePass(ctx,w,h,profile='default'){
@@ -4499,11 +4747,12 @@ function buildTemplateGrid(containerId, items){
   const el = document.getElementById(containerId); if(!el) return; el.innerHTML='';
   items.forEach(t=>{
     const profile=inferTemplateStyleProfile(t.id,t.name);
+    const skipStyle = shouldSkipTemplateStylePass(t.id);
     const card = makeTmplCard({
       cls: t.cat==='challenge' ? 'challenge-t' : '',
       badgeTag: t.tag,
       name: t.name,
-      previewFn: DRAWERS[t.id] ? (ctx,sz)=>{DRAWERS[t.id](ctx,sz);applyTemplateStylePass(ctx,sz,sz,profile);} : null,
+      previewFn: DRAWERS[t.id] ? (ctx,sz)=>{DRAWERS[t.id](ctx,sz); if(!skipStyle){applyTemplateStylePass(ctx,sz,sz,profile);} } : null,
       onclick: ()=>loadTemplate(t.id, t.name),
     });
     el.appendChild(card);
@@ -4529,11 +4778,12 @@ function buildY2KGrid(){
   const el = document.getElementById('tmpl-y2k'); if(!el) return; el.innerHTML='';
   TEMPLATES.y2k.forEach(t=>{
     const profile=inferTemplateStyleProfile(t.id,t.name);
+    const skipStyle = shouldSkipTemplateStylePass(t.id);
     const card = makeTmplCard({
       badgeTag: t.tag,
       name: t.name,
       y2kStyle: true,
-      previewFn: DRAWERS[t.id] ? (ctx,sz)=>{DRAWERS[t.id](ctx,sz);applyTemplateStylePass(ctx,sz,sz,profile);} : null,
+      previewFn: DRAWERS[t.id] ? (ctx,sz)=>{DRAWERS[t.id](ctx,sz); if(!skipStyle){applyTemplateStylePass(ctx,sz,sz,profile);} } : null,
       onclick: ()=>loadTemplate(t.id, t.name),
     });
     el.appendChild(card);
@@ -4541,9 +4791,15 @@ function buildY2KGrid(){
 }
 function buildHomeTemplates(){
   const el=document.getElementById('home-templates');if(!el)return;el.innerHTML='';
-  [...TEMPLATES.challenge,...TEMPLATES.items.slice(0,2),...TEMPLATES.chars.slice(0,2)].forEach(t=>{
+  const premiumQuick = TEMPLATES.y2k.find(t => t.id === 'premium_bunny');
+  const kawaiiQuick = TEMPLATES.chars.find(t => t.id === 'kawaii_bunny');
+  const quickList = [kawaiiQuick, premiumQuick, ...TEMPLATES.challenge, ...TEMPLATES.items.slice(0,2), ...TEMPLATES.chars.slice(0,2)]
+    .filter(Boolean);
+  quickList.forEach(t=>{
     const d=document.createElement('div');
     d.className='tcard'+(t.cat==='challenge'?' challenge':'');
+    if(t.id==='kawaii_bunny' || t.id==='premium_bunny') d.classList.add('bunny');
+    if(t.id==='premium_bunny') d.classList.add('premium');
     const tag=t.tag==='hot'?'<span class="tcard-tag">🔥 HOT</span>':t.tag==='new'?'<span class="tcard-tag">✦ NEW</span>':'';
     // Preview
     const prev=document.createElement('div');prev.className='tcard-preview';
@@ -4552,7 +4808,9 @@ function buildHomeTemplates(){
       try{
         const cctx=cvs.getContext('2d');
         DRAWERS[t.id](cctx,32);
-        applyTemplateStylePass(cctx,32,32,inferTemplateStyleProfile(t.id,t.name));
+        if(!shouldSkipTemplateStylePass(t.id)){
+          applyTemplateStylePass(cctx,32,32,inferTemplateStyleProfile(t.id,t.name));
+        }
       }catch(e){}
       prev.appendChild(cvs);
     } else {
@@ -4574,7 +4832,9 @@ function loadTemplate(id,name){
       const ctx=document.getElementById('mc').getContext('2d');
       ctx.clearRect(0,0,ST.size,ST.size);
       DRAWERS[id](ctx,ST.size);
-      applyTemplateStylePass(ctx,ST.size,ST.size,inferTemplateStyleProfile(id,name));
+      if(!shouldSkipTemplateStylePass(id)){
+        applyTemplateStylePass(ctx,ST.size,ST.size,inferTemplateStyleProfile(id,name));
+      }
       captureFrame();pushHistory();flash();toast(`✦ ${name} loaded!`);
     }
   },50);

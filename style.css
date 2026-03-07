@@ -172,6 +172,17 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .tcard.challenge:hover{border-color:var(--cor)}
 .tcard-preview{width:100%;aspect-ratio:1;background:var(--s3);overflow:hidden;position:relative}
 .tcard-preview canvas{width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges}
+.tcard.bunny .tcard-preview{
+  background:
+    radial-gradient(circle at 30% 22%, rgba(255,255,255,.38), rgba(255,255,255,0) 60%),
+    linear-gradient(180deg, #fdf2f8 0%, #fce7f3 52%, #fbcfe8 100%);
+}
+.tcard.bunny .tcard-preview canvas{
+  filter:drop-shadow(0 5px 12px rgba(20,24,36,.45));
+}
+.tcard.premium{border-color:rgba(255,183,213,.6);box-shadow:0 6px 18px rgba(255,111,165,.18)}
+.tcard.premium:hover{border-color:#ff9cb6}
+.tcard.premium .tcard-tag{background:rgba(255,156,182,.25);color:#ffb3c7}
 .tcard-icon{font-size:30px;line-height:1;display:flex;align-items:center;justify-content:center;width:100%;aspect-ratio:1;background:var(--s3)}
 .tcard-bottom{padding:6px 7px 7px}
 .tcard-name{font-size:10px;font-weight:800;color:var(--text);letter-spacing:.01em;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
