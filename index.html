@@ -238,6 +238,8 @@
       <button class="rb" id="t-onion" onclick="toggleOnion()" title="Onion">👻</button>
       <div class="rsep"></div>
       <button class="rb" onclick="toggleFXMenu()" title="Effects">⚡</button>
+      <button class="rb" onclick="triggerImageImport()" title="Place image on canvas">🖼️</button>
+      <input id="image-import-input" type="file" accept="image/*" hidden onchange="handleImageImport(event)">
       <div class="rsep"></div>
       <span class="rlbl">Zoom</span>
       <input type="range" id="zslider" min="2" max="28" value="10" oninput="setZoom(+this.value)">
