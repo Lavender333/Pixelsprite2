@@ -1,0 +1,6 @@
+# Pixel Creator — Netlify Redirects
+# Single-page app: all routes serve index.html
+/*    /index.html   200
+
+# Redirect bare domain to www (optional — uncomment if using custom domain)
+# https://pixelcreator.app/*  https://www.pixelcreator.app/:splat  301!
