@@ -1,3 +1,4 @@
+function exportTransparentPNG() {
   // Export current frame as transparent PNG (8x upscaled)
   captureFrame();
   const scale = 8;
