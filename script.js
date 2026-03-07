@@ -3877,19 +3877,51 @@ function exportJPEG(){
 
 // ── EXPORT: ANIMATED GIF ──────────────────────────────
 // Pure JS GIF encoder — no libraries, no network
+function downloadBlobFile(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  // Safari/iOS may ignore download attr for blob URLs; fallback to opening the blob.
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
+  try {
+    if (!('download' in HTMLAnchorElement.prototype) || isIOS || isSafari) {
+      window.open(url, '_blank');
+    } else {
+      a.click();
+    }
+  } finally {
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+}
+
 function exportGIF(){
   captureFrame();
-  if(ST.frames.length<2){ toast('Add more frames to export a GIF!'); return; }
+  if(!ST.frames.length){ toast('Add at least 1 frame to export a GIF!'); return; }
   const prog=document.getElementById('gif-progress');
-  prog.classList.add('show');
+  if(prog) prog.classList.add('show');
   setTimeout(()=>_buildGIF(),50);
 }
 
 function _buildGIF(){
-  const sz=ST.size, frames=ST.frames, delay=Math.round(100/ST.fps);
+  const sz=ST.size;
+  const frames=ST.frames;
+  const fps=Math.max(1, ST.fps||8);
+  const delay=Math.max(2, Math.round(100/fps));
   const prog=document.getElementById('gif-progress');
   const bar=document.getElementById('gif-bar');
   const pct=document.getElementById('gif-pct');
+
+  if(!sz || !frames || !frames.length){
+    if(prog) prog.classList.remove('show');
+    toast('GIF export failed: no frame data.');
+    return;
+  }
 
   // ── Minimal GIF89a encoder ──
   // Reference: https://www.w3.org/Graphics/GIF/spec-gif89a.txt
@@ -3974,8 +4006,8 @@ function _buildGIF(){
     }
     wr(0); // block terminator
 
-    bar.style.width=Math.round((frameIdx+1)/frames.length*100)+'%';
-    pct.textContent=Math.round((frameIdx+1)/frames.length*100)+'%';
+    if(bar) bar.style.width=Math.round((frameIdx+1)/frames.length*100)+'%';
+    if(pct) pct.textContent=Math.round((frameIdx+1)/frames.length*100)+'%';
   }
 
   // Process frames async so UI updates
@@ -3984,15 +4016,21 @@ function _buildGIF(){
     if(fi>=frames.length){
       wr(0x3B); // GIF trailer
       const blob=new Blob([new Uint8Array(bytes)],{type:'image/gif'});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');a.href=url;a.download='pixel-creator.gif';a.click();
+      downloadBlobFile(blob,'pixel-creator.gif');
       SFX.share();
-      setTimeout(()=>URL.revokeObjectURL(url),1000);
-      prog.classList.remove('show');
+      if(prog) prog.classList.remove('show');
       toast('🎞 GIF exported!');addXP(15);confetti();Economy.track('project:export',{format:'gif'});
       return;
     }
-    addFrame(frames[fi],fi); fi++;
+    try {
+      addFrame(frames[fi],fi);
+    } catch(e) {
+      if(prog) prog.classList.remove('show');
+      console.warn('[GIF export]', e);
+      toast('GIF export failed. Try fewer frames or a smaller canvas size.');
+      return;
+    }
+    fi++;
     setTimeout(next,0);
   }
   next();
@@ -4206,7 +4244,35 @@ function renderCloset(){
     const cvs=document.createElement('canvas');cvs.className='cc-cvs';cvs.width=proj.size||16;cvs.height=proj.size||16;
     if(proj.frames&&proj.frames[0]) cvs.getContext('2d').putImageData(proj.frames[0],0,0);
     card.appendChild(cvs);
-    card.innerHTML+=`<div class="cc-info"><div class="cc-name">${proj.name}</div><div class="cc-meta">${proj.size||16}×${proj.size||16} · ${(proj.frames||[]).length} frame${(proj.frames||[]).length!==1?'s':''}</div></div><div class="cc-acts"><button class="cc-act cc-open" onclick="loadProject(${idx})">Open</button><button class="cc-act cc-exp" onclick="exportProject(${idx})">Export</button><button class="cc-act cc-del" onclick="deleteProject(${idx})">🗑</button></div>`;
+
+    const info=document.createElement('div');
+    info.className='cc-info';
+    info.innerHTML=`<div class="cc-name">${proj.name}</div><div class="cc-meta">${proj.size||16}×${proj.size||16} · ${(proj.frames||[]).length} frame${(proj.frames||[]).length!==1?'s':''}</div>`;
+
+    const acts=document.createElement('div');
+    acts.className='cc-acts';
+
+    const viewBtn=document.createElement('button');
+    viewBtn.className='cc-act cc-open';
+    viewBtn.textContent='View';
+    viewBtn.onclick=(e)=>{e.stopPropagation();loadProject(idx);};
+
+    const exportBtn=document.createElement('button');
+    exportBtn.className='cc-act cc-exp';
+    exportBtn.textContent='Export';
+    exportBtn.onclick=(e)=>{e.stopPropagation();exportProject(idx);};
+
+    const deleteBtn=document.createElement('button');
+    deleteBtn.className='cc-act cc-del';
+    deleteBtn.textContent='🗑';
+    deleteBtn.onclick=(e)=>{e.stopPropagation();deleteProject(idx);};
+
+    acts.appendChild(viewBtn);
+    acts.appendChild(exportBtn);
+    acts.appendChild(deleteBtn);
+
+    card.appendChild(info);
+    card.appendChild(acts);
     g.appendChild(card);
   });
 }
