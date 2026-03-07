@@ -694,150 +694,89 @@ const bunnySprite = {
   paletteNames: ['Body Base', 'Inner Ear', 'Bow', 'Shadow', 'Eyes', 'White'],
 
   draw(ctx) {
-    const OUT = '#1B1A2B';
-    const OUT_LIT = '#6F6A86';
-    const BG = '#FFF4FA';
-    const BG_EDGE = '#F5D1E5';
-    const fur = {
-      base: '#E4D6FF',
-      shadow: '#B79AE8',
-      deep: '#9076C9',
-      highlight: '#FFF7FF'
-    };
-    const ear = '#FFB9D5';
-    const eye = {
-      base: '#2A2C63',
-      shade: '#171A3E',
-      shine: '#C7D5FF'
-    };
-    const scarf = {
-      base: '#F06262',
-      shadow: '#C94B4B',
-      highlight: '#FF8C8C'
-    };
-    const blush = '#FFD7EC';
-    const nose = '#FF9EC8';
+    const p = this.palette;
 
-    const px = (x, y, c) => {
-      ctx.fillStyle = c;
-      ctx.fillRect(x, y, 1, 1);
-    };
-    const fill = (x, y, w, h, c) => {
-      ctx.fillStyle = c;
-      ctx.fillRect(x, y, w, h);
-    };
-    const rectOutline = (x, y, w, h, c) => {
-      ctx.fillStyle = c;
-      for (let i = x; i < x + w; i++) {
-        ctx.fillRect(i, y, 1, 1);
-        ctx.fillRect(i, y + h - 1, 1, 1);
-      }
-      for (let j = y; j < y + h; j++) {
-        ctx.fillRect(x, j, 1, 1);
-        ctx.fillRect(x + w - 1, j, 1, 1);
-      }
-    };
-    const drawBlob = (rows, fillColor, outlineColor) => {
-      rows.forEach(([y, x1, x2]) => {
-        fill(x1, y, x2 - x1 + 1, 1, fillColor);
-      });
-      rows.forEach(([y, x1, x2], idx) => {
-        px(x1, y, outlineColor);
-        px(x2, y, outlineColor);
-        if (idx === 0 || idx === rows.length - 1) {
-          fill(x1, y, x2 - x1 + 1, 1, outlineColor);
-        }
-      });
+    // ───────── COLOR SYSTEM (Shade Helper) ─────────
+    const shade = (hex, percent) => {
+      const num = parseInt(hex.slice(1), 16);
+      let r = (num >> 16) + percent;
+      let g = ((num >> 8) & 0x00FF) + percent;
+      let b = (num & 0x0000FF) + percent;
+      r = Math.min(255, Math.max(0, r));
+      g = Math.min(255, Math.max(0, g));
+      b = Math.min(255, Math.max(0, b));
+      return "#" + (r << 16 | g << 8 | b).toString(16).padStart(6, '0');
     };
 
-    // Background card
-    fill(4, 4, 24, 24, BG);
-    rectOutline(4, 4, 24, 24, BG_EDGE);
-    fill(6, 6, 20, 20, '#FFEAF5');
+    const base = p[0];
+    const highlight = shade(base, 25);
+    const shadow = shade(base, -15);
+    const deepShadow = shade(base, -40);
+    const OUTER = '#1A1F2E';
 
-    // Soft ground shadow
-    for (let i = 0; i < 12; i++) {
-      px(10 + i, 26, 'rgba(60,45,80,0.18)');
-      if (i > 1 && i < 10) px(10 + i, 27, 'rgba(60,45,80,0.1)');
-    }
+    // ───────── HELPERS ─────────
+    const px = (color, arr) => {
+      ctx.fillStyle = color;
+      arr.forEach(([x, y]) => ctx.fillRect(x, y, 1, 1));
+    };
 
-    // Ears (tall, simple)
-    rectOutline(9, 2, 4, 9, OUT);
-    rectOutline(19, 2, 4, 9, OUT);
-    fill(10, 3, 2, 7, fur.base);
-    fill(20, 3, 2, 7, fur.base);
-    fill(11, 5, 1, 4, ear);
-    fill(21, 5, 1, 4, ear);
+    // ───────── 1. OUTLINE ─────────
+    px(OUTER, [
+      // Left Ear
+      [6,2],[7,2],[8,2],[9,2],[5,3],[5,4],[5,5],[5,6],[5,7],[5,8],[10,3],[10,4],[10,5],[10,6],[10,7],[10,8],
+      // Right Ear
+      [22,2],[23,2],[24,2],[25,2],[21,3],[21,4],[21,5],[21,6],[21,7],[21,8],[26,3],[26,4],[26,5],[26,6],[26,7],[26,8],
+      // Head/Body
+      [11,9],[12,9],[13,9],[14,9],[15,9],[16,9],[17,9],[18,9],[19,9],[20,9],
+      [9,10],[22,10],[8,11],[23,11],[7,12],[24,12],[7,13],[24,13],[7,14],[24,14],
+      [7,15],[24,15],[7,16],[24,16],[7,17],[24,17],[8,18],[23,18],[9,19],[22,19],
+      [10,20],[21,20],[11,21],[12,21],[13,21],[14,21],[15,21],[16,21],[17,21],[18,21],[19,21],[20,21]
+    ]);
 
-    // Head and body blobs (big head, tiny body)
-    const headRows = [
-      [7, 13, 18],
-      [8, 12, 19],
-      [9, 11, 20],
-      [10, 10, 21],
-      [11, 10, 21],
-      [12, 10, 21],
-      [13, 10, 21],
-      [14, 10, 21],
-      [15, 11, 20],
-      [16, 12, 19],
-      [17, 13, 18]
-    ];
-    const bodyRows = [
-      [18, 14, 17],
-      [19, 13, 18],
-      [20, 13, 18],
-      [21, 13, 18],
-      [22, 14, 17],
-      [23, 14, 17],
-      [24, 15, 16]
-    ];
-    drawBlob(headRows, fur.base, OUT);
-    drawBlob(bodyRows, fur.base, OUT);
+    // ───────── 2. BASE FILL ─────────
+    ctx.fillStyle = base;
+    ctx.fillRect(8, 12, 16, 7); // Lower head
+    ctx.fillRect(11, 10, 10, 2); // Upper head
+    ctx.fillRect(6, 3, 4, 6);   // Left ear fill
+    ctx.fillRect(22, 3, 4, 6);  // Right ear fill
 
-    // Tail puff
-    const tailRows = [
-      [18, 6, 8],
-      [19, 5, 8],
-      [20, 5, 9],
-      [21, 6, 9],
-      [22, 6, 8]
-    ];
-    drawBlob(tailRows, fur.base, OUT);
+    // ───────── 3. INNER EARS ─────────
+    ctx.fillStyle = p[1];
+    ctx.fillRect(7, 4, 2, 4);
+    ctx.fillRect(23, 4, 2, 4);
 
-    // Shadows + highlights
-    fill(18, 12, 3, 3, fur.shadow);
-    fill(17, 18, 3, 2, fur.shadow);
-    fill(8, 19, 2, 2, fur.shadow);
-    px(20, 11, fur.deep);
-    px(20, 12, fur.deep);
-    fill(12, 11, 3, 2, fur.highlight);
-    fill(12, 19, 2, 1, fur.highlight);
-    px(7, 20, fur.highlight);
+    // ───────── 4. SHADOWS & HIGHLIGHTS ─────────
+    ctx.fillStyle = shadow;
+    ctx.fillRect(21, 13, 3, 5); // Side shadow
+    ctx.fillRect(12, 19, 9, 2); // Bottom shadow
 
-    // Scarf (thin, below face)
-    fill(12, 19, 8, 2, scarf.base);
-    fill(18, 20, 4, 4, scarf.base);
-    fill(12, 19, 8, 1, scarf.highlight);
-    fill(12, 20, 8, 1, scarf.shadow);
-    fill(19, 21, 2, 2, scarf.shadow);
+    ctx.fillStyle = highlight;
+    ctx.fillRect(9, 11, 4, 2);  // Forehead highlight
 
-    // Face
-    fill(13, 13, 2, 3, eye.base);
-    fill(18, 13, 2, 3, eye.base);
-    px(13, 14, eye.shine);
-    px(18, 14, eye.shine);
-    px(14, 15, eye.shade);
-    px(19, 15, eye.shade);
-    fill(12, 16, 2, 1, blush);
-    fill(19, 16, 2, 1, blush);
-    px(16, 16, nose);
-    px(15, 17, OUT);
-    px(17, 17, OUT);
+    // ───────── 5. THE BOW ─────────
+    ctx.fillStyle = p[2];
+    ctx.fillRect(13, 8, 6, 3);  // Main bow
+    ctx.fillRect(15, 8, 2, 3);  // Center knot
+    ctx.fillStyle = shade(p[2], -30);
+    ctx.fillRect(13, 10, 6, 1); // Bow depth
 
-    // Feet
-    fill(13, 24, 2, 1, OUT_LIT);
-    fill(17, 24, 2, 1, OUT_LIT);
+    // ───────── 6. EYES (3-TONE) ─────────
+    const eyeBase = p[4];
+    const eyeShadow = shade(eyeBase, -40);
+
+    // Left Eye
+    ctx.fillStyle = eyeShadow; ctx.fillRect(11, 16, 3, 2);
+    ctx.fillStyle = eyeBase;   ctx.fillRect(11, 15, 3, 1);
+    ctx.fillStyle = p[5];      ctx.fillRect(11, 15, 1, 1); // Sparkle
+
+    // Right Eye
+    ctx.fillStyle = eyeShadow; ctx.fillRect(18, 16, 3, 2);
+    ctx.fillStyle = eyeBase;   ctx.fillRect(18, 15, 3, 1);
+    ctx.fillStyle = p[5];      ctx.fillRect(18, 15, 1, 1); // Sparkle
+    
+    // Tiny Nose
+    ctx.fillStyle = OUTER;
+    ctx.fillRect(15, 17, 2, 1);
   }
 };
 
@@ -3533,12 +3472,34 @@ function applyZoom(){
 
 function setZoom(v){ ST.zoom=v; applyZoom(); if(ST.showGrid) drawGridOverlay(); }
 
+function resizeImageData(src, oldSize, newSize){
+  const dst = new ImageData(newSize, newSize);
+  const dx0 = Math.floor((newSize - oldSize) / 2);
+  const dy0 = Math.floor((newSize - oldSize) / 2);
+  for(let y=0;y<oldSize;y++){
+    for(let x=0;x<oldSize;x++){
+      const dx=x+dx0, dy=y+dy0;
+      if(dx<0||dy<0||dx>=newSize||dy>=newSize) continue;
+      const si=(y*oldSize+x)*4, di=(dy*newSize+dx)*4;
+      dst.data[di]=src.data[si];
+      dst.data[di+1]=src.data[si+1];
+      dst.data[di+2]=src.data[si+2];
+      dst.data[di+3]=src.data[si+3];
+    }
+  }
+  return dst;
+}
+
 function changeSize(sz){
   if(ST.size===sz) return;
-  // Confirm if there's existing art
-  const hasArt = ST.frames.some(f=>f.data.some(v=>v>0));
-  if(hasArt && !confirm(`Switch to ${sz}×${sz}? Current art will be cleared.`)) return;
-  ST.size=sz; ST.frames=[]; ST.undoStacks=[]; ST.undoIdx=[];
+  captureFrame();
+  if(ST.coloringMode) clearColoringMode();
+  const oldSize = ST.size;
+  const resizedFrames = ST.frames.map(f => resizeImageData(f, oldSize, sz));
+  ST.size = sz;
+  ST.frames = resizedFrames;
+  ST.undoStacks = resizedFrames.map(f => [cloneImageData(f)]);
+  ST.undoIdx = resizedFrames.map(() => 0);
   ['sz-16','sz-32','sz-64'].forEach(id=>document.getElementById(id).classList.remove('on'));
   document.getElementById('sz-'+sz).classList.add('on');
   // Adjust zoom to fit well
