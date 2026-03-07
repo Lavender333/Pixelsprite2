@@ -23,6 +23,18 @@ function exportTransparentPNG() {
   }
 }
 
+function startCreating(){
+  const splash = document.getElementById('birthday-splash');
+  if(!splash) return;
+  splash.classList.add('hidden');
+  // Prevent Safari from letting a hidden fixed overlay intercept taps.
+  splash.style.pointerEvents = 'none';
+  splash.style.zIndex = '-1';
+  splash.setAttribute('aria-hidden', 'true');
+  // Fully remove the node so no overlay can block nav/buttons.
+  setTimeout(()=>{ splash.remove(); }, 50);
+}
+
 // ╔══════════════════════════════════════════════════════════════════════╗
 // ║           P I X E L   S T U D I O   C O R E   v2.0                 ║
 // ║   Central Store · EventBus · Tool Engine · Layer Engine             ║

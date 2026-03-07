@@ -46,7 +46,16 @@
 
 <script>
   const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
-  const canUseSW = 'serviceWorker' in navigator && window.isSecureContext && !isSafari;
+  const hasSW = 'serviceWorker' in navigator;
+  const canUseSW = hasSW && window.isSecureContext && !isSafari;
+
+  // Safari users may have stale SW caches from older versions; clean them up.
+  if (hasSW && isSafari) {
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      regs.forEach(reg => reg.unregister());
+    }).catch(() => {});
+  }
+
   if (canUseSW) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
@@ -69,7 +78,7 @@
   <section class="birthday-card">
     <p class="birthday-subtitle">You Shine Bright</p>
     <h1 class="birthday-title">Happy 10th Birthday</h1>
-    <button class="birthday-start-button" onclick="document.getElementById('birthday-splash').classList.add('hidden')">Start Creating</button>
+    <button class="birthday-start-button" onclick="startCreating()">Start Creating</button>
     <a class="birthday-policy-link" href="/privacy-policy.html">Privacy Policy Statement</a>
   </section>
 </div>
