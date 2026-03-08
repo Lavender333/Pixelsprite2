@@ -3521,6 +3521,11 @@ function triggerImageImport(){
 function handleImageImport(evt){
   const file = evt?.target?.files?.[0];
   if(!file) return;
+  if(file.type && !file.type.startsWith('image/')){
+    toast('Please choose an image file.');
+    evt.target.value = '';
+    return;
+  }
 
   const reader = new FileReader();
   reader.onload = e => {
@@ -3552,8 +3557,22 @@ function placeImportedImage(img){
 
   captureFrame();
   pushHistory();
+  activateImportedSelection(x,y,w,h);
   setTool('select');
-  toast('🖼️ Image placed. Use Select to move/edit it.');
+  toast('🖼️ Image placed. It is selected — drag or nudge to edit.');
+}
+
+function activateImportedSelection(x,y,w,h){
+  SEL.active = true;
+  SEL.dragging = false;
+  SEL.moving = false;
+  SEL.floatData = null;
+  SEL.x0 = x;
+  SEL.y0 = y;
+  SEL.x1 = x + w - 1;
+  SEL.y1 = y + h - 1;
+  drawSelOverlay();
+  showNudgePanel(true);
 }
 
 // ── GRID OVERLAY ──────────────────────────────────────
