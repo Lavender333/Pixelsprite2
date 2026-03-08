@@ -857,50 +857,70 @@ function getTemplatePixels(id, size) {
     const palette = {
       B: '#111118',
       W: '#f6f6f8',
+      H: '#ffffff',
       G: '#dbdbe1',
       E: '#0f1016',
-      H: '#ffffff',
+      P: '#ffffff',
+      N: '#1f1f24',
       S: '#14161d',
+      T: '#ffffff',
     };
     const art = [
-      '................................',
-      '................................',
-      '...........BBB....BBB...........',
-      '..........BWWWB..BWWWB..........',
-      '.........BWWWWBBBBWWWWB.........',
-      '.........BWGWBBWWBBWGWB.........',
-      '.........BWWWWBWWBWWWWB.........',
-      '.........BBWWWBWWBWWWBB.........',
-      '..........BWWWBBBBWWWB..........',
-      '.........BBBWWWWWWWWBBB.........',
-      '.......BBBWWWWWWWWWWWWBBB.......',
-      '......BBWWWWWWBBBBWWWWWWBB......',
-      '.....BBWWWWWBEEHEBWWWWWWWBB.....',
-      '.....BWWWWWBEEEEEBWWWWWWWWB.....',
-      '....BBWWWWWBEEEEEBWWWWWWWWBB....',
-      '....BWWWWWWWBEBBEBWWWWWWWWWB....',
-      '....BWWWWWWWWBBBBWWWWWWWWWWB....',
-      '....BBWWWWWWWWWWWWWWWWWWWWBB....',
-      '..BBBBBWWWWBBBBBBBBBWWBBBBBBB...',
-      '.BBBWWWBBBBBBBBBBBBBBBBWWWBBB...',
-      'BBBWWWWBWWWWWWWWWWWWWWBWWWWBBB..',
-      'BWWWWWWBWGGWWWWWWWWGGWBWWWWWWB..',
-      'BWWWWWWBWWWWWWWWWWWWWWBWWWWWWB..',
-      'BBWWWWWBWWWWWWWWWWWWWWBWWWWWBB..',
-      '..BBBWWBWWWWBB..BBWWWWBWWBBB....',
-      '.BBBBWWBWWWWB....BWWWWBWWBBBB...',
-      '.BWWWWWBWWWWB....BWWWWBWWWWWB...',
-      '.BBWWWWBBBBBB....BBBBBBWWWWBB...',
-      '..BBBBBB..............BBBBBB....',
-      '....SSSSSSSSSSSSSSSSSSSSSS......',
-      '................................',
-      '................................',
+      '................................................................',
+      '................................................................',
+      '......................BBBB......BBBB............................',
+      '.....................BWWWWB....BWWWWB...........................',
+      '....................BWWWWWWB..BWWWWWWB..........................',
+      '...................BWWWWWWWWBBBBWWWWWWWB.........................',
+      '..................BWWWWWWWWWWWWWWWWWWWWWB........................',
+      '.................BWWWWWWWWWWWWWWWWWWWWWWWB.......................',
+      '................BWWWWWWHHHHHHHHHHHHWWWWWWWB......................',
+      '................BWWWWWWHHHHHHHHHHHHHHWWWWWWB.....................',
+      '................BWWWWEEHHHHHHHHHHHHHHHEEWWWWB....................',
+      '................BWWWWEEHHHHHHHHHHHHHHHEEWWWWB....................',
+      '.................BWWWWWWHHHHHHHHNNHHHHHWWWWWB....................',
+      '..................BWWWWWWHHHHHHHHNNHHHHHWWWWB....................',
+      '...................BWWWWWWGGGGGGGGGGGGGGWWWWB....................',
+      '....................BWWWWGGGGGGGGGGGGGGGGWWWB....................',
+      '.....................BWWWGGGGGGGGGGGGGGGGWWWBB...................',
+      '......................BWWWGGGGGGGGGGGGGGGGWWWB....................',
+      '......................BWWWGGGGGGGGGGGGGGGGWWWB....................',
+      '......................BWWWGGGGGGGGGGGGGGGGWWWB....................',
+      '.....................BWWWWGGGGGGGGGGGGGGGGGWWWB...................',
+      '....................BWWWWWGGGGGGGGGGGGGGGGGGWWWB..................',
+      '...................BWWWWWWGGGGGGGGGGGGGGGGGGGWWWB.................',
+      '..................BWWWWWWWGGGGGGGGGGGGGGGGGGGGWWWB................',
+      '.................BWWWWWWWWGGGGGGGGGGGGGGGGGGGGGWWWB...............',
+      '................BWWWWWWWWGGGGGGGGGGGGGGGGGGGGGGGWWWWB.............',
+      '...............BWWWWWWWWWGGGGGGGGGGGGGGGGGGGGGGGGWWWWB............',
+      '..............BWWWWWWWWWWGGGGGGGGGGGGGGGGGGGGGGGGGWWWWB...........',
+      '.............BWWWWWWWWWWWWGGGGGGGGGGGGGGGGGGGGGGGGWWWWWB..........',
+      '............BWWWWWWWWWWWWWWGGGGGGGGGGGGGGGGGGGGGGGWWWWWWB.........',
+      '...........BWWWWWWWWWWWWWWWWGGGGGGGGGGGGGGGGGGGGGGWWWWWWWB........',
+      '..........BWWWWWWWWWWWWWWWWWWGGGGGGGGGGGGGGGGGGGGGWWWWWWWWB.......',
+      '..........BWWWWWWWWWWWWWWWWWWGGGGGGGGGGGGGGGGGGGGGWWWWWWWWB.......',
+      '...........BWWWWWWWWWWWWWWWWWGGGGGGGGGGGGGGGGGGGGGWWWWWWWWB.......',
+      '............BWWWWWWWWWWWWWWWWGGGGGGGGGGGGGGGGGGGGGWWWWWWWWB.......',
+      '.............BWWWWWWWWWWWWWWWWGGGGGGGGGGGGGGGGGGGGWWWWWWWWB.......',
+      '..............BWWWWWWWWWWWWWWWWGGGGGGGGGGGGGGGGGGGWWWWWWWWB.......',
+      '...............BWWWWWWWWWWWWWWWWGGGGGGGGGGGGGGGGGGWWWWWWWWB.......',
+      '................BWWWWWWWWWWWWWWWWGGGGGGGGGGGGGGGGGWWWWWWWWB.......',
+      '.................BWWWWWWWWWWWWWWWWGGGGGGGGGGGGGGGGWWWWWWWWB.......',
+      '..................BWWWWWWWWWWWWWWWWGGGGGGGGGGGGGGGWWWWWWWWB.......',
+      '...................BWWWWWWWWWWWWWWWWGGGGGGGGGGGGGGWWWWWWWWB.......',
+      '....................BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB.......',
+      '................................................................',
+      '................................................................',
     ];
+    const artHeight = art.length;
+    const artWidth = art[0].length;
+    const ox = Math.floor((size - artWidth) / 2);
+    const oy = Math.floor((size - artHeight) / 2);
 
     art.forEach((row, y) => {
       for (let x = 0; x < row.length; x++) {
         const color = palette[row[x]];
-        if (color) setPixel(x, y, color);
+        if (color) setPixel(ox + x, oy + y, color);
       }
     });
   }
@@ -3651,7 +3671,7 @@ kawaii_bunny(ctx,sz){
   this._scaled(ctx,sz,32,32,(_c)=>{ bunnySprite.draw(_c); });
 },
 bw_fox(ctx,sz){
-  this._scaled(ctx,sz,32,32,(_c)=>{ paintTemplatePixels(_c, getTemplatePixels('bw_fox', 32), 32); });
+  this._scaled(ctx,sz,64,45,(_c)=>{ paintTemplatePixels(_c, getTemplatePixels('bw_fox', 64), 64); });
 },
 premium_bunny(ctx,sz){
   this._scaled(ctx,sz,32,32,(_c)=>{ premiumBunnyTemplate.draw(_c); });
@@ -5167,7 +5187,8 @@ function buildHomeTemplates(){
 }
 
 function getTemplateCanvasSize(id){
-  if(id === 'kawaii_bunny' || id === 'premium_bunny' || id === 'bw_fox') return 32;
+  if(id === 'bw_fox') return 64;
+  if(id === 'kawaii_bunny' || id === 'premium_bunny') return 32;
   return ST.size;
 }
 
