@@ -789,6 +789,7 @@ window.TEMPLATES = {
   ],
   chars: [
     {id:'kawaii_bunny', ico:'🐰', name:'Kawaii Bunny', tag:'new'},
+    {id:'bw_fox',     ico:'🦊',  name:'Black & White Fox', tag:'new'},
     {id:'cat',        ico:'🐱',  name:'Pixel Cat',     tag:''},
     {id:'dog',        ico:'🐶',  name:'Pixel Dog',     tag:''},
     {id:'ghost',      ico:'👻',  name:'Ghost Pet',     tag:'hot'},
@@ -851,6 +852,58 @@ function getTemplatePixels(id, size) {
       if (e2 <= dx) { err += dx; y0 += sy; }
     }
   };
+
+  if (id === 'bw_fox') {
+    const palette = {
+      B: '#111118',
+      W: '#f6f6f8',
+      G: '#dbdbe1',
+      E: '#0f1016',
+      H: '#ffffff',
+      S: '#14161d',
+    };
+    const art = [
+      '................................',
+      '................................',
+      '...........BBB....BBB...........',
+      '..........BWWWB..BWWWB..........',
+      '.........BWWWWBBBBWWWWB.........',
+      '.........BWGWBBWWBBWGWB.........',
+      '.........BWWWWBWWBWWWWB.........',
+      '.........BBWWWBWWBWWWBB.........',
+      '..........BWWWBBBBWWWB..........',
+      '.........BBBWWWWWWWWBBB.........',
+      '.......BBBWWWWWWWWWWWWBBB.......',
+      '......BBWWWWWWBBBBWWWWWWBB......',
+      '.....BBWWWWWBEEHEBWWWWWWWBB.....',
+      '.....BWWWWWBEEEEEBWWWWWWWWB.....',
+      '....BBWWWWWBEEEEEBWWWWWWWWBB....',
+      '....BWWWWWWWBEBBEBWWWWWWWWWB....',
+      '....BWWWWWWWWBBBBWWWWWWWWWWB....',
+      '....BBWWWWWWWWWWWWWWWWWWWWBB....',
+      '..BBBBBWWWWBBBBBBBBBWWBBBBBBB...',
+      '.BBBWWWBBBBBBBBBBBBBBBBWWWBBB...',
+      'BBBWWWWBWWWWWWWWWWWWWWBWWWWBBB..',
+      'BWWWWWWBWGGWWWWWWWWGGWBWWWWWWB..',
+      'BWWWWWWBWWWWWWWWWWWWWWBWWWWWWB..',
+      'BBWWWWWBWWWWWWWWWWWWWWBWWWWWBB..',
+      '..BBBWWBWWWWBB..BBWWWWBWWBBB....',
+      '.BBBBWWBWWWWB....BWWWWBWWBBBB...',
+      '.BWWWWWBWWWWB....BWWWWBWWWWWB...',
+      '.BBWWWWBBBBBB....BBBBBBWWWWBB...',
+      '..BBBBBB..............BBBBBB....',
+      '....SSSSSSSSSSSSSSSSSSSSSS......',
+      '................................',
+      '................................',
+    ];
+
+    art.forEach((row, y) => {
+      for (let x = 0; x < row.length; x++) {
+        const color = palette[row[x]];
+        if (color) setPixel(x, y, color);
+      }
+    });
+  }
 
   if (id === 'kawaii_bunny') {
     const palette = {
@@ -3597,6 +3650,9 @@ sneaker_b(ctx,sz){ DRAWERS.sneaker(ctx,sz); },
 kawaii_bunny(ctx,sz){
   this._scaled(ctx,sz,32,32,(_c)=>{ bunnySprite.draw(_c); });
 },
+bw_fox(ctx,sz){
+  this._scaled(ctx,sz,32,32,(_c)=>{ paintTemplatePixels(_c, getTemplatePixels('bw_fox', 32), 32); });
+},
 premium_bunny(ctx,sz){
   this._scaled(ctx,sz,32,32,(_c)=>{ premiumBunnyTemplate.draw(_c); });
 },
@@ -4909,12 +4965,12 @@ function inferTemplateStyleProfile(id,name=''){
   if(/room|city|forest|space|scene/.test(key)) return 'scene';
   if(/hoodie|cap|sneaker|boot|shirt|pants|bag|wear/.test(key)) return 'wearable';
   if(/shield|badge|sword|icon/.test(key)) return 'icon';
-  if(/cat|dog|dragon|ghost|character|alien|pet|avatar|bunny/.test(key)) return 'avatar';
+  if(/cat|dog|dragon|ghost|character|alien|pet|avatar|bunny|fox/.test(key)) return 'avatar';
   return 'default';
 }
 
 function shouldSkipTemplateStylePass(id){
-  return id === 'kawaii_bunny' || id === 'premium_bunny';
+  return id === 'kawaii_bunny' || id === 'premium_bunny' || id === 'bw_fox';
 }
 
 function applyTemplateStylePass(ctx,w,h,profile='default'){
@@ -5111,7 +5167,7 @@ function buildHomeTemplates(){
 }
 
 function getTemplateCanvasSize(id){
-  if(id === 'kawaii_bunny' || id === 'premium_bunny') return 32;
+  if(id === 'kawaii_bunny' || id === 'premium_bunny' || id === 'bw_fox') return 32;
   return ST.size;
 }
 
