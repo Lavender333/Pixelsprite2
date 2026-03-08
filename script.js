@@ -695,6 +695,7 @@ const bunnySprite = {
 
   draw(ctx) {
     const p = this.palette;
+    const OUTER = '#1A1F2E';
 
     // ───────── COLOR SYSTEM (Shade Helper) ─────────
     const shade = (hex, percent) => {
@@ -710,9 +711,7 @@ const bunnySprite = {
 
     const base = p[0];
     const highlight = shade(base, 25);
-    const shadow = shade(base, -15);
-    const deepShadow = shade(base, -40);
-    const OUTER = '#1A1F2E';
+    const shadow = p[3];
 
     // ───────── HELPERS ─────────
     const px = (color, arr) => {
@@ -720,7 +719,19 @@ const bunnySprite = {
       arr.forEach(([x, y]) => ctx.fillRect(x, y, 1, 1));
     };
 
-    // ───────── 1. OUTLINE ─────────
+    // ───────── 1. BASE FILL ─────────
+    ctx.fillStyle = base;
+    ctx.fillRect(8, 12, 16, 7); // Lower head
+    ctx.fillRect(11, 10, 10, 2); // Upper head
+    ctx.fillRect(6, 3, 4, 6);   // Left ear fill
+    ctx.fillRect(22, 3, 4, 6);  // Right ear fill
+
+    // ───────── 2. SHADOWS ─────────
+    ctx.fillStyle = shadow;
+    ctx.fillRect(21, 13, 3, 5); // Side shadow
+    ctx.fillRect(12, 19, 9, 2); // Bottom shadow
+
+    // ───────── 3. OUTLINE ─────────
     px(OUTER, [
       // Left Ear
       [6,2],[7,2],[8,2],[9,2],[5,3],[5,4],[5,5],[5,6],[5,7],[5,8],[10,3],[10,4],[10,5],[10,6],[10,7],[10,8],
@@ -728,39 +739,26 @@ const bunnySprite = {
       [22,2],[23,2],[24,2],[25,2],[21,3],[21,4],[21,5],[21,6],[21,7],[21,8],[26,3],[26,4],[26,5],[26,6],[26,7],[26,8],
       // Head/Body
       [11,9],[12,9],[13,9],[14,9],[15,9],[16,9],[17,9],[18,9],[19,9],[20,9],
-      [9,10],[22,10],[8,11],[23,11],[7,12],[24,12],[7,13],[24,13],[7,14],[24,14],
-      [7,15],[24,15],[7,16],[24,16],[7,17],[24,17],[8,18],[23,18],[9,19],[22,19],
       [10,20],[21,20],[11,21],[12,21],[13,21],[14,21],[15,21],[16,21],[17,21],[18,21],[19,21],[20,21]
     ]);
 
-    // ───────── 2. BASE FILL ─────────
-    ctx.fillStyle = base;
-    ctx.fillRect(8, 12, 16, 7); // Lower head
-    ctx.fillRect(11, 10, 10, 2); // Upper head
-    ctx.fillRect(6, 3, 4, 6);   // Left ear fill
-    ctx.fillRect(22, 3, 4, 6);  // Right ear fill
-
-    // ───────── 3. INNER EARS ─────────
+    // ───────── 4. INNER EARS ─────────
     ctx.fillStyle = p[1];
     ctx.fillRect(7, 4, 2, 4);
     ctx.fillRect(23, 4, 2, 4);
 
-    // ───────── 4. SHADOWS & HIGHLIGHTS ─────────
-    ctx.fillStyle = shadow;
-    ctx.fillRect(21, 13, 3, 5); // Side shadow
-    ctx.fillRect(12, 19, 9, 2); // Bottom shadow
-
+    // ───────── 5. HIGHLIGHTS ─────────
     ctx.fillStyle = highlight;
     ctx.fillRect(9, 11, 4, 2);  // Forehead highlight
 
-    // ───────── 5. THE BOW ─────────
+    // ───────── 6. THE BOW ─────────
     ctx.fillStyle = p[2];
     ctx.fillRect(13, 8, 6, 3);  // Main bow
     ctx.fillRect(15, 8, 2, 3);  // Center knot
     ctx.fillStyle = shade(p[2], -30);
     ctx.fillRect(13, 10, 6, 1); // Bow depth
 
-    // ───────── 6. EYES (3-TONE) ─────────
+    // ───────── 7. EYES (3-TONE) ─────────
     const eyeBase = p[4];
     const eyeShadow = shade(eyeBase, -40);
 
@@ -4875,12 +4873,29 @@ function buildHomeTemplates(){
     d.onclick=()=>loadTemplate(t.id,t.name);el.appendChild(d);
   });
 }
+
+function getTemplateCanvasSize(id){
+  if(id === 'kawaii_bunny' || id === 'premium_bunny') return 32;
+  return ST.size;
+}
+
 function loadTemplate(id,name){
   // Clear any active coloring mode
   if(ST.coloringMode) clearColoringMode();
   ST.frames=[];ST.undoStacks=[];ST.undoIdx=[];showTab('create');
   setTimeout(()=>{
-    initCanvas();
+    const desiredSize = getTemplateCanvasSize(id);
+    if(ST.size !== desiredSize){
+      ST.size = desiredSize;
+      ['sz-16','sz-32','sz-64'].forEach(btnId=>document.getElementById(btnId)?.classList.remove('on'));
+      document.getElementById('sz-'+desiredSize)?.classList.add('on');
+      const wrap=document.getElementById('cvs-wrap');
+      const available=Math.min(wrap.clientWidth,wrap.clientHeight)-20;
+      ST.zoom=Math.max(3,Math.min(20,Math.floor(available/desiredSize)));
+      const z=document.getElementById('zslider');
+      if(z) z.value=ST.zoom;
+    }
+    initCanvas(desiredSize);
     document.getElementById('pname').textContent=name.toLowerCase().replace(/ /g,'-')+'.px';
     if(DRAWERS[id]){
       const ctx=document.getElementById('mc').getContext('2d');
