@@ -853,106 +853,89 @@ function getTemplatePixels(id, size) {
   };
 
   if (id === 'kawaii_bunny') {
-    const furHi = '#ffffff';
-    const fur = '#fdfdfd';
-    const furMid = '#f5f5f7';
-    const furShadow = '#ececed';
-    const outline = '#d6d7de';
-    const softOutline = '#e5e6eb';
-    const blush = '#ffe4ea';
-    const bow = '#ff9fbb';
-    const bowShadow = '#f27ea2';
-    const eyeDark = '#2c2c2e';
-    const eyeSoft = '#54545d';
-    const innerEarLight = '#ffd7e2';
-    const innerEarPink = '#ffc0cb';
-    const innerEarDeep = '#f3a6bc';
+    const fur = '#f7f7f7';
+    const furLight = '#ffffff';
+    const furMid = '#ececef';
+    const furShadow = '#e4e4e8';
+    const outline = '#dddddf';
+    const innerEar = '#f4c4cf';
+    const innerEarSoft = '#f8d7df';
+    const eye = '#2d2d31';
+    const nose = '#f49aae';
+    const blush = '#f5dfdf';
+    const spot = '#ededf0';
 
-    // Rounded head/body silhouette
-    fillEllipse(center, center + 2.25, 8.2, 6.8, (x, y, dx, dy) => {
-      const n = noise2D(x, y, 1);
-      if (dy < -0.45 && Math.abs(dx) < 0.35) return furHi;
-      if (dy > 0.45) return furShadow;
-      if (n > 0.84) return furHi;
-      if (n > 0.68 || (x * 13 + y * 7) % 11 === 0) return furMid;
-      if (dy > 0.12 || Math.abs(dx) > 0.78) return furMid;
+    // Head shape similar to the reference: wide, simple, rounded.
+    fillEllipse(center, center + 4.4, 8.9, 7.6, (x, y, dx, dy, dist) => {
+      if (dy < -0.58 && Math.abs(dx) < 0.5) return furLight;
+      if (dy > 0.56) return furShadow;
+      if (dist > 0.82) return furMid;
       return fur;
     });
 
-    // Mathematical ears: tapered vertical ellipses with inner-ear shading
+    // Slight cheek widening.
+    fillEllipse(center - 5.7, center + 4.5, 2.3, 3.2, furMid);
+    fillEllipse(center + 5.7, center + 4.5, 2.3, 3.2, furMid);
+
+    // Tall ears with flatter sides and a tiny cap at the top.
     for (let side = -1; side <= 1; side += 2) {
-      const ex = center + side * 4;
-      fillEllipse(ex, center - 8.85, 2.3, 6.35, (x, y, dx, dy, dist) => {
-        const n = noise2D(x, y, 2 + side);
-        if (dy > 0.48) return furMid;
-        if (dist > 0.82 || n > 0.86) return furHi;
+      const ex = center + side * 5;
+      fillEllipse(ex, center - 10.2, 2.55, 6.95, (x, y, dx, dy, dist) => {
+        if (dy > 0.65) return furMid;
+        if (dist > 0.84) return furLight;
         return fur;
       });
-
-      fillEllipse(ex, center - 8.1, 1.08, 3.95, (x, y, dx, dy, dist) => {
-        if (dy > 0.42) return innerEarDeep;
-        if (dist < 0.22) return innerEarLight;
-        return innerEarPink;
+      fillEllipse(ex, center - 10.1, 1.25, 4.85, (x, y, dx, dy) => {
+        if (dy < -0.55) return innerEarSoft;
+        return innerEar;
       });
-
-      // Taper line using Bresenham for a cleaner inner spine
-      drawLine(ex, center - 12, ex, center - 5, side < 0 ? '#f8bfd0' : '#f6bbce');
+      setPixel(ex, center - 17, furLight);
+      setPixel(ex, center - 16, furLight);
+      drawLine(ex, center - 15, ex, center - 5, side < 0 ? '#f1bfc9' : '#efbcc8');
     }
 
-    // Tiny paws
-    fillEllipse(center - 2.2, center + 7.8, 1.6, 1.05, furShadow);
-    fillEllipse(center + 2.2, center + 7.8, 1.6, 1.05, furShadow);
+    // Square off the lower connection from ears to head.
+    for (let y = center - 2; y <= center + 1; y++) {
+      for (let x = center - 5; x <= center + 5; x++) {
+        if (pixels[y * size + x] === 'transparent') setPixel(x, y, furMid);
+      }
+    }
 
-    // Bow on left ear
+    // Soft forehead and face spots like the reference.
     [
-      [center - 6, center - 4, bow], [center - 7, center - 5, bow], [center - 7, center - 4, bow],
-      [center - 8, center - 4, bowShadow], [center - 5, center - 4, bowShadow],
-      [center - 6, center - 5, furHi], [center - 6, center - 3, bowShadow], [center - 6, center - 4, '#ff7ea4']
-    ].forEach(([x, y, color]) => setPixel(x, y, color));
+      [center - 3, center + 0], [center + 1, center + 1], [center + 3, center + 2],
+      [center - 1, center + 5], [center + 2, center + 6], [center - 6, center + 3], [center + 6, center + 3]
+    ].forEach(([sx, sy], idx) => {
+      const w = idx < 3 ? 2 : 1;
+      const h = idx < 2 ? 2 : 1;
+      for (let yy = 0; yy < h; yy++) {
+        for (let xx = 0; xx < w; xx++) setPixel(sx + xx, sy + yy, spot);
+      }
+    });
 
-    const eyeY = center + 2;
-    // Larger shiny eyes
-    [[center - 3, eyeY], [center - 3, eyeY + 1], [center + 3, eyeY], [center + 3, eyeY + 1]].forEach(([x, y]) => setPixel(x, y, eyeDark));
-    [[center - 3, eyeY - 1], [center + 3, eyeY - 1]].forEach(([x, y]) => setPixel(x, y, eyeSoft));
-    [[center - 3, eyeY - 1], [center + 3, eyeY - 1], [center - 2, eyeY], [center + 2, eyeY]].forEach(([x, y]) => setPixel(x, y, furHi));
+    // Minimal face.
+    const eyeY = center + 5;
+    setPixel(center - 4, eyeY, eye);
+    setPixel(center + 4, eyeY, eye);
+    setPixel(center, eyeY + 1, nose);
+    setPixel(center, eyeY + 2, nose);
 
-    // Nose and mouth
-    setPixel(center, center + 3, '#ff99ae');
-    setPixel(center, center + 4, '#ff8aa4');
-    drawLine(center - 1, center + 5, center, center + 6, '#8f8f96');
-    drawLine(center + 1, center + 5, center, center + 6, '#8f8f96');
+    // Very soft cheek blush.
+    [[center - 6, eyeY + 2], [center - 5, eyeY + 2], [center + 5, eyeY + 2], [center + 6, eyeY + 2]].forEach(([x, y]) => setPixel(x, y, blush));
 
-    // Blush clusters
-    [[center - 5, center + 4], [center - 6, center + 4], [center - 5, center + 5], [center + 5, center + 4], [center + 6, center + 4], [center + 5, center + 5]].forEach(([x, y]) => setPixel(x, y, blush));
+    // Subtle base flattening.
+    for (let x = center - 4; x <= center + 4; x++) setPixel(x, center + 10, furMid);
 
-    // Soft cheeks / chest highlights
-    [[center - 2, center + 1], [center - 1, center + 1], [center, center + 1], [center + 1, center + 1], [center + 2, center + 1], [center, center + 8]].forEach(([x, y]) => setPixel(x, y, furHi));
-
-    // Fur texture pass: subtle procedural noise on main silhouette only
+    // Gentle outline only on outer edge.
     for (let y = 1; y < size - 1; y++) {
       for (let x = 1; x < size - 1; x++) {
         const i = y * size + x;
         const c = pixels[i];
-        if (c === fur || c === furMid) {
-          const n = noise2D(x, y, 7);
-          if (n > 0.9) pixels[i] = furHi;
-          else if (n < 0.08 && c === fur) pixels[i] = furMid;
-        }
-      }
-    }
-
-    // Outline pass for readability
-    for (let y = 1; y < size - 1; y++) {
-      for (let x = 1; x < size - 1; x++) {
-        const i = y * size + x;
-        if (pixels[i] === 'transparent') continue;
-        const neighbors = [
-          pixels[i - 1], pixels[i + 1], pixels[i - size], pixels[i + size]
-        ];
-        if (neighbors.includes('transparent')) {
-          if (pixels[i] === fur || pixels[i] === furHi) pixels[i] = outline;
-          else if (pixels[i] === furMid) pixels[i] = softOutline;
-        }
+        if (c === 'transparent') continue;
+        const neighbors = [pixels[i - 1], pixels[i + 1], pixels[i - size], pixels[i + size]];
+        if (!neighbors.includes('transparent')) continue;
+        if (c === furLight || c === fur) pixels[i] = outline;
+        else if (c === furMid) pixels[i] = '#e7e7ea';
       }
     }
   }
