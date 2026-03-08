@@ -89,6 +89,7 @@
 <!-- HOME -->
 <div id="home-screen" class="screen active">
   <div class="home-hero">
+    <img class="home-logo" src="logo.png" alt="Pixel Creator logo" width="56" height="56">
     <div class="hero-eyebrow">✦ Smart UX Studio</div>
     <h1 class="hero-title">PIXEL<br><span>CREATOR</span></h1>
     <p class="hero-sub">Professional tools. Zero complexity.<br>Built for creators aged 9–15.</p>
@@ -104,7 +105,7 @@
       <div class="cc-label">Weekly Drop</div>
       <div class="cc-title" id="cc-title">Cyber Sneaker</div>
       <div class="cc-meta" id="cc-meta">581 entries · +150 XP reward</div>
-      <button class="cc-btn">Enter Challenge ↗</button>
+      <button class="cc-btn" onclick="event.stopPropagation();showTab('challenges')">Enter Challenge ↗</button>
     </div>
   </div>
   <div class="xp-card">
@@ -125,6 +126,7 @@
       <div class="streak-info">
         <div class="streak-n" id="streak-n">5</div>
         <div class="streak-l">Day Streak</div>
+        <div class="streak-note">Saved on this device</div>
       </div>
       <button class="streak-claim" id="streak-claim" onclick="claimStreak()">Claim</button>
     </div>
@@ -162,6 +164,14 @@
     <button class="sz-btn on" id="sz-16" onclick="changeSize(16)">16×16</button>
     <button class="sz-btn" id="sz-32" onclick="changeSize(32)">32×32</button>
     <button class="sz-btn" id="sz-64" onclick="changeSize(64)">64×64</button>
+  </div>
+  <div class="challenge-submit-bar" id="challenge-submit-bar" style="display:none">
+    <div class="challenge-submit-copy">
+      <div class="challenge-submit-kicker">Challenge Mode</div>
+      <div class="challenge-submit-title" id="challenge-submit-title">Weekly challenge</div>
+      <div class="challenge-submit-status" id="challenge-submit-status">Finish your art, then submit it to the feed.</div>
+    </div>
+    <button class="challenge-submit-btn" id="challenge-submit-btn" onclick="submitChallenge()">Submit Entry</button>
   </div>
   <div id="fx-menu">
     <button class="fx-item" id="fx-glow" onclick="runFX('glow');closeFXMenu()"><span class="fx-icon">✨</span>Add Glow</button>
@@ -310,6 +320,7 @@
   <div class="closet-hdr">
     <div style="font-family:var(--ff-display);font-size:22px">My Closet</div>
     <div style="font-size:12px;color:var(--text2);margin-top:3px">All your saved creations</div>
+    <div class="closet-storage" id="closet-storage">Storage ready</div>
   </div>
   <div class="cat-row" id="closet-cats"></div>
   <div class="cg" id="closet-grid"></div>
@@ -319,18 +330,28 @@
 <!-- CHALLENGES -->
 <div id="chal-screen" class="screen">
   <div class="chal-hero">
-    <div class="ch-eyebrow">This Week's Drop</div>
-    <div class="ch-name" id="ch-name">Cyber Sneaker</div>
-    <div class="ch-sub" id="ch-sub">581 entries · +150 XP · Ends in 3 days</div>
-    <div class="ch-actions">
-      <button class="ch-go" onclick="startChallenge()">Start Creating ↗</button>
-      <span class="ch-timer">⏱ 3 days left</span>
+    <div class="chal-hero-main">
+      <div class="chal-copy">
+        <div class="ch-eyebrow">This Week's Drop</div>
+        <div class="ch-name" id="ch-name">Cyber Sneaker</div>
+        <div class="ch-sub" id="ch-sub">581 entries · +150 XP · Ends in 3 days</div>
+        <div class="ch-actions">
+          <button class="ch-go" onclick="startChallenge()">Start Creating ↗</button>
+          <span class="ch-timer" id="ch-timer">⏱ 3 days left</span>
+        </div>
+      </div>
+      <div class="ch-art-shell">
+        <canvas class="ch-art" id="ch-art" width="96" height="96" aria-label="Challenge preview image"></canvas>
+        <div class="ch-art-caption" id="ch-art-caption">Featured starter</div>
+      </div>
     </div>
   </div>
   <div class="rank-card">
     <div class="rank-title">🏅 This Week's Leaderboard</div>
     <div class="rank-row" id="rank-row"></div>
   </div>
+  <div style="padding:0 16px 8px;font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.1em">Challenge Starters</div>
+  <div class="challenge-starters" id="challenge-starters"></div>
   <div style="padding:0 16px 8px;font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.1em">Upcoming Challenges</div>
   <div class="up-list" id="upcoming-list"></div>
   <div style="padding:0 16px 8px;font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-top:8px">Featured Entries</div>
@@ -340,9 +361,12 @@
 <!-- PROFILE -->
 <div id="profile-screen" class="screen">
   <div class="prof-hero">
+    <img class="prof-logo" src="logo.png" alt="Pixel Creator logo" width="52" height="52">
     <canvas class="prof-av" id="prof-av" width="76" height="76"></canvas>
-    <div class="prof-name">PixelCreator</div>
-    <div class="prof-handle">@creator_001</div>
+    <div class="prof-name" id="prof-name">PixelCreator</div>
+    <div class="prof-handle" id="prof-handle">@creator_001</div>
+    <button class="prof-edit" onclick="openProfileNameModal()">Edit gamename</button>
+    <div class="prof-storage-note">Profile, streak, and challenge saves stay on this device.</div>
     <div class="prof-level">⚡ Level 3 · Teen Mode at Level 10</div>
   </div>
   <div class="prof-stats">
@@ -370,6 +394,20 @@
   <button class="nt" id="nav-profile" onclick="showTab('profile')"><span class="icon">👾</span>Me</button>
 </nav>
 
+
+<div id="profile-name-modal" class="modal-bg centered" style="display:none">
+  <div class="name-modal-card">
+    <div class="name-modal-badge">Player Setup</div>
+    <h2 class="name-modal-title">Choose your gamename</h2>
+    <p class="name-modal-copy">No full account needed. Pick a name and Pixel Creator will build your profile automatically.</p>
+    <input id="profile-name-input" class="name-modal-input" type="text" maxlength="18" placeholder="Enter gamename" autocomplete="nickname" spellcheck="false">
+    <div class="name-modal-help">This name shows on your Me page and challenge submissions.</div>
+    <div class="name-modal-actions">
+      <button class="name-modal-skip" id="profile-name-cancel" onclick="closeProfileNameModal()">Later</button>
+      <button class="name-modal-save" onclick="saveProfileNameFromModal()">Save gamename</button>
+    </div>
+  </div>
+</div>
 <!-- COLOR MODAL -->
 <div id="color-modal" class="modal-bg" style="display:none">
   <div class="msheet">

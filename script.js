@@ -558,6 +558,17 @@ const ST = {
   coloringMode: false,   // true when a coloring template is active
   coloringTemplate: null,// reference to active COLORING_TEMPLATES entry
   fillRegionCount: 0,    // total colorable regions for completion detection
+  challengeStarterKey: null,
+  activeChallenge: null,
+  challengeSubmissions: [],
+  profileName: '',
+};
+
+const STORAGE_LIMITS = {
+  maxProjects: 24,
+  maxSubmissions: 12,
+  warnBytes: 3.6 * 1024 * 1024,
+  dangerBytes: 4.5 * 1024 * 1024,
 };
 
 let PALETTE = [
@@ -624,22 +635,142 @@ const TREND_PALETTES = [
 ];
 
 const CHALLENGES = [
-  {name:'Cyber Sneaker',   emoji:'👟',xp:150,desc:'Design a futuristic sneaker from the year 2087'},
-  {name:'Ghost Pet',       emoji:'👻',xp:120,desc:'Create your spirit animal companion'},
-  {name:'Fall Hoodie',     emoji:'🧥',xp:100,desc:'Design the perfect autumn streetwear drop'},
-  {name:'Space Room',      emoji:'🚀',xp:130,desc:'Build your dream zero-gravity bedroom'},
-  {name:'Pixel Dragon',    emoji:'🐉',xp:140,desc:'Bring a legendary dragon to life'},
-  {name:'Neon Heart',      emoji:'💜',xp:80, desc:'Make a glowing pixel heart that pops'},
-  {name:'Skate Deck',      emoji:'🛹',xp:110,desc:'Design a graphic for a limited edition deck'},
-  {name:'Anime Hero',      emoji:'⚔️',xp:120,desc:'Create your original anime character'},
+  {
+    name:'Cyber Sneaker', emoji:'👟', xp:150,
+    desc:'Design a futuristic sneaker from the year 2087',
+    accent:['#6C63FF','#FF6B6B'],
+    starters:[
+      {id:'sneaker', kind:'template', name:'Cyber Sneaker'},
+      {id:'sneaker_b', kind:'template', name:'Sneaker Base'},
+      {id:'skate', kind:'template', name:'Deck Remix'},
+    ],
+    feed:[
+      {id:'sneaker', kind:'template', creator:'NeonNova', label:'Chrome glow build'},
+      {id:'sneaker_b', kind:'template', creator:'LaceLab', label:'Streetwear color block'},
+      {id:'skate', kind:'template', creator:'DeckDream', label:'Board + sneaker set'},
+      {id:'hoodie', kind:'template', creator:'GlowThread', label:'Outfit matched to kicks'},
+    ],
+  },
+  {
+    name:'Ghost Pet', emoji:'👻', xp:120,
+    desc:'Create your spirit animal companion',
+    accent:['#8B5CF6','#60A5FA'],
+    starters:[
+      {id:'ghost', kind:'template', name:'Ghost Pet'},
+      {id:'cat', kind:'template', name:'Ghost Cat'},
+      {id:'dog', kind:'template', name:'Ghost Pup'},
+    ],
+    feed:[
+      {id:'ghost', kind:'template', creator:'MoonMochi', label:'Translucent sparkle pet'},
+      {id:'cat', kind:'template', creator:'NightPixel', label:'Haunted kitty glow'},
+      {id:'dog', kind:'template', creator:'CloudPaw', label:'Friendly spirit buddy'},
+      {id:'alien', kind:'template', creator:'NovaTail', label:'Eerie cosmic pet'},
+    ],
+  },
+  {
+    name:'Fall Hoodie', emoji:'🧥', xp:100,
+    desc:'Design the perfect autumn streetwear drop',
+    accent:['#F59E0B','#FB7185'],
+    starters:[
+      {id:'hoodie', kind:'template', name:'Fall Hoodie'},
+      {id:'y2k_hoodie', kind:'template', name:'Glitter Hoodie'},
+      {id:'cap', kind:'template', name:'Cap Accessory'},
+    ],
+    feed:[
+      {id:'hoodie', kind:'template', creator:'ThreadMuse', label:'Oversized cocoa fit'},
+      {id:'y2k_hoodie', kind:'template', creator:'PinkPixel', label:'Glitter drop remix'},
+      {id:'cap', kind:'template', creator:'LeafLoop', label:'Layered with varsity cap'},
+      {id:'bag', kind:'template', creator:'CozyByte', label:'Accessory pack included'},
+    ],
+  },
+  {
+    name:'Space Room', emoji:'🚀', xp:130,
+    desc:'Build your dream zero-gravity bedroom',
+    accent:['#0EA5E9','#8B5CF6'],
+    starters:[
+      {id:'space', kind:'template', name:'Space Scene'},
+      {id:'room', kind:'template', name:'Cozy Room'},
+      {id:'city', kind:'template', name:'City Night View'},
+    ],
+    feed:[
+      {id:'space', kind:'template', creator:'OrbitOpal', label:'Galaxy window walls'},
+      {id:'room', kind:'template', creator:'LunaLoft', label:'Zero-gravity sleep pod'},
+      {id:'city', kind:'template', creator:'SkylineKid', label:'Orbital skyline suite'},
+      {id:'forest', kind:'template', creator:'NovaNook', label:'Bio-dome chill zone'},
+    ],
+  },
+  {
+    name:'Pixel Dragon', emoji:'🐉', xp:140,
+    desc:'Bring a legendary dragon to life',
+    accent:['#10B981','#14B8A6'],
+    starters:[
+      {id:'dragon', kind:'template', name:'Pixel Dragon'},
+      {id:'ghost', kind:'template', name:'Spirit Dragon'},
+      {id:'forest', kind:'template', name:'Dragon Forest'},
+    ],
+    feed:[
+      {id:'dragon', kind:'template', creator:'ScaleSpark', label:'Emerald winged boss'},
+      {id:'ghost', kind:'template', creator:'RuneRay', label:'Spectral dragon hatchling'},
+      {id:'forest', kind:'template', creator:'MythMint', label:'Forest lair scene'},
+      {id:'alien', kind:'template', creator:'CometClaw', label:'Galactic dragon remix'},
+    ],
+  },
+  {
+    name:'Neon Heart', emoji:'💜', xp:80,
+    desc:'Make a glowing pixel heart that pops',
+    accent:['#EC4899','#8B5CF6'],
+    starters:[
+      {id:'neon_heart', kind:'anim', name:'Neon Heart Loop'},
+      {id:'y2k_heart', kind:'template', name:'Heart Sign'},
+      {id:'badge', kind:'template', name:'Heart Badge'},
+    ],
+    feed:[
+      {id:'neon_heart', kind:'anim', creator:'PulsePop', label:'Animated neon pulse'},
+      {id:'y2k_heart', kind:'template', creator:'VelvetVolt', label:'Sticker wall heart'},
+      {id:'badge', kind:'template', creator:'GlowGem', label:'Tiny locker badge'},
+      {id:'premium_bunny', kind:'template', creator:'CupidCore', label:'Heart-coded mascot'},
+    ],
+  },
+  {
+    name:'Skate Deck', emoji:'🛹', xp:110,
+    desc:'Design a graphic for a limited edition deck',
+    accent:['#F97316','#F43F5E'],
+    starters:[
+      {id:'skate', kind:'template', name:'Skate Deck'},
+      {id:'sneaker', kind:'template', name:'Street Sneaker'},
+      {id:'badge', kind:'template', name:'Deck Sticker'},
+    ],
+    feed:[
+      {id:'skate', kind:'template', creator:'KickflipKit', label:'Flame deck graphic'},
+      {id:'sneaker', kind:'template', creator:'RailRush', label:'Matching skate set'},
+      {id:'badge', kind:'template', creator:'BoardBloom', label:'Sticker-bomb finish'},
+      {id:'cap', kind:'template', creator:'HalfPipeHex', label:'Full fit accessory pack'},
+    ],
+  },
+  {
+    name:'Anime Hero', emoji:'⚔️', xp:120,
+    desc:'Create your original anime character',
+    accent:['#22C55E','#06B6D4'],
+    starters:[
+      {id:'character', kind:'template', name:'Anime Hero'},
+      {id:'alien', kind:'template', name:'Sci-fi Hero'},
+      {id:'dragon', kind:'template', name:'Summon Partner'},
+    ],
+    feed:[
+      {id:'character', kind:'template', creator:'HeroHalo', label:'Lead character concept'},
+      {id:'alien', kind:'template', creator:'BladeBloom', label:'Future arc redesign'},
+      {id:'dragon', kind:'template', creator:'QuestQuartz', label:'Hero + summon duo'},
+      {id:'ghost', kind:'template', creator:'StudioSpark', label:'Spirit companion alt'},
+    ],
+  },
 ];
 
 const UPCOMING = [
-  {day:'Mon',  name:'Pixel Forest',    pts:110, color:'#3DDC97'},
-  {day:'Tue',  name:'Y2K Robot',       pts:130, color:'#6C63FF'},
-  {day:'Wed',  name:'Dream Sneaker V2',pts:150, color:'#FF6B6B'},
-  {day:'Thu',  name:'Mini Room Drop',  pts:100, color:'#FFD166'},
-  {day:'Fri',  name:'Mystical Pet',    pts:120, color:'#CE93D8'},
+  {day:'Mon', name:'Pixel Forest', pts:110, color:'#3DDC97', asset:{id:'forest', kind:'template', name:'Pixel Forest'}},
+  {day:'Tue', name:'Y2K Robot', pts:130, color:'#6C63FF', asset:{id:'alien', kind:'template', name:'Y2K Robot'}},
+  {day:'Wed', name:'Dream Sneaker V2', pts:150, color:'#FF6B6B', asset:{id:'sneaker', kind:'template', name:'Dream Sneaker V2'}},
+  {day:'Thu', name:'Mini Room Drop', pts:100, color:'#FFD166', asset:{id:'room', kind:'template', name:'Mini Room Drop'}},
+  {day:'Fri', name:'Mystical Pet', pts:120, color:'#CE93D8', asset:{id:'dragon', kind:'template', name:'Mystical Pet'}},
 ];
 
 window.TEMPLATES = {
@@ -683,6 +814,164 @@ window.TEMPLATES = {
 };
 
 // ── Kawaii Bunny sprite (full-color draw helper) ─────────────────────
+function getTemplatePixels(id, size) {
+  const pixels = Array(size * size).fill('transparent');
+  const center = Math.floor(size / 2);
+  const setPixel = (x, y, color) => {
+    if (x < 0 || x >= size || y < 0 || y >= size) return;
+    pixels[y * size + x] = color;
+  };
+  const noise2D = (x, y, seed = 0) => {
+    const n = Math.sin((x * 127.1 + y * 311.7 + seed * 19.19)) * 43758.5453;
+    return n - Math.floor(n);
+  };
+  const fillEllipse = (cx, cy, rx, ry, colorFn) => {
+    for (let y = Math.floor(cy - ry - 1); y <= Math.ceil(cy + ry + 1); y++) {
+      if (y < 0 || y >= size) continue;
+      for (let x = Math.floor(cx - rx - 1); x <= Math.ceil(cx + rx + 1); x++) {
+        if (x < 0 || x >= size) continue;
+        const dx = (x - cx) / rx;
+        const dy = (y - cy) / ry;
+        const dist = dx * dx + dy * dy;
+        if (dist < 1) setPixel(x, y, typeof colorFn === 'function' ? colorFn(x, y, dx, dy, dist) : colorFn);
+      }
+    }
+  };
+  const drawLine = (x0, y0, x1, y1, color) => {
+    let dx = Math.abs(x1 - x0);
+    let sx = x0 < x1 ? 1 : -1;
+    let dy = -Math.abs(y1 - y0);
+    let sy = y0 < y1 ? 1 : -1;
+    let err = dx + dy;
+    while (true) {
+      setPixel(x0, y0, color);
+      if (x0 === x1 && y0 === y1) break;
+      const e2 = 2 * err;
+      if (e2 >= dy) { err += dy; x0 += sx; }
+      if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+  };
+
+  if (id === 'kawaii_bunny') {
+    const furHi = '#ffffff';
+    const fur = '#fdfdfd';
+    const furMid = '#f5f5f7';
+    const furShadow = '#ececed';
+    const outline = '#d6d7de';
+    const softOutline = '#e5e6eb';
+    const blush = '#ffe4ea';
+    const bow = '#ff9fbb';
+    const bowShadow = '#f27ea2';
+    const eyeDark = '#2c2c2e';
+    const eyeSoft = '#54545d';
+    const innerEarLight = '#ffd7e2';
+    const innerEarPink = '#ffc0cb';
+    const innerEarDeep = '#f3a6bc';
+
+    // Rounded head/body silhouette
+    fillEllipse(center, center + 2.25, 8.2, 6.8, (x, y, dx, dy) => {
+      const n = noise2D(x, y, 1);
+      if (dy < -0.45 && Math.abs(dx) < 0.35) return furHi;
+      if (dy > 0.45) return furShadow;
+      if (n > 0.84) return furHi;
+      if (n > 0.68 || (x * 13 + y * 7) % 11 === 0) return furMid;
+      if (dy > 0.12 || Math.abs(dx) > 0.78) return furMid;
+      return fur;
+    });
+
+    // Mathematical ears: tapered vertical ellipses with inner-ear shading
+    for (let side = -1; side <= 1; side += 2) {
+      const ex = center + side * 4;
+      fillEllipse(ex, center - 8.85, 2.3, 6.35, (x, y, dx, dy, dist) => {
+        const n = noise2D(x, y, 2 + side);
+        if (dy > 0.48) return furMid;
+        if (dist > 0.82 || n > 0.86) return furHi;
+        return fur;
+      });
+
+      fillEllipse(ex, center - 8.1, 1.08, 3.95, (x, y, dx, dy, dist) => {
+        if (dy > 0.42) return innerEarDeep;
+        if (dist < 0.22) return innerEarLight;
+        return innerEarPink;
+      });
+
+      // Taper line using Bresenham for a cleaner inner spine
+      drawLine(ex, center - 12, ex, center - 5, side < 0 ? '#f8bfd0' : '#f6bbce');
+    }
+
+    // Tiny paws
+    fillEllipse(center - 2.2, center + 7.8, 1.6, 1.05, furShadow);
+    fillEllipse(center + 2.2, center + 7.8, 1.6, 1.05, furShadow);
+
+    // Bow on left ear
+    [
+      [center - 6, center - 4, bow], [center - 7, center - 5, bow], [center - 7, center - 4, bow],
+      [center - 8, center - 4, bowShadow], [center - 5, center - 4, bowShadow],
+      [center - 6, center - 5, furHi], [center - 6, center - 3, bowShadow], [center - 6, center - 4, '#ff7ea4']
+    ].forEach(([x, y, color]) => setPixel(x, y, color));
+
+    const eyeY = center + 2;
+    // Larger shiny eyes
+    [[center - 3, eyeY], [center - 3, eyeY + 1], [center + 3, eyeY], [center + 3, eyeY + 1]].forEach(([x, y]) => setPixel(x, y, eyeDark));
+    [[center - 3, eyeY - 1], [center + 3, eyeY - 1]].forEach(([x, y]) => setPixel(x, y, eyeSoft));
+    [[center - 3, eyeY - 1], [center + 3, eyeY - 1], [center - 2, eyeY], [center + 2, eyeY]].forEach(([x, y]) => setPixel(x, y, furHi));
+
+    // Nose and mouth
+    setPixel(center, center + 3, '#ff99ae');
+    setPixel(center, center + 4, '#ff8aa4');
+    drawLine(center - 1, center + 5, center, center + 6, '#8f8f96');
+    drawLine(center + 1, center + 5, center, center + 6, '#8f8f96');
+
+    // Blush clusters
+    [[center - 5, center + 4], [center - 6, center + 4], [center - 5, center + 5], [center + 5, center + 4], [center + 6, center + 4], [center + 5, center + 5]].forEach(([x, y]) => setPixel(x, y, blush));
+
+    // Soft cheeks / chest highlights
+    [[center - 2, center + 1], [center - 1, center + 1], [center, center + 1], [center + 1, center + 1], [center + 2, center + 1], [center, center + 8]].forEach(([x, y]) => setPixel(x, y, furHi));
+
+    // Fur texture pass: subtle procedural noise on main silhouette only
+    for (let y = 1; y < size - 1; y++) {
+      for (let x = 1; x < size - 1; x++) {
+        const i = y * size + x;
+        const c = pixels[i];
+        if (c === fur || c === furMid) {
+          const n = noise2D(x, y, 7);
+          if (n > 0.9) pixels[i] = furHi;
+          else if (n < 0.08 && c === fur) pixels[i] = furMid;
+        }
+      }
+    }
+
+    // Outline pass for readability
+    for (let y = 1; y < size - 1; y++) {
+      for (let x = 1; x < size - 1; x++) {
+        const i = y * size + x;
+        if (pixels[i] === 'transparent') continue;
+        const neighbors = [
+          pixels[i - 1], pixels[i + 1], pixels[i - size], pixels[i + size]
+        ];
+        if (neighbors.includes('transparent')) {
+          if (pixels[i] === fur || pixels[i] === furHi) pixels[i] = outline;
+          else if (pixels[i] === furMid) pixels[i] = softOutline;
+        }
+      }
+    }
+  }
+
+  return pixels;
+}
+
+function paintTemplatePixels(ctx, pixels, size) {
+  ctx.clearRect(0, 0, size, size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const color = pixels[y * size + x];
+      if (!color || color === 'transparent') continue;
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+}
+
 const bunnySprite = {
   id: 'color_bunny',
   name: 'Kawaii Bunny',
@@ -694,87 +983,8 @@ const bunnySprite = {
   paletteNames: ['Body Base', 'Inner Ear', 'Bow', 'Shadow', 'Eyes', 'White'],
 
   draw(ctx) {
-    const p = this.palette;
-    const OUTER = '#1A1F2E';
-
-    // ───────── COLOR SYSTEM (Shade Helper) ─────────
-    const shade = (hex, percent) => {
-      const num = parseInt(hex.slice(1), 16);
-      let r = (num >> 16) + percent;
-      let g = ((num >> 8) & 0x00FF) + percent;
-      let b = (num & 0x0000FF) + percent;
-      r = Math.min(255, Math.max(0, r));
-      g = Math.min(255, Math.max(0, g));
-      b = Math.min(255, Math.max(0, b));
-      return "#" + (r << 16 | g << 8 | b).toString(16).padStart(6, '0');
-    };
-
-    const base = p[0];
-    const highlight = shade(base, 25);
-    const shadow = p[3];
-
-    // ───────── HELPERS ─────────
-    const px = (color, arr) => {
-      ctx.fillStyle = color;
-      arr.forEach(([x, y]) => ctx.fillRect(x, y, 1, 1));
-    };
-
-    // ───────── 1. BASE FILL ─────────
-    ctx.fillStyle = base;
-    ctx.fillRect(8, 12, 16, 7); // Lower head
-    ctx.fillRect(11, 10, 10, 2); // Upper head
-    ctx.fillRect(6, 3, 4, 6);   // Left ear fill
-    ctx.fillRect(22, 3, 4, 6);  // Right ear fill
-
-    // ───────── 2. SHADOWS ─────────
-    ctx.fillStyle = shadow;
-    ctx.fillRect(21, 13, 3, 5); // Side shadow
-    ctx.fillRect(12, 19, 9, 2); // Bottom shadow
-
-    // ───────── 3. OUTLINE ─────────
-    px(OUTER, [
-      // Left Ear
-      [6,2],[7,2],[8,2],[9,2],[5,3],[5,4],[5,5],[5,6],[5,7],[5,8],[10,3],[10,4],[10,5],[10,6],[10,7],[10,8],
-      // Right Ear
-      [22,2],[23,2],[24,2],[25,2],[21,3],[21,4],[21,5],[21,6],[21,7],[21,8],[26,3],[26,4],[26,5],[26,6],[26,7],[26,8],
-      // Head/Body
-      [11,9],[12,9],[13,9],[14,9],[15,9],[16,9],[17,9],[18,9],[19,9],[20,9],
-      [10,20],[21,20],[11,21],[12,21],[13,21],[14,21],[15,21],[16,21],[17,21],[18,21],[19,21],[20,21]
-    ]);
-
-    // ───────── 4. INNER EARS ─────────
-    ctx.fillStyle = p[1];
-    ctx.fillRect(7, 4, 2, 4);
-    ctx.fillRect(23, 4, 2, 4);
-
-    // ───────── 5. HIGHLIGHTS ─────────
-    ctx.fillStyle = highlight;
-    ctx.fillRect(9, 11, 4, 2);  // Forehead highlight
-
-    // ───────── 6. THE BOW ─────────
-    ctx.fillStyle = p[2];
-    ctx.fillRect(13, 8, 6, 3);  // Main bow
-    ctx.fillRect(15, 8, 2, 3);  // Center knot
-    ctx.fillStyle = shade(p[2], -30);
-    ctx.fillRect(13, 10, 6, 1); // Bow depth
-
-    // ───────── 7. EYES (3-TONE) ─────────
-    const eyeBase = p[4];
-    const eyeShadow = shade(eyeBase, -40);
-
-    // Left Eye
-    ctx.fillStyle = eyeShadow; ctx.fillRect(11, 16, 3, 2);
-    ctx.fillStyle = eyeBase;   ctx.fillRect(11, 15, 3, 1);
-    ctx.fillStyle = p[5];      ctx.fillRect(11, 15, 1, 1); // Sparkle
-
-    // Right Eye
-    ctx.fillStyle = eyeShadow; ctx.fillRect(18, 16, 3, 2);
-    ctx.fillStyle = eyeBase;   ctx.fillRect(18, 15, 3, 1);
-    ctx.fillStyle = p[5];      ctx.fillRect(18, 15, 1, 1); // Sparkle
-    
-    // Tiny Nose
-    ctx.fillStyle = OUTER;
-    ctx.fillRect(15, 17, 2, 1);
+    const size = this.size || 32;
+    paintTemplatePixels(ctx, getTemplatePixels('kawaii_bunny', size), size);
   }
 };
 
@@ -3987,6 +4197,7 @@ document.addEventListener('click',e=>{if(!e.target.closest('#fx-menu')&&!e.targe
 function renameDone(el){
   const v=el.textContent.trim(); if(!v){el.textContent='untitled.px';return;}
   if(!v.endsWith('.px')) el.textContent=v+'.px';
+  updateChallengeSubmitUI();
   toast('✦ Renamed!'); SFX.click();
 }
 
@@ -4490,26 +4701,103 @@ function gifLZW(pixels, minCode){
 
 // ── PROJECTS / CLOSET ─────────────────────────────────
 function loadProjects(){
-  try{const r=localStorage.getItem('pc2_proj');if(r){const arr=JSON.parse(r);ST.projects=arr.map(p=>({...p,frames:p.fd?p.fd.map(fd=>{const id=new ImageData(p.size||16,p.size||16);id.data.set(new Uint8ClampedArray(fd));return id;}):[]}));}} catch(e){}
+  try{
+    const r=localStorage.getItem('pc2_proj');
+    if(r){
+      const arr=JSON.parse(r);
+      ST.projects=arr.map(p=>({...p,frames:deserializeFrames(p.size||16,p.fd)})).slice(-STORAGE_LIMITS.maxProjects);
+    }
+  } catch(e){}
 }
 function saveProjects(){
-  try{localStorage.setItem('pc2_proj',JSON.stringify(ST.projects.map(p=>({name:p.name,size:p.size,fd:p.frames.map(f=>Array.from(f.data))}))));}catch(e){}
+  return persistProjectsWithLimits();
 }
 function saveProject(){
-  captureFrame();
   const name=document.getElementById('pname').textContent.trim();
-  const proj={name,size:ST.size,frames:[...ST.frames]};
-  const idx=ST.projects.findIndex(p=>p.name===name);
-  if(idx>=0) ST.projects[idx]=proj; else ST.projects.push(proj);
-  saveProjects();
-  document.getElementById('ps-creations').textContent=ST.projects.length;
-  buildHomeGallery();
-  confetti();addXP(20);toast('✦ Saved to Closet!');SFX.save();Economy.track('project:save');
+  upsertProject(makeProjectSnapshot(name),{reward:true});
+  updateChallengeSubmitUI();
 }
 
 function dayStamp(){
   const d=new Date();
   return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+}
+
+function sanitizeGameName(name=''){
+  return String(name)
+    .replace(/[^a-z0-9 _.-]/gi,'')
+    .replace(/\s+/g,' ')
+    .trim()
+    .slice(0,18);
+}
+
+function getProfileName(){
+  return sanitizeGameName(ST.profileName)||'PixelCreator';
+}
+
+function makeProfileHandle(name=getProfileName()){
+  const base=sanitizeGameName(name).toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'')||'player';
+  return '@'+base;
+}
+
+function updateProfileIdentity(){
+  const name=getProfileName();
+  const nameEl=document.getElementById('prof-name');
+  const handleEl=document.getElementById('prof-handle');
+  if(nameEl) nameEl.textContent=name;
+  if(handleEl) handleEl.textContent=makeProfileHandle(name);
+}
+
+function openProfileNameModal(force=false){
+  const modal=document.getElementById('profile-name-modal');
+  const input=document.getElementById('profile-name-input');
+  const cancel=document.getElementById('profile-name-cancel');
+  if(!modal||!input||!cancel) return;
+  modal.dataset.force=force?'true':'false';
+  modal.style.display='flex';
+  input.value=force?'':getProfileName();
+  cancel.style.display=force?'none':'block';
+  setTimeout(()=>{input.focus();input.select();},30);
+}
+
+function closeProfileNameModal(){
+  const modal=document.getElementById('profile-name-modal');
+  if(!modal) return;
+  if(modal.dataset.force==='true' && !sanitizeGameName(ST.profileName)) return;
+  modal.style.display='none';
+}
+
+function saveProfileName(name,{silent=false}={}){
+  const clean=sanitizeGameName(name);
+  if(!clean){
+    toast('Enter a gamename first.');
+    return false;
+  }
+  ST.profileName=clean;
+  try{localStorage.setItem('pc2_profile_name',clean);}catch(e){}
+  updateProfileIdentity();
+  buildProfile();
+  if(ST.challengeSubmissions.length) saveChallengeSubmissions();
+  buildChallenges();
+  updateChallengeSubmitUI();
+  closeProfileNameModal();
+  if(!silent) toast('Gamename updated ✦');
+  return true;
+}
+
+function saveProfileNameFromModal(){
+  const input=document.getElementById('profile-name-input');
+  if(!input) return;
+  saveProfileName(input.value);
+}
+
+function loadProfileName(){
+  try{ST.profileName=sanitizeGameName(localStorage.getItem('pc2_profile_name')||'');}catch(e){ST.profileName='';}
+  updateProfileIdentity();
+}
+
+function ensureProfileName(){
+  if(!sanitizeGameName(ST.profileName)) openProfileNameModal(true);
 }
 
 function canClaimStreakToday(){
@@ -4603,6 +4891,7 @@ function buildClosetCats(){
 }
 function renderCloset(){
   const g=document.getElementById('closet-grid');g.innerHTML='';
+  updateStorageUI();
   if(!ST.projects.length){g.innerHTML='<div class="ce"><div class="ce-ico">📁</div><div style="font-size:13px;color:var(--text2)">No creations yet!<br>Tap + to start.</div></div>';return;}
   ST.projects.forEach((proj,idx)=>{
     const card=document.createElement('div');card.className='cc';
@@ -4944,40 +5233,627 @@ function buildFXGrid(){
 }
 
 // ── CHALLENGES ────────────────────────────────────────
-function buildChallenges(){
-  const doy=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/(86400*1000));
-  const curr=CHALLENGES[doy%CHALLENGES.length];
-  document.getElementById('cc-title').textContent=curr.emoji+' '+curr.name;
-  document.getElementById('cc-meta').textContent=`${Math.floor(Math.random()*800+200)} entries · +${curr.xp} XP reward`;
-  document.getElementById('ch-name').textContent=curr.name;
-  document.getElementById('ch-sub').textContent=curr.desc+` · +${curr.xp} XP`;
-  const rankEl=document.getElementById('rank-row');
-  ['PixelKing','StarDust','NeonCat','YOU','CyberPup'].forEach((n,i)=>{
-    const d=document.createElement('div');d.className='rank-item';
-    const [{cls:c,ico:ico}]=[{cls:'g',ico:'🥇'},{cls:'s',ico:'🥈'},{cls:'b',ico:'🥉'},{cls:'you',ico:'✦'},{cls:'',ico:'5'}].slice(i,i+1);
-    d.innerHTML=`<div class="rank-medal ${c}">${ico}</div><div class="rank-lbl">${n}</div>`;rankEl.appendChild(d);
-  });
-  const ul=document.getElementById('upcoming-list');
-  UPCOMING.forEach(u=>{const d=document.createElement('div');d.className='up-item';d.innerHTML=`<div class="up-dot" style="background:${u.color}"></div><div class="up-day">${u.day}</div><div class="up-name">${u.name}</div><div class="up-pts">+${u.pts} XP</div>`;ul.appendChild(d);});
-  const fg=document.getElementById('feed-grid');
-  const cols=['#6C63FF','#FF6B6B','#3DDC97','#FFD166','#4FC3F7','#CE93D8'];
-  for(let i=0;i<6;i++){
-    const card=document.createElement('div');card.className='fc';
-    const cvs=document.createElement('canvas');cvs.className='fc-cvs';cvs.width=64;cvs.height=64;
-    const ctx=cvs.getContext('2d');
-    for(let y=0;y<64;y++)for(let x=0;x<64;x++)if(Math.sin(x*.25+i*1.3)*Math.cos(y*.25+i*.7)>.18){ctx.fillStyle=cols[(x+y+i)%cols.length];ctx.fillRect(x,y,1,1);}
-    const rxns=document.createElement('div');rxns.className='fc-rxns';
-    [['🔥',Math.floor(Math.random()*99+5)],['✨',Math.floor(Math.random()*40)],['👑',Math.floor(Math.random()*15)]].forEach(([e,n])=>{
-      const btn=document.createElement('button');btn.className='rxn';btn.innerHTML=`${e} <span>${n}</span>`;
-      btn.onclick=()=>{btn.classList.toggle('lit');const sp=btn.querySelector('span');sp.textContent=+sp.textContent+(btn.classList.contains('lit')?1:-1);};rxns.appendChild(btn);
-    });
-    card.appendChild(cvs);card.appendChild(rxns);fg.appendChild(card);
+function getChallengeDayOfYear(){
+  return Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/(86400*1000));
+}
+
+function getCurrentChallengeIndex(){
+  return getChallengeDayOfYear()%CHALLENGES.length;
+}
+
+function getCurrentChallenge(){
+  return CHALLENGES[getCurrentChallengeIndex()];
+}
+
+function getChallengeDaysLeft(){
+  return 8-(((getChallengeDayOfYear()-1)%7)+1);
+}
+
+function getChallengeEntries(curr, idx=getCurrentChallengeIndex()){
+  return 260+((idx*173)+(curr.xp*5))%740;
+}
+
+function findTemplateMetaById(id){
+  const groups=Object.values(TEMPLATES||{});
+  for(const group of groups){
+    const found=group.find(item=>item.id===id);
+    if(found) return found;
+  }
+  return null;
+}
+
+function findAnimTemplateById(id){
+  return (window.ANIM_TEMPLATES||[]).find(item=>item.id===id)||null;
+}
+
+function normalizeChallengeAsset(asset){
+  if(!asset) return null;
+  const src=typeof asset==='string'?{id:asset}:asset;
+  const kind=src.kind||(src.frames?'submission':(findAnimTemplateById(src.id)?'anim':'template'));
+  const meta=kind==='anim'?findAnimTemplateById(src.id):findTemplateMetaById(src.id);
+  return { ...src, kind, name: src.name || src.projectName || meta?.name || src.id };
+}
+
+function challengeAssetKey(asset){
+  const a=normalizeChallengeAsset(asset);
+  return a?`${a.kind}:${a.id}`:'';
+}
+
+function drawChallengeAssetPreview(ctx, asset, size){
+  const a=normalizeChallengeAsset(asset);
+  if(!ctx||!a) return false;
+  ctx.clearRect(0,0,size,size);
+  ctx.imageSmoothingEnabled=false;
+  if(a.kind==='submission' && a.frames?.[0]){
+    const frame=a.frames[0];
+    const tmp=document.createElement('canvas');
+    tmp.width=frame.width; tmp.height=frame.height;
+    tmp.getContext('2d').putImageData(frame,0,0);
+    ctx.drawImage(tmp,0,0,frame.width,frame.height,0,0,size,size);
+    return true;
+  }
+  if(a.kind==='anim'){
+    const tmpl=findAnimTemplateById(a.id);
+    if(!tmpl) return false;
+    tmpl.draw(ctx,size,0);
+    applyTemplateStylePass(ctx,size,size,inferTemplateStyleProfile(tmpl.id,tmpl.name));
+    return true;
+  }
+  if(!DRAWERS[a.id]) return false;
+  DRAWERS[a.id](ctx,size);
+  if(!shouldSkipTemplateStylePass(a.id)){
+    applyTemplateStylePass(ctx,size,size,inferTemplateStyleProfile(a.id,a.name));
+  }
+  return true;
+}
+
+function renderChallengeCanvas(canvas, asset, size=32){
+  if(!canvas) return;
+  canvas.width=size;
+  canvas.height=size;
+  const ctx=canvas.getContext('2d');
+  drawChallengeAssetPreview(ctx, asset, size);
+}
+
+function challengeHash(seed){
+  let h=2166136261;
+  const str=String(seed||'pixel');
+  for(let i=0;i<str.length;i++){
+    h^=str.charCodeAt(i);
+    h=Math.imul(h,16777619);
+  }
+  return h>>>0;
+}
+
+function challengeUnit(seed, offset=0){
+  const n=Math.sin((challengeHash(seed)+offset)*12.9898)*43758.5453123;
+  return n-Math.floor(n);
+}
+
+function drawChallengeAvatar(canvas, seed, accent='#6C63FF'){
+  if(!canvas) return;
+  canvas.width=16; canvas.height=16;
+  const ctx=canvas.getContext('2d');
+  const cols=[accent,'#FF6B6B','#FFD166','#3DDC97','#F0F0F8','#111118'];
+  ctx.clearRect(0,0,16,16);
+  ctx.fillStyle='#141420';
+  ctx.fillRect(0,0,16,16);
+  for(let y=0;y<16;y+=2){
+    for(let x=0;x<8;x+=2){
+      const v=challengeUnit(seed,(y*8)+x);
+      const col=cols[Math.floor(challengeUnit(seed,(x+1)*(y+3))*cols.length)%cols.length];
+      if(v>.28){
+        ctx.fillStyle=col;
+        ctx.fillRect(x,y,2,2);
+        ctx.fillRect(14-x,y,2,2);
+      }
+    }
+  }
+  ctx.fillStyle='rgba(255,255,255,.12)';
+  ctx.fillRect(2,2,12,2);
+}
+
+function slugifyProjectName(name){
+  return String(name||'challenge').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+}
+
+function cloneFrames(frames){
+  return (frames||[]).map(frame=>cloneImageData(frame));
+}
+
+function serializeFrames(frames){
+  return (frames||[]).map(frame=>Array.from(frame.data));
+}
+
+function serializeProjectsPayload(){
+  return ST.projects.map(p=>({name:p.name,size:p.size,fd:serializeFrames(p.frames)}));
+}
+
+function serializeChallengeSubmissionsPayload(){
+  return (ST.challengeSubmissions||[]).map(item=>({
+    id:item.id,
+    kind:'submission',
+    challenge:item.challenge,
+    creator:item.creator||getProfileName(),
+    label:item.label||'Submitted just now',
+    projectName:item.projectName,
+    name:item.name,
+    size:item.size,
+    starterKey:item.starterKey||'',
+    submittedAt:item.submittedAt,
+    fd:serializeFrames(item.frames),
+  }));
+}
+
+function estimateBytes(str=''){
+  try{return new Blob([str]).size;}catch(e){return String(str).length*2;}
+}
+
+function getStorageSnapshot(){
+  const projectJson=JSON.stringify(serializeProjectsPayload());
+  const submissionJson=JSON.stringify(serializeChallengeSubmissionsPayload());
+  const profileJson=JSON.stringify({name:getProfileName(),streak:ST.streak});
+  const totalBytes=estimateBytes(projectJson)+estimateBytes(submissionJson)+estimateBytes(profileJson);
+  return {
+    totalBytes,
+    projectBytes:estimateBytes(projectJson),
+    submissionBytes:estimateBytes(submissionJson),
+    projectCount:ST.projects.length,
+    submissionCount:ST.challengeSubmissions.length,
+  };
+}
+
+function formatBytes(bytes){
+  if(bytes<1024) return `${bytes} B`;
+  if(bytes<1024*1024) return `${(bytes/1024).toFixed(1)} KB`;
+  return `${(bytes/(1024*1024)).toFixed(2)} MB`;
+}
+
+function isQuotaError(err){
+  return err && (
+    err.name==='QuotaExceededError' ||
+    err.name==='NS_ERROR_DOM_QUOTA_REACHED' ||
+    err.code===22 || err.code===1014
+  );
+}
+
+function trimProjectStorage(targetMax=STORAGE_LIMITS.maxProjects){
+  if(ST.projects.length<=targetMax) return 0;
+  const removeCount=ST.projects.length-targetMax;
+  ST.projects.splice(0,removeCount);
+  return removeCount;
+}
+
+function trimSubmissionStorage(targetMax=STORAGE_LIMITS.maxSubmissions){
+  if(ST.challengeSubmissions.length<=targetMax) return 0;
+  const removeCount=ST.challengeSubmissions.length-targetMax;
+  ST.challengeSubmissions.splice(targetMax,removeCount);
+  return removeCount;
+}
+
+function updateStorageUI(message=''){
+  const el=document.getElementById('closet-storage');
+  if(!el) return;
+  const snap=getStorageSnapshot();
+  const parts=[
+    `${formatBytes(snap.totalBytes)} used`,
+    `${snap.projectCount}/${STORAGE_LIMITS.maxProjects} closet saves`,
+    `${snap.submissionCount}/${STORAGE_LIMITS.maxSubmissions} challenge entries`,
+  ];
+  el.textContent=message || parts.join(' · ');
+  el.classList.remove('warn','danger');
+  if(snap.totalBytes>=STORAGE_LIMITS.dangerBytes || snap.projectCount>=STORAGE_LIMITS.maxProjects){
+    el.classList.add('danger');
+  } else if(snap.totalBytes>=STORAGE_LIMITS.warnBytes || snap.projectCount>=Math.floor(STORAGE_LIMITS.maxProjects*0.8)){
+    el.classList.add('warn');
   }
 }
+
+function persistProjectsWithLimits(){
+  trimProjectStorage(STORAGE_LIMITS.maxProjects);
+  try{
+    localStorage.setItem('pc2_proj',JSON.stringify(serializeProjectsPayload()));
+    updateStorageUI();
+    return { ok:true, removed:0 };
+  }catch(e){
+    if(!isQuotaError(e)) return { ok:false, removed:0, error:e };
+    let removed=0;
+    while(ST.projects.length>1){
+      ST.projects.shift();
+      removed++;
+      try{
+        localStorage.setItem('pc2_proj',JSON.stringify(serializeProjectsPayload()));
+        updateStorageUI(`Storage was full. Removed ${removed} oldest save${removed===1?'':'s'}.`);
+        return { ok:true, removed, quotaRecovered:true };
+      }catch(inner){
+        if(!isQuotaError(inner)) return { ok:false, removed, error:inner };
+      }
+    }
+    updateStorageUI('Storage is full. Export or delete older saves to keep creating.');
+    return { ok:false, removed, error:e };
+  }
+}
+
+function persistSubmissionsWithLimits(){
+  trimSubmissionStorage(STORAGE_LIMITS.maxSubmissions);
+  try{
+    localStorage.setItem('pc2_challenge_submissions',JSON.stringify(serializeChallengeSubmissionsPayload()));
+    updateStorageUI();
+    return { ok:true, removed:0 };
+  }catch(e){
+    if(!isQuotaError(e)) return { ok:false, removed:0, error:e };
+    let removed=0;
+    while(ST.challengeSubmissions.length>0){
+      ST.challengeSubmissions.pop();
+      removed++;
+      try{
+        localStorage.setItem('pc2_challenge_submissions',JSON.stringify(serializeChallengeSubmissionsPayload()));
+        updateStorageUI(`Storage was full. Removed ${removed} older challenge entr${removed===1?'y':'ies'}.`);
+        return { ok:true, removed, quotaRecovered:true };
+      }catch(inner){
+        if(!isQuotaError(inner)) return { ok:false, removed, error:inner };
+      }
+    }
+    updateStorageUI('Storage is full. Delete exports or saves to keep challenge entries.');
+    return { ok:false, removed, error:e };
+  }
+}
+
+function deserializeFrames(size, rawFrames){
+  return (rawFrames||[]).map(fd=>{
+    const id=new ImageData(size||16,size||16);
+    id.data.set(new Uint8ClampedArray(fd));
+    return id;
+  });
+}
+
+function makeProjectSnapshot(name=document.getElementById('pname')?.textContent?.trim()||'untitled.px'){
+  captureFrame();
+  return { name, size:ST.size, frames:cloneFrames(ST.frames) };
+}
+
+function upsertProject(proj,{reward=true,silent=false}={}){
+  const idx=ST.projects.findIndex(p=>p.name===proj.name);
+  if(idx>=0) ST.projects[idx]=proj; else ST.projects.push(proj);
+  if(ST.projects.length>STORAGE_LIMITS.maxProjects) trimProjectStorage(STORAGE_LIMITS.maxProjects);
+  const saved=saveProjects();
+  if(!saved.ok){
+    toast('Storage is full. Export or delete older saves first.');
+    return false;
+  }
+  document.getElementById('ps-creations').textContent=ST.projects.length;
+  buildHomeGallery();
+  renderCloset();
+  if(reward){
+    confetti();addXP(20);toast(saved.removed>0?`✦ Saved! Replaced ${saved.removed} older save${saved.removed===1?'':'s'} to stay within device storage.`:'✦ Saved to Closet!');SFX.save();Economy.track('project:save');
+  } else if(!silent){
+    toast('Updated in Closet ✦');
+  }
+  if(saved.removed>0 && !reward){
+    toast(`Storage trimmed ${saved.removed} older save${saved.removed===1?'':'s'}.`);
+  }
+  return true;
+}
+
+function loadChallengeSubmissions(){
+  try{
+    const raw=localStorage.getItem('pc2_challenge_submissions');
+    if(!raw){ ST.challengeSubmissions=[]; return; }
+    const arr=JSON.parse(raw);
+    ST.challengeSubmissions=arr.map(item=>({
+      ...item,
+      kind:'submission',
+      frames:deserializeFrames(item.size||16,item.fd),
+    })).slice(0,STORAGE_LIMITS.maxSubmissions);
+  }catch(e){ ST.challengeSubmissions=[]; }
+}
+
+function saveChallengeSubmissions(){
+  return persistSubmissionsWithLimits();
+}
+
+function formatSubmissionAge(ts){
+  const mins=Math.max(0,Math.floor((Date.now()-Number(ts||Date.now()))/60000));
+  if(mins<1) return 'just now';
+  if(mins<60) return `${mins}m ago`;
+  const hours=Math.floor(mins/60);
+  if(hours<24) return `${hours}h ago`;
+  return `${Math.floor(hours/24)}d ago`;
+}
+
+function getChallengeSubmissions(challengeName){
+  return (ST.challengeSubmissions||[])
+    .filter(item=>item.challenge===challengeName)
+    .sort((a,b)=>Number(b.submittedAt||0)-Number(a.submittedAt||0));
+}
+
+function getSubmissionIndex(challengeName, projectName){
+  return (ST.challengeSubmissions||[]).findIndex(item=>item.challenge===challengeName&&item.projectName===projectName);
+}
+
+function updateChallengeSubmitUI(){
+  const bar=document.getElementById('challenge-submit-bar');
+  const title=document.getElementById('challenge-submit-title');
+  const status=document.getElementById('challenge-submit-status');
+  const btn=document.getElementById('challenge-submit-btn');
+  if(!bar||!title||!status||!btn) return;
+
+  if(!ST.activeChallenge){
+    bar.style.display='none';
+    return;
+  }
+
+  bar.style.display='flex';
+  title.textContent=ST.activeChallenge;
+  const projectName=document.getElementById('pname')?.textContent?.trim()||'untitled.px';
+  const idx=getSubmissionIndex(ST.activeChallenge,projectName);
+  const submitted=idx>=0?ST.challengeSubmissions[idx]:null;
+  const isValid=Boolean(ST.frames.length && ST.frames[ST.currentFrame]);
+  status.textContent=submitted
+    ? `Submitted ${formatSubmissionAge(submitted.submittedAt)} • Tap to resubmit with updates.`
+    : 'Finish your art, then submit it to the challenge feed.';
+  btn.textContent=submitted?'Resubmit Entry':'Submit Entry';
+  btn.disabled=!isValid;
+}
+
+function getSelectedChallengeStarter(curr=getCurrentChallenge()){
+  const starters=(curr?.starters||[]).map(normalizeChallengeAsset).filter(Boolean);
+  const feed=(curr?.feed||[]).map(normalizeChallengeAsset).filter(Boolean);
+  const pool=[...starters,...feed];
+  if(!pool.length) return null;
+  let selected=pool.find(item=>challengeAssetKey(item)===ST.challengeStarterKey);
+  if(!selected){
+    selected=starters[0];
+    ST.challengeStarterKey=challengeAssetKey(selected);
+  }
+  return selected;
+}
+
+function selectChallengeStarter(asset, opts={}){
+  const selected=normalizeChallengeAsset(asset);
+  if(!selected) return;
+  ST.challengeStarterKey=challengeAssetKey(selected);
+  buildChallenges();
+  if(!opts.silent) toast(`Starter selected: ${selected.name}`);
+}
+
+function makeChallengeStarterCard(asset, isSelected){
+  const starter=normalizeChallengeAsset(asset);
+  const d=document.createElement('div');
+  d.className='tcard challenge'+(isSelected?' sel':'');
+
+  const prev=document.createElement('div');
+  prev.className='tcard-preview';
+  const cvs=document.createElement('canvas');
+  renderChallengeCanvas(cvs, starter, 32);
+  prev.appendChild(cvs);
+  d.appendChild(prev);
+
+  const bottom=document.createElement('div');
+  bottom.className='tcard-bottom';
+  bottom.innerHTML=`<div class="tcard-name">${starter.name}</div><span class="tcard-tag">${isSelected?'Selected':'Tap to use'}</span>`;
+  d.appendChild(bottom);
+  d.onclick=()=>selectChallengeStarter(starter);
+  return d;
+}
+
+function buildChallengeLeaderboard(curr){
+  const rankEl=document.getElementById('rank-row');
+  if(!rankEl) return;
+  rankEl.innerHTML='';
+  const names=['PixelKing','StarDust','NeonCat','YOU','CyberPup'];
+  const medals=[{cls:'g',ico:'🥇'},{cls:'s',ico:'🥈'},{cls:'b',ico:'🥉'},{cls:'you',ico:'✦'},{cls:'',ico:'5'}];
+  names.forEach((name,i)=>{
+    const d=document.createElement('div');
+    d.className='rank-item';
+    const avatar=document.createElement('canvas');
+    avatar.className='rank-avatar';
+    drawChallengeAvatar(avatar,`${curr.name}-${name}`,curr.accent?.[0]);
+    const medal=medals[i];
+    const score=curr.xp+(names.length-i)*12+Math.floor(challengeUnit(`${curr.name}-${name}`,i)*18);
+    d.innerHTML=`<div class="rank-medal ${medal.cls}">${medal.ico}</div><div class="rank-lbl">${name}</div><div class="rank-score">${score} XP</div>`;
+    d.insertBefore(avatar,d.children[1]);
+    rankEl.appendChild(d);
+  });
+}
+
+function buildChallengeStarters(curr, selected){
+  const el=document.getElementById('challenge-starters');
+  if(!el) return;
+  el.innerHTML='';
+  curr.starters.forEach(asset=>{
+    el.appendChild(makeChallengeStarterCard(asset,challengeAssetKey(asset)===challengeAssetKey(selected)));
+  });
+}
+
+function buildUpcomingChallenges(){
+  const ul=document.getElementById('upcoming-list');
+  if(!ul) return;
+  ul.innerHTML='';
+  UPCOMING.forEach(u=>{
+    const d=document.createElement('div');
+    d.className='up-item';
+    const thumb=document.createElement('canvas');
+    thumb.className='up-thumb';
+    renderChallengeCanvas(thumb,u.asset,32);
+    d.appendChild(thumb);
+    d.insertAdjacentHTML('beforeend',`<div class="up-dot" style="background:${u.color}"></div><div class="up-day">${u.day}</div><div class="up-name">${u.name}</div><div class="up-pts">+${u.pts} XP</div>`);
+    d.onclick=()=>toast(`${u.name} drops on ${u.day}.`);
+    ul.appendChild(d);
+  });
+}
+
+function buildChallengeFeed(curr, selected){
+  const fg=document.getElementById('feed-grid');
+  if(!fg) return;
+  fg.innerHTML='';
+  const feedEntries=[
+    ...getChallengeSubmissions(curr.name).map(item=>({
+      ...item,
+      kind:'submission',
+      creator:getProfileName(),
+      label:`Submitted ${formatSubmissionAge(item.submittedAt)}`,
+    })),
+    ...curr.feed,
+  ];
+  feedEntries.forEach((entry,idx)=>{
+    const item=normalizeChallengeAsset(entry);
+    const isSelectable=item.kind!=='submission';
+    const card=document.createElement('div');
+    card.className='fc'+(isSelectable&&challengeAssetKey(item)===challengeAssetKey(selected)?' sel':'');
+
+    const cvs=document.createElement('canvas');
+    cvs.className='fc-cvs';
+    renderChallengeCanvas(cvs,item,48);
+
+    const meta=document.createElement('div');
+    meta.className='fc-meta';
+    const avatar=document.createElement('canvas');
+    avatar.className='fc-avatar';
+    drawChallengeAvatar(avatar,entry.creator||item.projectName,item.kind==='anim'?curr.accent?.[1]:curr.accent?.[0]);
+    const byline=document.createElement('div');
+    byline.className='fc-byline';
+    byline.innerHTML=`<div class="fc-name">${entry.creator||'Creator'}</div><div class="fc-tag">${entry.label||item.name}</div>`;
+    meta.appendChild(avatar);
+    meta.appendChild(byline);
+
+    const rxns=document.createElement('div');
+    rxns.className='fc-rxns';
+    [['🔥',14+((idx+1)*11)%31],['✨',6+((idx+2)*7)%24],['👑',2+((idx+3)*5)%11]].forEach(([emoji,count])=>{
+      const btn=document.createElement('button');
+      btn.className='rxn';
+      btn.innerHTML=`${emoji} <span>${count}</span>`;
+      btn.onclick=(e)=>{
+        e.stopPropagation();
+        btn.classList.toggle('lit');
+        const sp=btn.querySelector('span');
+        sp.textContent=+sp.textContent+(btn.classList.contains('lit')?1:-1);
+      };
+      rxns.appendChild(btn);
+    });
+
+    card.appendChild(cvs);
+    card.appendChild(meta);
+    card.appendChild(rxns);
+    card.onclick=()=>{
+      if(item.kind==='submission'){
+        toast('Your submission is now featured in this challenge!');
+        return;
+      }
+      selectChallengeStarter(item,{silent:false});
+    };
+    fg.appendChild(card);
+  });
+}
+
+function buildChallenges(){
+  const idx=getCurrentChallengeIndex();
+  const curr=CHALLENGES[idx];
+  const entries=getChallengeEntries(curr,idx);
+  const daysLeft=getChallengeDaysLeft();
+  const selected=getSelectedChallengeStarter(curr);
+  const submissions=getChallengeSubmissions(curr.name);
+
+  const homeTitle=document.getElementById('cc-title');
+  const homeMeta=document.getElementById('cc-meta');
+  const homeDays=document.getElementById('cc-days');
+  if(homeTitle) homeTitle.textContent=curr.emoji+' '+curr.name;
+  if(homeMeta) homeMeta.textContent=`${entries} entries · +${curr.xp} XP reward`;
+  if(homeDays) homeDays.textContent=`${daysLeft}d left`;
+
+  const hero=document.querySelector('.chal-hero');
+  if(hero && Array.isArray(curr.accent)){
+    hero.style.background=`linear-gradient(135deg,${curr.accent[0]} 0%,${curr.accent[1]} 100%)`;
+  }
+  document.getElementById('ch-name').textContent=curr.name;
+  document.getElementById('ch-sub').textContent=`${curr.desc} · ${entries} entries · +${curr.xp} XP${submissions.length?` · ${submissions.length} submitted by you`:''}`;
+  const timerEl=document.getElementById('ch-timer');
+  if(timerEl) timerEl.textContent=`⏱ ${daysLeft} day${daysLeft===1?'':'s'} left`;
+
+  const art=document.getElementById('ch-art');
+  renderChallengeCanvas(art,selected||curr.starters[0],64);
+  const artCaption=document.getElementById('ch-art-caption');
+  if(artCaption && selected) artCaption.textContent=`Starter: ${selected.name}`;
+
+  buildChallengeLeaderboard(curr);
+  buildChallengeStarters(curr,selected);
+  buildUpcomingChallenges();
+  buildChallengeFeed(curr,selected);
+  updateChallengeSubmitUI();
+}
+
 function startChallenge(){
-  const doy=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/(86400*1000));
-  const curr=CHALLENGES[doy%CHALLENGES.length];toast(`Starting: ${curr.name}!`);showTab('create');
-  setTimeout(()=>{ST.frames=[];initCanvas();document.getElementById('pname').textContent='challenge.px';},60);
+  const curr=getCurrentChallenge();
+  const selected=getSelectedChallengeStarter(curr);
+  ST.activeChallenge=curr.name;
+  toast(`Starting: ${curr.name}!`);
+
+  if(selected?.kind==='anim'){
+    const tmpl=findAnimTemplateById(selected.id);
+    if(tmpl) loadAnimTemplate(tmpl);
+    else { showTab('create'); setTimeout(()=>initCanvas(),60); }
+  } else if(selected?.id){
+    loadTemplate(selected.id,selected.name||curr.name);
+  } else {
+    showTab('create');
+    setTimeout(()=>initCanvas(),60);
+  }
+
+  setTimeout(()=>{
+    const pname=document.getElementById('pname');
+    if(pname) pname.textContent=`${slugifyProjectName(curr.name)}-challenge.px`;
+    updateChallengeSubmitUI();
+  },90);
+}
+
+function submitChallenge(){
+  const curr=getCurrentChallenge();
+  if(ST.activeChallenge!==curr.name){
+    toast('Start this week\'s challenge first.');
+    showTab('challenges');
+    return;
+  }
+
+  const projectName=document.getElementById('pname')?.textContent?.trim()||`${slugifyProjectName(curr.name)}-challenge.px`;
+  const snapshot=makeProjectSnapshot(projectName);
+  if(!snapshot.frames.length || !snapshot.frames[0]){
+    toast('Finish a drawing before submitting.');
+    return;
+  }
+
+  const savedProject=upsertProject(snapshot,{reward:false,silent:true});
+  if(!savedProject) return;
+
+  const submission={
+    id:`${curr.name}-${projectName}`,
+    kind:'submission',
+    challenge:curr.name,
+    creator:getProfileName(),
+    label:'Submitted just now',
+    projectName,
+    name:projectName.replace(/\.px$/,''),
+    size:snapshot.size,
+    frames:cloneFrames(snapshot.frames),
+    starterKey:ST.challengeStarterKey||'',
+    submittedAt:Date.now(),
+  };
+  const idx=getSubmissionIndex(curr.name,projectName);
+  if(idx>=0) ST.challengeSubmissions[idx]=submission;
+  else ST.challengeSubmissions.unshift(submission);
+  ST.challengeSubmissions=ST.challengeSubmissions.slice(0,STORAGE_LIMITS.maxSubmissions);
+  const savedSubmission=saveChallengeSubmissions();
+  if(!savedSubmission.ok){
+    toast('Could not save challenge entry. Free up local storage and try again.');
+    return;
+  }
+
+  addXP(curr.xp);
+  confetti();
+  SFX.share();
+  Economy.track('challenge:complete',{xp:curr.xp,id:ST.challengeStarterKey||curr.name});
+  buildChallenges();
+  showTab('challenges');
+  toast(savedSubmission.removed>0?`🏆 Submitted! +${curr.xp} XP · removed ${savedSubmission.removed} older challenge entr${savedSubmission.removed===1?'y':'ies'}.`:`🏆 Submitted to ${curr.name}! +${curr.xp} XP`,2800);
 }
 
 // ── GAMIFICATION ──────────────────────────────────────
@@ -4999,15 +5875,36 @@ function claimStreak(){
   localStorage.setItem('pc2_streak_claim_day',dayStamp());
   refreshStreakUI();
   updateHomeNavState();
-  addXP(15);confetti();toast('🔥 Streak reward! +15 XP');SFX.unlock();
+  addXP(15);confetti();toast('🔥 Streak reward! +15 XP · saved on this device');SFX.unlock();
 }
 
 // ── PROFILE ───────────────────────────────────────────
 function buildProfile(){
+  updateProfileIdentity();
+  const name=getProfileName();
   const cvs=document.getElementById('prof-av');const ctx=cvs.getContext('2d');
-  const cols=['#6C63FF','#FF6B6B','#3DDC97','#FFD166'];
-  for(let y=0;y<11;y++)for(let x=0;x<11;x++)if(Math.random()>.5){ctx.fillStyle=cols[Math.floor(Math.random()*cols.length)];ctx.fillRect(x*7,y*7,7,7);}
+  if(cvs&&ctx){
+    ctx.clearRect(0,0,cvs.width,cvs.height);
+    ctx.imageSmoothingEnabled=false;
+    const palette=['#6C63FF','#FF6B6B','#3DDC97','#FFD166','#F0F0F8','#111118'];
+    ctx.fillStyle='#141420';
+    ctx.fillRect(0,0,cvs.width,cvs.height);
+    for(let y=0;y<11;y++){
+      for(let x=0;x<6;x++){
+        if(challengeUnit(name,(y*11)+x)>.34){
+          const col=palette[Math.floor(challengeUnit(name,(x+1)*(y+5))*palette.length)%palette.length];
+          ctx.fillStyle=col;
+          ctx.fillRect(x*7,y*7,7,7);
+          ctx.fillRect((10-x)*7,y*7,7,7);
+        }
+      }
+    }
+    ctx.fillStyle='rgba(255,255,255,.16)';
+    ctx.fillRect(14,14,49,7);
+  }
   const el=document.getElementById('ptog-list');
+  if(!el) return;
+  el.innerHTML='';
   [['Public Gallery',false],['External Share',false],['Time Reminders',true],['Sound Effects',true],['Parent Controls',false]].forEach(([lbl,def])=>{
     const row=document.createElement('div');row.className='ptog';
     row.innerHTML=`<span class="ptog-l">${lbl}</span><label class="tog"><input type="checkbox"${def?' checked':''}><div class="tog-tr" style="background:${def?'var(--ind)':'var(--s5)'}"></div><div class="tog-th" style="left:${def?'22':'2'}px"></div></label>`;
@@ -5031,6 +5928,8 @@ function showTab(tab){
     refreshStreakUI();
     updateXPNextUnlock();
   }
+  if(tab==='challenges') buildChallenges();
+  if(tab==='create') setTimeout(()=>updateChallengeSubmitUI(),70);
   updateHomeNavState(tab);
   closeFXMenu();closeAnimMenu();
 }
@@ -5241,7 +6140,9 @@ captureFrame = function(){
 function boot(){
   initStore();
   buildPalRow();
+  loadProfileName();
   loadProjects();
+  loadChallengeSubmissions();
   loadEngagementState();
   buildHomeTemplates();
   buildHomeProof();
@@ -5259,14 +6160,19 @@ function boot(){
   buildChallenges();
   updateXPNextUnlock();
   buildProfile();
+  updateStorageUI();
   document.getElementById('ps-creations').textContent=ST.projects.length;
   initCanvas(16);
   syncCanvasUnlockUI();
   buildLayerPanel();
   document.getElementById('sz-16').classList.add('on');
   document.getElementById('sz-32').classList.remove('on');
+  document.getElementById('profile-name-input')?.addEventListener('keydown',e=>{
+    if(e.key==='Enter') saveProfileNameFromModal();
+  });
   startAutoSave();
   document.addEventListener('keydown',onKey);
+  ensureProfileName();
   console.log('%c[PixelStudioCore v2.0] Ready','color:#6C63FF;font-weight:bold;',window.PixelStudioCore.inspect());
 }
 function startAutoSave(){setInterval(()=>{if(ST.frames.length&&ST.projects.length>0)captureFrame();},6000);}
