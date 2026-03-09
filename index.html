@@ -67,20 +67,12 @@
 
 <div id="birthday-splash" aria-label="Birthday splash page">
   <div class="birthday-glow"></div>
-  <span class="birthday-sparkle" style="left:8%;top:18%;animation-delay:0s;width:18px;height:18px"></span>
-  <span class="birthday-sparkle" style="left:20%;top:65%;animation-delay:.4s;width:12px;height:12px"></span>
-  <span class="birthday-sparkle" style="left:34%;top:28%;animation-delay:1.1s;width:16px;height:16px"></span>
-  <span class="birthday-sparkle" style="left:50%;top:80%;animation-delay:.7s;width:10px;height:10px"></span>
-  <span class="birthday-sparkle" style="left:63%;top:20%;animation-delay:1.6s;width:20px;height:20px"></span>
-  <span class="birthday-sparkle" style="left:76%;top:56%;animation-delay:.2s;width:14px;height:14px"></span>
-  <span class="birthday-sparkle" style="left:88%;top:25%;animation-delay:1.3s;width:17px;height:17px"></span>
-  <span class="birthday-sparkle" style="left:92%;top:72%;animation-delay:.9s;width:11px;height:11px"></span>
   <section class="birthday-card">
     <img class="birthday-logo" src="logo.png" alt="Pixel Creator logo" width="112" height="112">
-    <p class="birthday-subtitle">You Shine Bright</p>
-    <h1 class="birthday-title">Happy 10th Birthday</h1>
+    <h1 class="birthday-title">Build Your Pixel.</h1>
+    <p class="birthday-subtitle">Create. Customize. Share.</p>
     <button class="birthday-start-button" onclick="startCreating()">Start Creating</button>
-    <a class="birthday-policy-link" href="/privacy-policy.html">Privacy Policy Statement</a>
+    <p class="birthday-policy-statement">By continuing, you agree to the <a class="birthday-policy-link" href="/privacy-policy.html">Privacy Policy Statement</a>.</p>
   </section>
 </div>
 
@@ -98,7 +90,7 @@
       <button class="btn-secondary" onclick="showTab('closet')">My Work</button>
     </div>
   </div>
-  <div class="home-section">
+  <div class="home-section" id="home-challenge-section">
     <div class="sec-header"><span class="sec-title">Weekly Drop</span></div>
     <div class="challenge-card" onclick="showTab('challenges')">
       <div class="cc-days" id="cc-days">3d left</div>
@@ -108,7 +100,7 @@
       <button class="cc-btn" onclick="event.stopPropagation();showTab('challenges')">Enter Challenge ↗</button>
     </div>
   </div>
-  <div class="xp-card">
+  <div class="xp-card" id="home-level-card">
     <div class="xp-top">
       <span class="xp-label">⚡ Level <span id="xp-lvl">3</span> Creator</span>
       <span class="xp-val"><span id="xp-cur">420</span> / <span id="xp-max">600</span> XP</span>
@@ -296,14 +288,14 @@
       </div>
     </div>
   </div>
-  <div class="studio-section">
+  <div class="studio-section" id="studio-coloring-section">
     <div class="ss-title">🎨 Color-In Templates</div>
     <div class="coloring-section-sub">Outline locked · Fill the regions · Complete for XP</div>
     <div class="tmpl-grid" id="tmpl-coloring"></div>
   </div>
-  <div class="studio-section"><div class="ss-title">🏆 Challenge Templates</div><div class="tmpl-grid" id="tmpl-challenge"></div></div>
+  <div class="studio-section" id="studio-challenge-templates"><div class="ss-title">🏆 Challenge Templates</div><div class="tmpl-grid" id="tmpl-challenge"></div></div>
   <div class="studio-section"><div class="ss-title">🎬 Animated Starters</div><div class="tmpl-grid" id="tmpl-anim"></div></div>
-  <div class="studio-section">
+  <div class="studio-section" id="studio-y2k-section">
     <div class="ss-title" style="display:flex;align-items:center;gap:6px">
       <span>💎 Premium Pink Y2K Glitter Pack</span>
       <span style="background:linear-gradient(90deg,#F6A5C0,#CE93D8);color:#fff;font-size:8px;font-weight:900;padding:2px 6px;border-radius:10px;letter-spacing:.06em">PREMIUM</span>
@@ -363,20 +355,19 @@
 <!-- PROFILE -->
 <div id="profile-screen" class="screen">
   <div class="prof-hero">
-    <img class="prof-logo" src="logo.png" alt="Pixel Creator logo" width="52" height="52">
-    <canvas class="prof-av" id="prof-av" width="76" height="76"></canvas>
+    <img class="prof-av prof-logo-main" id="prof-av" src="logo.png" alt="Pixel Creator logo" width="76" height="76">
     <div class="prof-name" id="prof-name">PixelCreator</div>
     <div class="prof-handle" id="prof-handle">@creator_001</div>
     <button class="prof-edit" onclick="openProfileNameModal()">Edit gamename</button>
-    <div class="prof-storage-note">Profile, streak, and challenge saves stay on this device.</div>
-    <div class="prof-level">⚡ Level 3 · Teen Mode at Level 10</div>
+    <div class="prof-storage-note" id="profile-storage-note">Profile, streak, and challenge saves stay on this device.</div>
+    <div class="prof-level" id="profile-level-chip">⚡ Level 3 · Teen Mode at Level 10</div>
   </div>
   <div class="prof-stats">
     <div class="pstat"><div class="pstat-n" id="ps-creations">0</div><div class="pstat-l">Creations</div></div>
     <div class="pstat"><div class="pstat-n">5</div><div class="pstat-l">Streak 🔥</div></div>
-    <div class="pstat"><div class="pstat-n" id="ps-xp">420</div><div class="pstat-l">XP</div></div>
+    <div class="pstat" id="profile-xp-stat"><div class="pstat-n" id="ps-xp">420</div><div class="pstat-l">XP</div></div>
   </div>
-  <div class="prof-section">
+  <div class="prof-section" id="profile-badges-section">
     <div class="prof-sec-title">Badges</div>
     <div class="pbadges">
       <div class="pbadge">🎨</div><div class="pbadge">⚡</div><div class="pbadge">🔥</div>
@@ -403,7 +394,7 @@
     <h2 class="name-modal-title">Choose your gamename</h2>
     <p class="name-modal-copy">No full account needed. Pick a name and Pixel Creator will build your profile automatically.</p>
     <input id="profile-name-input" class="name-modal-input" type="text" maxlength="18" placeholder="Enter gamename" autocomplete="nickname" spellcheck="false">
-    <div class="name-modal-help">This name shows on your Me page and challenge submissions.</div>
+    <div class="name-modal-help" id="profile-name-help">This name shows on your Me page and challenge submissions.</div>
     <div class="name-modal-actions">
       <button class="name-modal-skip" id="profile-name-cancel" onclick="closeProfileNameModal()">Later</button>
       <button class="name-modal-save" onclick="saveProfileNameFromModal()">Save gamename</button>

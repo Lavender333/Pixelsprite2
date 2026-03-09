@@ -571,6 +571,33 @@ const STORAGE_LIMITS = {
   dangerBytes: 4.5 * 1024 * 1024,
 };
 
+const RELEASE_FLAGS = {
+  challenges: false,
+  progression: false,
+  socialProof: false,
+  templateColoring: false,
+  templateChallenges: false,
+  premiumY2K: false,
+};
+
+function featureEnabled(key){
+  return RELEASE_FLAGS[key] !== false;
+}
+
+function isTemplateVisible(id){
+  if(!id) return true;
+  if((window.COLORING_TEMPLATES||[]).some(t=>t.id===id)) return featureEnabled('templateColoring');
+  if((window.TEMPLATES?.challenge||[]).some(t=>t.id===id)) return featureEnabled('templateChallenges');
+  if((window.TEMPLATES?.y2k||[]).some(t=>t.id===id)) return featureEnabled('premiumY2K');
+  return true;
+}
+
+function isAnimTemplateVisible(id){
+  if(!id) return true;
+  if(id==='y2k_sparkle_loop') return featureEnabled('premiumY2K');
+  return true;
+}
+
 let PALETTE = [
   // Blacks & whites
   '#111118','#2a2a36','#444444','#888888','#CCCCCC','#FFFFFF',
@@ -3983,6 +4010,10 @@ function isLocked(x,y){
 // Load a coloring template: switch to 32×32, draw outline to overlay canvas,
 // build Uint8Array bitmask, push suggested palette, enter coloring mode
 function loadColoringTemplate(id){
+  if(!isTemplateVisible(id)){
+    toast('Color-in templates are coming soon.');
+    return;
+  }
   const tmpl = COLORING_TEMPLATES.find(t => t.id === id);
   if(!tmpl) return;
 
@@ -4167,6 +4198,7 @@ function clearColoringMode(){
 // Build the Studio coloring templates grid
 function buildColoringGrid(){
   const el = document.getElementById('tmpl-coloring'); if(!el) return; el.innerHTML='';
+  if(!featureEnabled('templateColoring')) return;
   COLORING_TEMPLATES.forEach(t=>{
     const card = makeTmplCard({
       badgeTag: t.tag,
@@ -4929,9 +4961,14 @@ function buildHomeGallery(){
 function buildHomeProof(){
   const proof=document.getElementById('home-proof');
   if(!proof) return;
+  if(!featureEnabled('socialProof')){
+    proof.hidden = true;
+    return;
+  }
   const doy=Math.floor((Date.now()-new Date(new Date().getFullYear(),0,0))/(86400*1000));
   const joined=560+((doy*37)%260);
   const trends=['Top style: Neon Sneaker','Top style: Kawaii Room','Top style: Anime Eyes','Top style: Chrome Stickers'];
+  proof.hidden = false;
   proof.textContent=`${joined} creators joined this week. ${trends[doy%trends.length]}.`;
 }
 
@@ -4949,6 +4986,51 @@ function updateXPNextUnlock(){
   const out=document.getElementById('xp-next');
   if(!out) return;
   out.textContent='All tools unlocked. Keep creating to earn XP and streak rewards.';
+}
+
+function applyReleaseVisibility(){
+  const challengeHome=document.getElementById('home-challenge-section');
+  const levelCard=document.getElementById('home-level-card');
+  const proof=document.getElementById('home-proof');
+  const metaRow=document.querySelector('.home-meta-row');
+  const winsNav=document.getElementById('nav-challenges');
+  const challengeScreen=document.getElementById('chal-screen');
+  const coloringSection=document.getElementById('studio-coloring-section');
+  const challengeTemplates=document.getElementById('studio-challenge-templates');
+  const y2kSection=document.getElementById('studio-y2k-section');
+  const profileStorageNote=document.getElementById('profile-storage-note');
+  const profileNameHelp=document.getElementById('profile-name-help');
+  const challengeSubmitBar=document.getElementById('challenge-submit-bar');
+  const profileLevelChip=document.getElementById('profile-level-chip');
+  const profileXpStat=document.getElementById('profile-xp-stat');
+  const profileBadgesSection=document.getElementById('profile-badges-section');
+
+  if(challengeHome) challengeHome.hidden = !featureEnabled('challenges');
+  if(levelCard) levelCard.hidden = !featureEnabled('progression');
+  if(proof) proof.hidden = !featureEnabled('socialProof');
+  if(winsNav) winsNav.hidden = !featureEnabled('challenges');
+  if(challengeScreen) challengeScreen.hidden = !featureEnabled('challenges');
+  if(coloringSection) coloringSection.hidden = !featureEnabled('templateColoring');
+  if(challengeTemplates) challengeTemplates.hidden = !featureEnabled('templateChallenges');
+  if(y2kSection) y2kSection.hidden = !featureEnabled('premiumY2K');
+  if(challengeSubmitBar && !featureEnabled('challenges')) challengeSubmitBar.style.display='none';
+  if(profileLevelChip) profileLevelChip.hidden = !featureEnabled('progression');
+  if(profileXpStat) profileXpStat.hidden = !featureEnabled('progression');
+  if(profileBadgesSection) profileBadgesSection.hidden = !featureEnabled('progression');
+  if(profileStorageNote){
+    profileStorageNote.textContent = featureEnabled('challenges')
+      ? 'Profile, streak, and challenge saves stay on this device.'
+      : 'Profile and streak saves stay on this device.';
+  }
+  if(profileNameHelp){
+    profileNameHelp.textContent = featureEnabled('challenges')
+      ? 'This name shows on your Me page and challenge submissions.'
+      : 'This name shows on your Me page.';
+  }
+
+  if(metaRow){
+    metaRow.style.gridTemplateColumns = featureEnabled('socialProof') ? '' : '1fr';
+  }
 }
 
 function updateHomeNavState(activeTab){
@@ -5173,7 +5255,7 @@ function makeTmplCard({cls='', badgeTag='', onclick, name, previewFn, frameCount
 
 function buildTemplateGrid(containerId, items){
   const el = document.getElementById(containerId); if(!el) return; el.innerHTML='';
-  items.forEach(t=>{
+  items.filter(t=>isTemplateVisible(t.id)).forEach(t=>{
     const profile=inferTemplateStyleProfile(t.id,t.name);
     const skipStyle = shouldSkipTemplateStylePass(t.id);
     const card = makeTmplCard({
@@ -5189,7 +5271,7 @@ function buildTemplateGrid(containerId, items){
 
 function buildAnimGrid(){
   const el = document.getElementById('tmpl-anim'); if(!el) return; el.innerHTML='';
-  ANIM_TEMPLATES.forEach(t=>{
+  ANIM_TEMPLATES.filter(t=>isAnimTemplateVisible(t.id)).forEach(t=>{
     const profile=inferTemplateStyleProfile(t.id,t.name);
     const card = makeTmplCard({
       badgeTag: t.tag,
@@ -5204,6 +5286,7 @@ function buildAnimGrid(){
 
 function buildY2KGrid(){
   const el = document.getElementById('tmpl-y2k'); if(!el) return; el.innerHTML='';
+  if(!featureEnabled('premiumY2K')) return;
   TEMPLATES.y2k.forEach(t=>{
     const profile=inferTemplateStyleProfile(t.id,t.name);
     const skipStyle = shouldSkipTemplateStylePass(t.id);
@@ -5219,9 +5302,11 @@ function buildY2KGrid(){
 }
 function buildHomeTemplates(){
   const el=document.getElementById('home-templates');if(!el)return;el.innerHTML='';
-  const premiumQuick = TEMPLATES.y2k.find(t => t.id === 'premium_bunny');
   const kawaiiQuick = TEMPLATES.chars.find(t => t.id === 'kawaii_bunny');
-  const quickList = [kawaiiQuick, premiumQuick, ...TEMPLATES.challenge, ...TEMPLATES.items.slice(0,2), ...TEMPLATES.chars.slice(0,2)]
+  const quickPremium = featureEnabled('premiumY2K') ? TEMPLATES.y2k.filter(t => t.id === 'premium_bunny') : [];
+  const quickChallenges = featureEnabled('templateChallenges') ? TEMPLATES.challenge : [];
+  const quickChars = TEMPLATES.chars.filter(t => t.id !== 'kawaii_bunny').slice(0,2);
+  const quickList = [kawaiiQuick, ...quickPremium, ...quickChallenges, ...TEMPLATES.items.slice(0,2), ...quickChars]
     .filter(Boolean);
   quickList.forEach(t=>{
     const d=document.createElement('div');
@@ -5257,6 +5342,10 @@ function getTemplateCanvasSize(id){
 }
 
 function loadTemplate(id,name){
+  if(!isTemplateVisible(id)){
+    toast('This template is coming soon.');
+    return;
+  }
   // Clear any active coloring mode
   if(ST.coloringMode) clearColoringMode();
   ST.frames=[];ST.undoStacks=[];ST.undoIdx=[];showTab('create');
@@ -5287,6 +5376,10 @@ function loadTemplate(id,name){
 }
 
 function loadAnimTemplate(tmpl){
+  if(!tmpl || !isAnimTemplateVisible(tmpl.id)){
+    toast('This animation pack is coming soon.');
+    return;
+  }
   ST.frames=[];ST.undoStacks=[];ST.undoIdx=[];showTab('create');
   setTimeout(()=>{
     initCanvas();
@@ -5666,6 +5759,11 @@ function updateChallengeSubmitUI(){
   const btn=document.getElementById('challenge-submit-btn');
   if(!bar||!title||!status||!btn) return;
 
+  if(!featureEnabled('challenges')){
+    bar.style.display='none';
+    return;
+  }
+
   if(!ST.activeChallenge){
     bar.style.display='none';
     return;
@@ -5835,6 +5933,7 @@ function buildChallengeFeed(curr, selected){
 }
 
 function buildChallenges(){
+  if(!featureEnabled('challenges')) return;
   const idx=getCurrentChallengeIndex();
   const curr=CHALLENGES[idx];
   const entries=getChallengeEntries(curr,idx);
@@ -5871,6 +5970,10 @@ function buildChallenges(){
 }
 
 function startChallenge(){
+  if(!featureEnabled('challenges')){
+    toast('Challenges are hidden for the App Store release build.');
+    return;
+  }
   const curr=getCurrentChallenge();
   const selected=getSelectedChallengeStarter(curr);
   ST.activeChallenge=curr.name;
@@ -5895,6 +5998,7 @@ function startChallenge(){
 }
 
 function submitChallenge(){
+  if(!featureEnabled('challenges')) return;
   const curr=getCurrentChallenge();
   if(ST.activeChallenge!==curr.name){
     toast('Start this week\'s challenge first.');
@@ -5970,7 +6074,8 @@ function claimStreak(){
 function buildProfile(){
   updateProfileIdentity();
   const name=getProfileName();
-  const cvs=document.getElementById('prof-av');const ctx=cvs.getContext('2d');
+  const cvs=document.getElementById('prof-av');
+  const ctx=cvs&&typeof cvs.getContext==='function'?cvs.getContext('2d'):null;
   if(cvs&&ctx){
     ctx.clearRect(0,0,cvs.width,cvs.height);
     ctx.imageSmoothingEnabled=false;
@@ -6004,6 +6109,7 @@ function buildProfile(){
 // ── NAVIGATION ────────────────────────────────────────
 const TAB_MAP={home:'home-screen',studio:'studio-screen',create:'canvas-screen',closet:'closet-screen',challenges:'chal-screen',profile:'profile-screen'};
 function showTab(tab){
+  if(tab==='challenges' && !featureEnabled('challenges')) tab='home';
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(TAB_MAP[tab]).classList.add('active');
   document.querySelectorAll('.nt').forEach(t=>t.classList.remove('on'));
@@ -6227,6 +6333,7 @@ captureFrame = function(){
 // ── BOOT ──────────────────────────────────────────────
 function boot(){
   initStore();
+  applyReleaseVisibility();
   buildPalRow();
   loadProfileName();
   loadProjects();
@@ -6235,7 +6342,12 @@ function boot(){
   buildHomeTemplates();
   buildHomeProof();
   buildHomeGallery();
-  buildTemplateGrid('tmpl-challenge',TEMPLATES.challenge);
+  if(featureEnabled('templateChallenges')){
+    buildTemplateGrid('tmpl-challenge',TEMPLATES.challenge);
+  }else{
+    const challengeGrid=document.getElementById('tmpl-challenge');
+    if(challengeGrid) challengeGrid.innerHTML='';
+  }
   buildTemplateGrid('tmpl-items',TEMPLATES.items);
   buildTemplateGrid('tmpl-chars',TEMPLATES.chars);
   buildTemplateGrid('tmpl-scenes',TEMPLATES.scenes);
