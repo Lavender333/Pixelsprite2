@@ -110,11 +110,12 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .btn-secondary{padding:14px 16px;border-radius:var(--r2);border:1.5px solid var(--border2);background:var(--s2);color:var(--text2);font-size:15px;font-weight:700;transition:.15s}
 .btn-secondary:active{background:var(--s3)}
 .home-meta-row{display:grid;grid-template-columns:1fr;gap:10px;padding:4px 16px 18px}
-.streak-bar{position:relative;padding:14px 14px;background:linear-gradient(180deg,rgba(28,29,42,.92) 0%,rgba(19,20,30,.96) 100%);border-radius:18px;border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:10px;min-width:0;box-shadow:0 14px 26px rgba(0,0,0,.2)}
-.streak-bar::before{content:'';position:absolute;left:76px;top:8px;width:56px;height:56px;border-radius:50%;background:radial-gradient(circle,rgba(255,209,102,.24) 0%,rgba(255,209,102,0) 68%);pointer-events:none}
+.streak-bar{position:relative;overflow:hidden;padding:14px 14px;background:linear-gradient(180deg,rgba(28,29,42,.92) 0%,rgba(19,20,30,.96) 100%);border-radius:18px;border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:10px;min-width:0;box-shadow:0 14px 26px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.04)}
+.streak-bar::before{content:'';position:absolute;left:62px;top:-2px;width:112px;height:112px;border-radius:50%;background:radial-gradient(circle,rgba(255,214,102,.24) 0%,rgba(255,177,66,.16) 22%,rgba(255,140,32,.08) 44%,rgba(255,140,32,0) 72%);filter:blur(10px);pointer-events:none;opacity:.95}
+.streak-bar::after{content:'';position:absolute;left:98px;top:20px;width:38px;height:38px;border-radius:50%;background:radial-gradient(circle,rgba(255,244,196,.32) 0%,rgba(255,210,102,.14) 42%,rgba(255,210,102,0) 78%);filter:blur(4px);pointer-events:none;opacity:.9}
 .streak-fire{font-size:16px;line-height:1;filter:saturate(.95)}
 .streak-info{flex:1}
-.streak-n{position:relative;font-family:var(--ff-display);font-size:30px;line-height:.92;color:#ffd76e;font-weight:900;text-shadow:0 0 14px rgba(255,209,102,.16)}
+.streak-n{position:relative;z-index:1;font-family:var(--ff-display);font-size:30px;line-height:.92;color:#ffd76e;font-weight:900;text-shadow:0 0 18px rgba(255,209,102,.2),0 0 34px rgba(255,166,66,.08)}
 .streak-l{font-size:10px;color:#9d9bc8;margin-top:2px;font-weight:800;text-transform:uppercase;letter-spacing:.14em}
 .streak-note{font-size:8px;color:rgba(128,129,160,.55);margin-top:3px;line-height:1.35;text-transform:uppercase;letter-spacing:.08em}
 .streak-claim{padding:6px 10px;border-radius:14px;background:rgba(255,209,102,.2);border:1px solid rgba(255,209,102,.35);color:#FFD166;font-size:10px;font-weight:800;cursor:pointer;transition:.15s}
