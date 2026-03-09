@@ -70,7 +70,7 @@ In Supabase, open **Authentication → URL Configuration** and add:
 
 If you use a different local dev URL, add that too.
 
-Important: the app now forces auth emails created from localhost to redirect back to `https://pixelspirite.com/` instead of localhost. If your real production domain changes, update [script.js](script.js) and Supabase URL Configuration together.
+Important: the app now forces all auth emails to redirect to `https://pixelspirite.com/` instead of localhost. If your real production domain changes, update [script.js](script.js) and Supabase URL Configuration together.
 
 ## Email templates and delivery
 

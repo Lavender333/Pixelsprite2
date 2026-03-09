@@ -715,9 +715,7 @@ function hasCloudAccount(){
 }
 
 function authRedirectURL(){
-  const isLocalHost = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
-  if(isLocalHost) return SUPABASE_CONFIG.appUrl;
-  return `${window.location.origin}${window.location.pathname}`;
+  return SUPABASE_CONFIG.appUrl;
 }
 
 function syncAuthUI(){
