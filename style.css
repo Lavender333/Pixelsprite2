@@ -42,6 +42,7 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;min-height:100%;overflow:hidden;-webkit-font-smoothing:antialiased}
 body{background:var(--bg);color:var(--text);font-family:var(--ff-body);display:flex;flex-direction:column;max-width:430px;margin:0 auto;border-left:1px solid var(--border);border-right:1px solid var(--border)}
+[hidden]{display:none !important}
 
 /* Safari/iOS viewport fallback to prevent clipped layouts. */
 @supports (height: 100dvh){
@@ -76,12 +77,12 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .home-hero{padding:24px 20px 18px;background:linear-gradient(180deg,rgba(108,99,255,.08) 0%,rgba(108,99,255,.02) 52%,transparent 100%);position:relative;overflow:hidden}
 .home-hero::before{content:'';position:absolute;top:-52px;right:-52px;width:210px;height:210px;border-radius:50%;background:radial-gradient(circle,rgba(108,99,255,.12) 0%,transparent 70%);pointer-events:none}
 .home-logo{
-  width:72px;
-  height:72px;
-  border-radius:16px;
+  width:88px;
+  height:88px;
+  border-radius:20px;
   display:block;
-  margin-bottom:10px;
-  box-shadow:0 10px 20px rgba(108,99,255,.25),0 0 16px rgba(108,99,255,.2);
+  margin-bottom:14px;
+  box-shadow:0 14px 28px rgba(108,99,255,.25),0 0 18px rgba(108,99,255,.2);
 }
 .hero-eyebrow{font-size:9px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ind2);margin-bottom:6px}
 .hero-title{font-family:var(--ff-display);font-size:32px;line-height:.95;margin-bottom:8px;letter-spacing:-.01em}
