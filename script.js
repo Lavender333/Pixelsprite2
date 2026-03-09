@@ -564,6 +564,117 @@ const ST = {
   profileName: '',
 };
 
+const APP_SETTINGS = {
+  timeReminders: false,
+  reminderSchedule: 'daily',
+  reminderCustomTime: '16:00',
+  soundEffects: true,
+};
+
+const REMINDER_OPTIONS = [
+  ['daily', 'Daily'],
+  ['weekdays', 'Weekdays only'],
+  ['weekends', 'Weekends only'],
+  ['daily-16', 'Every day at 4 PM'],
+  ['daily-18', 'Every day at 6 PM'],
+  ['daily-20', 'Every day at 8 PM'],
+  ['custom', 'Custom time'],
+];
+
+function readStoredBool(key, fallback){
+  try{
+    const raw=localStorage.getItem(key);
+    if(raw===null) return fallback;
+    return raw==='true';
+  }catch(e){
+    return fallback;
+  }
+}
+
+function readStoredString(key, fallback){
+  try{
+    const raw=localStorage.getItem(key);
+    return raw===null || raw==='' ? fallback : raw;
+  }catch(e){
+    return fallback;
+  }
+}
+
+function appSettingStorageKey(key){
+  return `pc2_${key.replace(/[A-Z]/g,m=>`_${m.toLowerCase()}`)}`;
+}
+
+function syncAppSettings(){
+  if(typeof SFX?.setEnabled==='function') SFX.setEnabled(APP_SETTINGS.soundEffects);
+}
+
+function loadAppSettings(){
+  APP_SETTINGS.timeReminders = readStoredBool('pc2_time_reminders', false);
+  APP_SETTINGS.reminderSchedule = readStoredString('pc2_reminder_schedule', 'daily');
+  APP_SETTINGS.reminderCustomTime = readStoredString('pc2_reminder_custom_time', '16:00');
+  APP_SETTINGS.soundEffects = readStoredBool('pc2_sound_effects', true);
+  syncAppSettings();
+}
+
+function saveAppSetting(key, value){
+  APP_SETTINGS[key]=value;
+  try{localStorage.setItem(appSettingStorageKey(key), String(APP_SETTINGS[key]));}catch(e){}
+  syncAppSettings();
+}
+
+function reminderScheduleLabel(){
+  const match = REMINDER_OPTIONS.find(([value])=>value===APP_SETTINGS.reminderSchedule);
+  if(match) return match[1];
+  return 'Daily';
+}
+
+function setReminderSchedule(value){
+  saveAppSetting('reminderSchedule', value);
+  const customWrap=document.getElementById('time-reminders-custom-wrap');
+  if(customWrap) customWrap.hidden = value!=='custom' || !APP_SETTINGS.timeReminders;
+  if(APP_SETTINGS.timeReminders){
+    toast(`Reminder schedule: ${reminderScheduleLabel()}`);
+  }
+}
+
+function setReminderCustomTime(value){
+  saveAppSetting('reminderCustomTime', value || '16:00');
+  if(APP_SETTINGS.timeReminders && APP_SETTINGS.reminderSchedule==='custom'){
+    toast(`Custom reminder time saved: ${APP_SETTINGS.reminderCustomTime}`);
+  }
+}
+
+async function setTimeRemindersEnabled(enabled){
+  if(!enabled){
+    saveAppSetting('timeReminders', false);
+    buildProfile();
+    toast('Time reminders turned off.');
+    return;
+  }
+
+  if(!('Notification' in window)){
+    saveAppSetting('timeReminders', false);
+    buildProfile();
+    toast('Time reminders need browser notifications. This browser does not support them yet.');
+    return;
+  }
+
+  if(Notification.permission==='granted'){
+    saveAppSetting('timeReminders', true);
+    buildProfile();
+    toast(`Time reminders enabled: ${reminderScheduleLabel()}. Web reminders use browser notifications; the iPhone app can use native reminders.`);
+    return;
+  }
+
+  const permission = await Notification.requestPermission().catch(()=> 'denied');
+  const granted = permission==='granted';
+  saveAppSetting('timeReminders', granted);
+  buildProfile();
+  toast(granted
+    ? `Time reminders enabled: ${reminderScheduleLabel()}. Web reminders use browser notifications; the iPhone app can use native reminders.`
+    : 'Notifications were not allowed, so time reminders stayed off.');
+}
+
 const STORAGE_LIMITS = {
   maxProjects: 24,
   maxSubmissions: 12,
@@ -2138,6 +2249,7 @@ const SFX = (() => {
   };
 
   let ctx = null;
+  let enabled = true;
   const lastPlay = Object.create(null);
 
   function getCtx(){
@@ -2149,6 +2261,7 @@ const SFX = (() => {
   }
 
   function canPlay(key, cooldownMs){
+    if(!enabled) return false;
     const now = Date.now();
     if((now - (lastPlay[key]||0)) < cooldownMs) return false;
     lastPlay[key] = now;
@@ -2236,6 +2349,8 @@ const SFX = (() => {
     // Utility micro-actions
     click(){ tinyClick(); },
     erase(){ solfeggioTone(SOLFEGGIO.reset, { dur:0.2, vol:0.04, popFreq:860, popDur:0.03, popVol:0.009, cooldown:90, key:'erase' }); },
+    setEnabled(value){ enabled = !!value; },
+    isEnabled(){ return enabled; },
   };
 })();
 
@@ -4923,9 +5038,17 @@ function canClaimStreakToday(){
   return localStorage.getItem('pc2_streak_claim_day')!==dayStamp();
 }
 
+function refreshProfileStats(){
+  const creationsEl=document.getElementById('ps-creations');
+  if(creationsEl) creationsEl.textContent=String(ST.projects.length||0);
+  const streakProfileEl=document.getElementById('ps-streak');
+  if(streakProfileEl) streakProfileEl.textContent=String(ST.streak||0);
+}
+
 function refreshStreakUI(){
   const streakEl=document.getElementById('streak-n');
   if(streakEl) streakEl.textContent=String(ST.streak||0);
+  refreshProfileStats();
   const btn=document.getElementById('streak-claim');
   if(!btn) return;
   const ready=canClaimStreakToday();
@@ -5113,7 +5236,7 @@ function loadProject(idx){
 function deleteProject(idx){
   if(!confirm(`Delete "${ST.projects[idx].name}"?`)) return;
   ST.projects.splice(idx,1);saveProjects();
-  document.getElementById('ps-creations').textContent=ST.projects.length;
+  refreshProfileStats();
   buildHomeGallery();
   renderCloset();toast('Deleted');
 }
@@ -5702,7 +5825,7 @@ function upsertProject(proj,{reward=true,silent=false}={}){
     toast('Storage is full. Export or delete older saves first.');
     return false;
   }
-  document.getElementById('ps-creations').textContent=ST.projects.length;
+  refreshProfileStats();
   buildHomeGallery();
   renderCloset();
   if(reward){
@@ -6098,12 +6221,53 @@ function buildProfile(){
   const el=document.getElementById('ptog-list');
   if(!el) return;
   el.innerHTML='';
-  [['Public Gallery',false],['External Share',false],['Time Reminders',true],['Sound Effects',true],['Parent Controls',false]].forEach(([lbl,def])=>{
-    const row=document.createElement('div');row.className='ptog';
-    row.innerHTML=`<span class="ptog-l">${lbl}</span><label class="tog"><input type="checkbox"${def?' checked':''}><div class="tog-tr" style="background:${def?'var(--ind)':'var(--s5)'}"></div><div class="tog-th" style="left:${def?'22':'2'}px"></div></label>`;
-    const inp=row.querySelector('input');inp.onchange=()=>{row.querySelector('.tog-tr').style.background=inp.checked?'var(--ind)':'var(--s5)';row.querySelector('.tog-th').style.left=inp.checked?'22px':'2px';};
-    el.appendChild(row);
-  });
+  const timeRow=document.createElement('div');
+  timeRow.className='ptog ptog-stack';
+  timeRow.innerHTML=`
+    <div class="ptog-main">
+      <div class="ptog-copy">
+        <span class="ptog-l">Time Reminders</span>
+        <div class="ptog-sub">Choose when Pixel Creator should remind you to come back.</div>
+      </div>
+      <label class="tog">
+        <input type="checkbox"${APP_SETTINGS.timeReminders?' checked':''}>
+        <div class="tog-tr" style="background:${APP_SETTINGS.timeReminders?'var(--ind)':'var(--s5)'}"></div>
+        <div class="tog-th" style="left:${APP_SETTINGS.timeReminders?'22':'2'}px"></div>
+      </label>
+    </div>
+    <div class="ptog-extra" id="time-reminders-extra"${APP_SETTINGS.timeReminders?'':' hidden'}>
+      <label class="ptog-select-label" for="time-reminder-select">Reminder schedule</label>
+      <select class="ptog-select" id="time-reminder-select">
+        ${REMINDER_OPTIONS.map(([value,label])=>`<option value="${value}"${APP_SETTINGS.reminderSchedule===value?' selected':''}>${label}</option>`).join('')}
+      </select>
+      <div class="ptog-custom-time" id="time-reminders-custom-wrap"${APP_SETTINGS.timeReminders&&APP_SETTINGS.reminderSchedule==='custom'?'':' hidden'}>
+        <label class="ptog-select-label" for="time-reminder-custom">Custom time</label>
+        <input class="ptog-time" id="time-reminder-custom" type="time" value="${APP_SETTINGS.reminderCustomTime}">
+      </div>
+    </div>`;
+  const timeToggle=timeRow.querySelector('input[type="checkbox"]');
+  timeToggle.onchange=async()=>{
+    timeRow.querySelector('.tog-tr').style.background=timeToggle.checked?'var(--ind)':'var(--s5)';
+    timeRow.querySelector('.tog-th').style.left=timeToggle.checked?'22px':'2px';
+    await setTimeRemindersEnabled(timeToggle.checked);
+  };
+  const reminderSelect=timeRow.querySelector('#time-reminder-select');
+  reminderSelect.onchange=()=>setReminderSchedule(reminderSelect.value);
+  const customTimeInput=timeRow.querySelector('#time-reminder-custom');
+  customTimeInput.onchange=()=>setReminderCustomTime(customTimeInput.value);
+  el.appendChild(timeRow);
+
+  const soundRow=document.createElement('div');
+  soundRow.className='ptog';
+  soundRow.innerHTML=`<span class="ptog-l">Sound Effects</span><label class="tog"><input type="checkbox"${APP_SETTINGS.soundEffects?' checked':''}><div class="tog-tr" style="background:${APP_SETTINGS.soundEffects?'var(--ind)':'var(--s5)'}"></div><div class="tog-th" style="left:${APP_SETTINGS.soundEffects?'22':'2'}px"></div></label>`;
+  const soundToggle=soundRow.querySelector('input');
+  soundToggle.onchange=()=>{
+    soundRow.querySelector('.tog-tr').style.background=soundToggle.checked?'var(--ind)':'var(--s5)';
+    soundRow.querySelector('.tog-th').style.left=soundToggle.checked?'22px':'2px';
+    saveAppSetting('soundEffects', soundToggle.checked);
+    toast(soundToggle.checked?'Sound Effects turned on.':'Sound Effects turned off.');
+  };
+  el.appendChild(soundRow);
 }
 
 // ── NAVIGATION ────────────────────────────────────────
@@ -6336,6 +6500,7 @@ function boot(){
   applyReleaseVisibility();
   buildPalRow();
   loadProfileName();
+  loadAppSettings();
   loadProjects();
   loadChallengeSubmissions();
   loadEngagementState();
@@ -6361,7 +6526,7 @@ function boot(){
   updateXPNextUnlock();
   buildProfile();
   updateStorageUI();
-  document.getElementById('ps-creations').textContent=ST.projects.length;
+  refreshProfileStats();
   initCanvas(16);
   syncCanvasUnlockUI();
   buildLayerPanel();
