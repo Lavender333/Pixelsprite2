@@ -1,0 +1,21 @@
+{
+  "name": "pixel-creator-ios",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pixel Creator packaged for Apple App Store release with Capacitor.",
+  "scripts": {
+    "build:ios": "node scripts/prepare-capacitor-web.mjs",
+    "generate:ios-assets": "python3 scripts/generate_ios_assets.py",
+    "cap:sync": "npm run build:ios && npx cap sync ios",
+    "cap:copy": "npm run build:ios && npx cap copy ios",
+    "ios:prepare": "npm run generate:ios-assets && npm run cap:sync",
+    "ios:open": "npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.2.0",
+    "@capacitor/ios": "^8.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.2.0"
+  }
+}

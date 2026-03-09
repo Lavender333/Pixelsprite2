@@ -1,0 +1,9 @@
+{
+  "appId": "com.pixelcreator.app",
+  "appName": "Pixel Creator",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "iosScheme": "https"
+  }
+}

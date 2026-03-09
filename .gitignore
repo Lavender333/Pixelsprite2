@@ -1,0 +1,7 @@
+node_modules/
+dist/
+ios/App/App/public/
+ios/App/Pods/
+ios/App/DerivedData/
+.DS_Store
+npm-debug.log*
