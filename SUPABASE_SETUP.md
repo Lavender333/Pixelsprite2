@@ -55,6 +55,7 @@ The frontend is currently wired to:
 
 - Project URL: `https://xqltgcxqlzchrnulomkv.supabase.co`
 - Publishable key: the supplied public key in [script.js](script.js)
+- Production auth redirect URL: `https://pixelspirite.com/`
 
 Passwords are **not** stored by this app. They are handled by Supabase Auth only.
 
@@ -62,12 +63,14 @@ Passwords are **not** stored by this app. They are handled by Supabase Auth only
 
 In Supabase, open **Authentication → URL Configuration** and add:
 
-- Site URL: your production app URL
-- Redirect URL: your production app URL
+- Site URL: `https://pixelspirite.com/`
+- Redirect URL: `https://pixelspirite.com/`
 - Redirect URL: `http://localhost:3000/`
 - Redirect URL: `http://127.0.0.1:5500/`
 
 If you use a different local dev URL, add that too.
+
+Important: the app now forces auth emails created from localhost to redirect back to `https://pixelspirite.com/` instead of localhost. If your real production domain changes, update [script.js](script.js) and Supabase URL Configuration together.
 
 ## Email templates and delivery
 

@@ -580,6 +580,7 @@ const APP_SETTINGS = {
 const SUPABASE_CONFIG = {
   url: 'https://xqltgcxqlzchrnulomkv.supabase.co',
   publishableKey: 'sb_publishable_pNozt3QXGax9Uppt0-TFAw_9PbfZURE',
+  appUrl: 'https://pixelspirite.com/',
 };
 
 const AUTH_STATE = {
@@ -714,6 +715,8 @@ function hasCloudAccount(){
 }
 
 function authRedirectURL(){
+  const isLocalHost = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
+  if(isLocalHost) return SUPABASE_CONFIG.appUrl;
   return `${window.location.origin}${window.location.pathname}`;
 }
 
