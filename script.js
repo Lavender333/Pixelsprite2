@@ -583,10 +583,16 @@ const AUTH_STATE = {
   mode: 'signin',
   busy: false,
   initialized: false,
+  projectsLoaded: false,
+  submissionsLoaded: false,
+  syncingProjects: false,
+  syncingSubmissions: false,
 };
 
 let cloudProfileSyncTimer = null;
 let cloudSettingsSyncTimer = null;
+let cloudProjectsSyncTimer = null;
+let cloudSubmissionsSyncTimer = null;
 
 const REMINDER_OPTIONS = [
   ['daily', 'Daily'],
@@ -892,10 +898,35 @@ function scheduleCloudSettingsSync(delay=450){
 async function handleAuthSession(session){
   AUTH_STATE.session=session||null;
   if(AUTH_STATE.session?.user){
+    const localProjects=[...ST.projects];
+    const localSubmissions=[...ST.challengeSubmissions];
     await loadCloudProfile();
     await syncCloudSettings();
+    await loadCloudProjects();
+    if(localProjects.length){
+      ST.projects=mergeProjectLists(ST.projects, localProjects);
+      persistProjectsWithLimits();
+      await syncCloudProjects();
+      await loadCloudProjects();
+    }
+    await loadCloudChallengeSubmissions();
+    if(localSubmissions.length){
+      const seen=new Set(ST.challengeSubmissions.map(item=>`${item.challenge}::${item.projectName}`));
+      ST.challengeSubmissions=[
+        ...ST.challengeSubmissions,
+        ...localSubmissions.filter(item=>!seen.has(`${item.challenge}::${item.projectName}`)),
+      ].slice(0,STORAGE_LIMITS.maxSubmissions);
+      persistSubmissionsWithLimits();
+      await syncCloudChallengeSubmissions();
+      await loadCloudChallengeSubmissions();
+    }
+    buildChallenges();
+    buildHomeGallery();
+    renderCloset();
   }else{
     AUTH_STATE.profile=null;
+    AUTH_STATE.projectsLoaded=false;
+    AUTH_STATE.submissionsLoaded=false;
     syncAuthUI();
     buildProfile();
   }
@@ -5335,12 +5366,22 @@ function loadProjects(){
     const r=localStorage.getItem('pc2_proj');
     if(r){
       const arr=JSON.parse(r);
-      ST.projects=arr.map(p=>({...p,frames:deserializeFrames(p.size||16,p.fd)})).slice(-STORAGE_LIMITS.maxProjects);
+      ST.projects=arr.map(p=>({
+        ...p,
+        slug:p.slug||slugifyProjectName(p.name),
+        visibility:p.visibility||'private',
+        isGalleryItem:!!p.isGalleryItem,
+        cloudId:p.cloudId||null,
+        updatedAt:p.updatedAt||null,
+        frames:deserializeFrames(p.size||16,p.fd),
+      })).slice(-STORAGE_LIMITS.maxProjects);
     }
   } catch(e){}
 }
 function saveProjects(){
-  return persistProjectsWithLimits();
+  const result=persistProjectsWithLimits();
+  if(result.ok) scheduleCloudProjectsSync();
+  return result;
 }
 function saveProject(){
   const name=document.getElementById('pname').textContent.trim();
@@ -5641,7 +5682,11 @@ function loadProject(idx){
 }
 function deleteProject(idx){
   if(!confirm(`Delete "${ST.projects[idx].name}"?`)) return;
-  ST.projects.splice(idx,1);saveProjects();
+  const projectName=ST.projects[idx].name;
+  ST.projects.splice(idx,1);
+  ST.challengeSubmissions=ST.challengeSubmissions.filter(item=>item.projectName!==projectName);
+  saveProjects();
+  saveChallengeSubmissions();
   refreshProfileStats();
   buildHomeGallery();
   renderCloset();toast('Deleted');
@@ -6084,12 +6129,24 @@ function serializeFrames(frames){
 }
 
 function serializeProjectsPayload(){
-  return ST.projects.map(p=>({name:p.name,size:p.size,fd:serializeFrames(p.frames)}));
+  return ST.projects.map(p=>({
+    name:p.name,
+    size:p.size,
+    fd:serializeFrames(p.frames),
+    cloudId:p.cloudId||null,
+    slug:p.slug||slugifyProjectName(p.name),
+    visibility:p.visibility||'private',
+    isGalleryItem:!!p.isGalleryItem,
+    starterKey:p.starterKey||'',
+    updatedAt:p.updatedAt||null,
+  }));
 }
 
 function serializeChallengeSubmissionsPayload(){
   return (ST.challengeSubmissions||[]).map(item=>({
     id:item.id,
+    cloudId:item.cloudId||null,
+    projectId:item.projectId||null,
     kind:'submission',
     challenge:item.challenge,
     creator:item.creator||getProfileName(),
@@ -6101,6 +6158,316 @@ function serializeChallengeSubmissionsPayload(){
     submittedAt:item.submittedAt,
     fd:serializeFrames(item.frames),
   }));
+}
+
+function projectBaseName(name=''){
+  return String(name||'untitled.px').replace(/\.px$/i,'');
+}
+
+function serializeProjectForCloud(proj){
+  const frames=serializeFrames(proj.frames||[]);
+  return {
+    owner_id:AUTH_STATE.session?.user?.id,
+    title:proj.name||'untitled.px',
+    slug:proj.slug||slugifyProjectName(projectBaseName(proj.name)),
+    canvas_size:proj.size||16,
+    frame_count:(proj.frames||[]).length||1,
+    frames,
+    cover_frame:frames[0]||null,
+    starter_key:proj.starterKey||'',
+    visibility:proj.visibility||'private',
+    is_gallery_item:!!proj.isGalleryItem,
+    metadata:{
+      source:'pixel-creator-web',
+      local_name:proj.name||'untitled.px',
+    },
+  };
+}
+
+function deserializeCloudProject(row){
+  if(!row) return null;
+  return {
+    name:row.title||'untitled.px',
+    size:row.canvas_size||16,
+    frames:deserializeFrames(row.canvas_size||16,row.frames||[]),
+    cloudId:row.id,
+    slug:row.slug||slugifyProjectName(projectBaseName(row.title)),
+    visibility:row.visibility||'private',
+    isGalleryItem:!!row.is_gallery_item,
+    starterKey:row.starter_key||'',
+    updatedAt:row.updated_at||null,
+  };
+}
+
+function deserializeCloudSubmission(entry, project){
+  if(!entry||!project) return null;
+  return {
+    id:entry.id,
+    cloudId:entry.id,
+    projectId:project.id,
+    kind:'submission',
+    challenge:entry.challenge_name,
+    creator:getProfileName(),
+    label:'Submitted just now',
+    projectName:project.title,
+    name:projectBaseName(project.title),
+    size:project.canvas_size||16,
+    frames:deserializeFrames(project.canvas_size||16,project.frames||[]),
+    starterKey:entry.starter_key||'',
+    submittedAt:Date.parse(entry.submitted_at||entry.created_at||new Date().toISOString())||Date.now(),
+  };
+}
+
+function mergeProjectLists(primary=[], secondary=[]){
+  const map=new Map();
+  [...primary,...secondary].forEach(proj=>{
+    const key=proj.cloudId || proj.slug || slugifyProjectName(projectBaseName(proj.name));
+    if(!map.has(key)) map.set(key, proj);
+  });
+  return [...map.values()].slice(-STORAGE_LIMITS.maxProjects);
+}
+
+async function upsertSingleProjectToCloud(proj){
+  const client=getSupabaseClient();
+  const userId=AUTH_STATE.session?.user?.id;
+  if(!client||!userId) return null;
+  const payload=serializeProjectForCloud(proj);
+  let data=null;
+  let error=null;
+  if(proj.cloudId){
+    ({data,error}=await client.from('projects')
+      .update(payload)
+      .eq('id', proj.cloudId)
+      .select('id,title,slug,canvas_size,frame_count,frames,starter_key,visibility,is_gallery_item,updated_at')
+      .maybeSingle());
+  } else {
+    ({data,error}=await client.from('projects')
+      .upsert(payload,{ onConflict:'owner_id,slug' })
+      .select('id,title,slug,canvas_size,frame_count,frames,starter_key,visibility,is_gallery_item,updated_at')
+      .single());
+  }
+  if(error) throw error;
+  if(!data){
+    ({data,error}=await client.from('projects')
+      .upsert(payload,{ onConflict:'owner_id,slug' })
+      .select('id,title,slug,canvas_size,frame_count,frames,starter_key,visibility,is_gallery_item,updated_at')
+      .single());
+    if(error) throw error;
+  }
+  return data;
+}
+
+async function loadCloudProjects(){
+  const client=getSupabaseClient();
+  const userId=AUTH_STATE.session?.user?.id;
+  if(!client||!userId) return [];
+  const {data,error}=await client.from('projects')
+    .select('id,title,slug,canvas_size,frame_count,frames,starter_key,visibility,is_gallery_item,updated_at,is_archived')
+    .eq('owner_id', userId)
+    .eq('is_archived', false)
+    .order('updated_at',{ascending:false});
+  if(error){
+    console.warn('[Supabase projects load]', error.message||error);
+    return [];
+  }
+  const remote=(data||[]).map(deserializeCloudProject).filter(Boolean).slice(0,STORAGE_LIMITS.maxProjects);
+  ST.projects=remote;
+  persistProjectsWithLimits();
+  AUTH_STATE.projectsLoaded=true;
+  refreshProfileStats();
+  buildHomeGallery();
+  renderCloset();
+  updateStorageUI();
+  return remote;
+}
+
+async function syncCloudProjects(){
+  const client=getSupabaseClient();
+  const userId=AUTH_STATE.session?.user?.id;
+  if(!client||!userId||AUTH_STATE.syncingProjects) return {ok:false,skipped:true};
+  AUTH_STATE.syncingProjects=true;
+  try{
+    const {data:existing,error:existingError}=await client.from('projects')
+      .select('id,slug')
+      .eq('owner_id', userId);
+    if(existingError) throw existingError;
+
+    const keepIds=[];
+    for(const proj of ST.projects){
+      const saved=await upsertSingleProjectToCloud(proj);
+      if(!saved) continue;
+      proj.cloudId=saved.id;
+      proj.slug=saved.slug;
+      proj.updatedAt=saved.updated_at||null;
+      keepIds.push(saved.id);
+    }
+
+    const staleIds=(existing||[]).map(item=>item.id).filter(id=>!keepIds.includes(id));
+    if(staleIds.length){
+      const {error:deleteError}=await client.from('projects').delete().in('id', staleIds);
+      if(deleteError) throw deleteError;
+    }
+
+    persistProjectsWithLimits();
+    AUTH_STATE.projectsLoaded=true;
+    return {ok:true};
+  }catch(err){
+    console.warn('[Supabase projects sync]', err.message||err);
+    return {ok:false,error:err};
+  }finally{
+    AUTH_STATE.syncingProjects=false;
+  }
+}
+
+async function migrateLocalProjectsToCloud(){
+  if(!hasCloudAccount()) return;
+  const localProjects=[...ST.projects];
+  if(!localProjects.length) return;
+  const remoteProjects=await loadCloudProjects();
+  const merged=mergeProjectLists(remoteProjects, localProjects);
+  ST.projects=merged;
+  persistProjectsWithLimits();
+  await syncCloudProjects();
+  await loadCloudProjects();
+}
+
+function scheduleCloudProjectsSync(delay=800){
+  if(!hasCloudAccount()) return;
+  clearTimeout(cloudProjectsSyncTimer);
+  cloudProjectsSyncTimer=setTimeout(()=>{
+    syncCloudProjects().catch(err=>console.warn('[Supabase projects sync]', err));
+  },delay);
+}
+
+async function loadCloudChallengeSubmissions(){
+  const client=getSupabaseClient();
+  const userId=AUTH_STATE.session?.user?.id;
+  if(!client||!userId) return [];
+  const {data:entries,error}=await client.from('challenge_entries')
+    .select('id,project_id,challenge_key,challenge_name,starter_key,submitted_at,created_at')
+    .eq('owner_id', userId)
+    .order('submitted_at',{ascending:false});
+  if(error){
+    console.warn('[Supabase submissions load]', error.message||error);
+    return [];
+  }
+  const projectIds=[...new Set((entries||[]).map(item=>item.project_id).filter(Boolean))];
+  let projectsById=new Map();
+  if(projectIds.length){
+    const {data:projects,error:projectError}=await client.from('projects')
+      .select('id,title,canvas_size,frames')
+      .in('id', projectIds);
+    if(projectError){
+      console.warn('[Supabase submission projects load]', projectError.message||projectError);
+    } else {
+      projectsById=new Map((projects||[]).map(project=>[project.id, project]));
+    }
+  }
+  ST.challengeSubmissions=(entries||[])
+    .map(entry=>deserializeCloudSubmission(entry, projectsById.get(entry.project_id)))
+    .filter(Boolean)
+    .slice(0,STORAGE_LIMITS.maxSubmissions);
+  persistSubmissionsWithLimits();
+  AUTH_STATE.submissionsLoaded=true;
+  buildChallenges();
+  updateStorageUI();
+  return ST.challengeSubmissions;
+}
+
+async function syncCloudChallengeSubmissions(){
+  const client=getSupabaseClient();
+  const userId=AUTH_STATE.session?.user?.id;
+  if(!client||!userId||AUTH_STATE.syncingSubmissions) return {ok:false,skipped:true};
+  AUTH_STATE.syncingSubmissions=true;
+  try{
+    await syncCloudProjects();
+    const projectMap=new Map(ST.projects.map(project=>[project.name, project]));
+    const keepIds=[];
+    for(const submission of ST.challengeSubmissions){
+      const project=projectMap.get(submission.projectName);
+      if(!project?.cloudId) continue;
+      const payload={
+        project_id:project.cloudId,
+        owner_id:userId,
+        challenge_key:slugifyProjectName(submission.challenge),
+        challenge_name:submission.challenge,
+        starter_key:submission.starterKey||'',
+        submitted_at:new Date(submission.submittedAt||Date.now()).toISOString(),
+      };
+      let data=null;
+      let error=null;
+      if(submission.cloudId){
+        ({data,error}=await client.from('challenge_entries')
+          .update(payload)
+          .eq('id', submission.cloudId)
+          .select('id,project_id')
+          .maybeSingle());
+      } else {
+        ({data,error}=await client.from('challenge_entries')
+          .upsert(payload,{ onConflict:'project_id,challenge_key' })
+          .select('id,project_id')
+          .single());
+      }
+      if(error) throw error;
+      if(!data){
+        ({data,error}=await client.from('challenge_entries')
+          .upsert(payload,{ onConflict:'project_id,challenge_key' })
+          .select('id,project_id')
+          .single());
+        if(error) throw error;
+      }
+      submission.cloudId=data.id;
+      submission.projectId=data.project_id;
+      keepIds.push(data.id);
+    }
+
+    const {data:existing,error:existingError}=await client.from('challenge_entries')
+      .select('id')
+      .eq('owner_id', userId);
+    if(existingError) throw existingError;
+    const staleIds=(existing||[]).map(item=>item.id).filter(id=>!keepIds.includes(id));
+    if(staleIds.length){
+      const {error:deleteError}=await client.from('challenge_entries').delete().in('id', staleIds);
+      if(deleteError) throw deleteError;
+    }
+
+    persistSubmissionsWithLimits();
+    AUTH_STATE.submissionsLoaded=true;
+    return {ok:true};
+  }catch(err){
+    console.warn('[Supabase submissions sync]', err.message||err);
+    return {ok:false,error:err};
+  }finally{
+    AUTH_STATE.syncingSubmissions=false;
+  }
+}
+
+async function migrateLocalChallengeSubmissionsToCloud(){
+  if(!hasCloudAccount()) return;
+  const localSubmissions=[...ST.challengeSubmissions];
+  if(!localSubmissions.length) return;
+  await syncCloudProjects();
+  const remoteSubmissions=await loadCloudChallengeSubmissions();
+  const seen=new Set(remoteSubmissions.map(item=>`${item.challenge}::${item.projectName}`));
+  ST.challengeSubmissions=[
+    ...remoteSubmissions,
+    ...localSubmissions.filter(item=>!seen.has(`${item.challenge}::${item.projectName}`)),
+  ].slice(0,STORAGE_LIMITS.maxSubmissions);
+  persistSubmissionsWithLimits();
+  await syncCloudChallengeSubmissions();
+  await loadCloudChallengeSubmissions();
+}
+
+function scheduleCloudSubmissionsSync(delay=1000){
+  if(!hasCloudAccount()) return;
+  clearTimeout(cloudSubmissionsSyncTimer);
+  cloudSubmissionsSyncTimer=setTimeout(async()=>{
+    try{
+      await syncCloudChallengeSubmissions();
+    }catch(err){
+      console.warn('[Supabase submissions sync]', err);
+    }
+  },delay);
 }
 
 function estimateBytes(str=''){
@@ -6227,12 +6594,23 @@ function deserializeFrames(size, rawFrames){
 
 function makeProjectSnapshot(name=document.getElementById('pname')?.textContent?.trim()||'untitled.px'){
   captureFrame();
-  return { name, size:ST.size, frames:cloneFrames(ST.frames) };
+  const existing=ST.projects.find(project=>project.name===name || project.slug===slugifyProjectName(projectBaseName(name)));
+  return {
+    name,
+    size:ST.size,
+    frames:cloneFrames(ST.frames),
+    cloudId:existing?.cloudId||null,
+    slug:existing?.slug||slugifyProjectName(projectBaseName(name)),
+    visibility:existing?.visibility||'private',
+    isGalleryItem:!!existing?.isGalleryItem,
+    starterKey:existing?.starterKey||ST.challengeStarterKey||'',
+    updatedAt:existing?.updatedAt||null,
+  };
 }
 
 function upsertProject(proj,{reward=true,silent=false}={}){
   const idx=ST.projects.findIndex(p=>p.name===proj.name);
-  if(idx>=0) ST.projects[idx]=proj; else ST.projects.push(proj);
+  if(idx>=0) ST.projects[idx]={...ST.projects[idx],...proj}; else ST.projects.push(proj);
   if(ST.projects.length>STORAGE_LIMITS.maxProjects) trimProjectStorage(STORAGE_LIMITS.maxProjects);
   const saved=saveProjects();
   if(!saved.ok){
@@ -6260,6 +6638,8 @@ function loadChallengeSubmissions(){
     const arr=JSON.parse(raw);
     ST.challengeSubmissions=arr.map(item=>({
       ...item,
+      cloudId:item.cloudId||null,
+      projectId:item.projectId||null,
       kind:'submission',
       frames:deserializeFrames(item.size||16,item.fd),
     })).slice(0,STORAGE_LIMITS.maxSubmissions);
@@ -6267,7 +6647,9 @@ function loadChallengeSubmissions(){
 }
 
 function saveChallengeSubmissions(){
-  return persistSubmissionsWithLimits();
+  const result=persistSubmissionsWithLimits();
+  if(result.ok) scheduleCloudSubmissionsSync();
+  return result;
 }
 
 function formatSubmissionAge(ts){

@@ -106,14 +106,14 @@ Already connected in the app:
 - password reset emails
 - cloud profile sync for gamename
 - cloud sync for streak, XP, level, and sound setting
+- full Closet project save/load from `public.projects`
+- challenge submission sync from `public.challenge_entries`
 
 Not fully connected yet:
 
-- full Closet project save/load from `public.projects`
-- challenge submission sync from `public.challenge_entries`
 - export file upload into `project-assets`
 
-So your Supabase auth is wired, but full art/project cloud sync is still the next implementation step.
+So Supabase auth, profile sync, project sync, and challenge sync are now wired. The main remaining cloud step is upload/download of exported files through Storage.
 
 ## Recommended release hardening
 
