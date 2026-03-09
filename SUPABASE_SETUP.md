@@ -40,6 +40,46 @@ It also adds:
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
 
+## Auth flow now added in the app
+
+The profile screen now includes:
+
+- email sign up
+- email sign in
+- sign out
+- change email
+- password reset email
+- session persistence with Supabase Auth
+
+The frontend is currently wired to:
+
+- Project URL: `https://xqltgcxqlzchrnulomkv.supabase.co`
+- Publishable key: the supplied public key in [script.js](script.js)
+
+Passwords are **not** stored by this app. They are handled by Supabase Auth only.
+
+## Supabase dashboard auth settings
+
+In Supabase, open **Authentication → URL Configuration** and add:
+
+- Site URL: your production app URL
+- Redirect URL: your production app URL
+- Redirect URL: `http://localhost:3000/`
+- Redirect URL: `http://127.0.0.1:5500/`
+
+If you use a different local dev URL, add that too.
+
+## Email templates and delivery
+
+In **Authentication → Email Templates** you can customize:
+
+- Confirm signup
+- Magic link / OTP if you enable it later
+- Change email address
+- Reset password
+
+For production, connect a real email sender in Supabase so password resets and signup confirmations land reliably.
+
 ## Data model notes
 
 ### `profiles`

@@ -378,6 +378,19 @@
       <div class="pbadge locked">👑</div><div class="pbadge locked">💎</div><div class="pbadge locked">🌈</div>
     </div>
   </div>
+  <div class="prof-section" id="profile-auth-section">
+    <div class="prof-sec-title">Account</div>
+    <div class="auth-card">
+      <div class="auth-status-title" id="auth-status-title">Save with email</div>
+      <div class="auth-status-copy" id="auth-status-copy">Create an account to sync your gamename, streak, and settings across devices.</div>
+      <div class="auth-email" id="auth-email" hidden></div>
+      <div class="auth-actions">
+        <button class="auth-btn auth-btn-primary" id="auth-primary-btn" onclick="handlePrimaryAuthAction()">Sign up</button>
+        <button class="auth-btn auth-btn-secondary" id="auth-secondary-btn" onclick="handleSecondaryAuthAction()">Sign in</button>
+      </div>
+      <button class="auth-link-btn" id="auth-reset-btn" onclick="sendPasswordResetEmail()" hidden>Send password reset email</button>
+    </div>
+  </div>
   <div class="ptoggle-list" id="ptog-list"></div>
 </div>
 
@@ -403,6 +416,26 @@
       <button class="name-modal-skip" id="profile-name-cancel" onclick="closeProfileNameModal()">Later</button>
       <button class="name-modal-save" onclick="saveProfileNameFromModal()">Save gamename</button>
     </div>
+  </div>
+</div>
+
+<div id="auth-modal" class="modal-bg centered" style="display:none">
+  <div class="name-modal-card auth-modal-card">
+    <div class="name-modal-badge" id="auth-modal-badge">Cloud Account</div>
+    <h2 class="name-modal-title" id="auth-modal-title">Sign in</h2>
+    <p class="name-modal-copy" id="auth-modal-copy">Use your email and password to connect Pixel Creator across devices.</p>
+    <div id="auth-gamename-wrap" hidden>
+      <input id="auth-gamename-input" class="name-modal-input" type="text" maxlength="18" placeholder="Choose gamename" autocomplete="nickname" spellcheck="false">
+    </div>
+    <input id="auth-email-input" class="name-modal-input" type="email" placeholder="Email address" autocomplete="email" spellcheck="false">
+    <input id="auth-password-input" class="name-modal-input" type="password" placeholder="Password" autocomplete="current-password" spellcheck="false">
+    <div class="name-modal-help" id="auth-modal-help">Passwords are handled by Supabase Auth and are never stored in this app.</div>
+    <div class="name-modal-actions">
+      <button class="name-modal-skip" onclick="closeAuthModal()">Cancel</button>
+      <button class="name-modal-save" id="auth-submit-btn" onclick="submitAuthForm()">Sign in</button>
+    </div>
+    <button class="auth-link-btn modal-auth-switch" id="auth-switch-btn" onclick="toggleAuthMode()">Need an account? Sign up</button>
+    <button class="auth-link-btn modal-auth-reset" onclick="sendPasswordResetEmail()">Forgot password?</button>
   </div>
 </div>
 <!-- COLOR MODAL -->
@@ -528,6 +561,7 @@
 </div>
 <!-- Antiwash Palette Upgrade System -->
 <script src="antiwash-upgrade-extended.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="script.js"></script>
 </body>
 </html>

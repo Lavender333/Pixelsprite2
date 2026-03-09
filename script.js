@@ -571,6 +571,23 @@ const APP_SETTINGS = {
   soundEffects: true,
 };
 
+const SUPABASE_CONFIG = {
+  url: 'https://xqltgcxqlzchrnulomkv.supabase.co',
+  publishableKey: 'sb_publishable_pNozt3QXGax9Uppt0-TFAw_9PbfZURE',
+};
+
+const AUTH_STATE = {
+  client: null,
+  session: null,
+  profile: null,
+  mode: 'signin',
+  busy: false,
+  initialized: false,
+};
+
+let cloudProfileSyncTimer = null;
+let cloudSettingsSyncTimer = null;
+
 const REMINDER_OPTIONS = [
   ['daily', 'Daily'],
   ['weekdays', 'Weekdays only'],
@@ -620,6 +637,7 @@ function saveAppSetting(key, value){
   APP_SETTINGS[key]=value;
   try{localStorage.setItem(appSettingStorageKey(key), String(APP_SETTINGS[key]));}catch(e){}
   syncAppSettings();
+  scheduleCloudSettingsSync();
 }
 
 function reminderScheduleLabel(){
@@ -673,6 +691,384 @@ async function setTimeRemindersEnabled(enabled){
   toast(granted
     ? `Time reminders enabled: ${reminderScheduleLabel()}. Web reminders use browser notifications; the iPhone app can use native reminders.`
     : 'Notifications were not allowed, so time reminders stayed off.');
+}
+
+function getSupabaseClient(){
+  return AUTH_STATE.client;
+}
+
+function hasCloudAccount(){
+  return !!AUTH_STATE.session?.user;
+}
+
+function authRedirectURL(){
+  return `${window.location.origin}${window.location.pathname}`;
+}
+
+function syncAuthUI(){
+  const title=document.getElementById('auth-status-title');
+  const copy=document.getElementById('auth-status-copy');
+  const email=document.getElementById('auth-email');
+  const primary=document.getElementById('auth-primary-btn');
+  const secondary=document.getElementById('auth-secondary-btn');
+  const reset=document.getElementById('auth-reset-btn');
+  const storageNote=document.getElementById('profile-storage-note');
+  const signedIn=hasCloudAccount();
+  const userEmail=AUTH_STATE.session?.user?.email||'';
+
+  if(title) title.textContent=signedIn?'Cloud account connected':'Save with email';
+  if(copy) copy.textContent=signedIn
+    ? 'Your email account is connected. Supabase manages sign-in, password hashing, sessions, and recovery.'
+    : 'Create an account to sync your gamename, streak, and settings across devices.';
+  if(email){
+    email.hidden=!signedIn;
+    email.textContent=userEmail;
+  }
+  if(primary) primary.textContent=signedIn?'Sign out':'Sign up';
+  if(secondary) secondary.textContent=signedIn?'Change email':'Sign in';
+  if(reset) reset.hidden=!signedIn;
+  if(storageNote) storageNote.textContent=signedIn
+    ? 'Cloud account connected. Email, password, and recovery are handled securely by Supabase Auth.'
+    : 'Profile and streak save on this device until you sign in with email.';
+}
+
+function syncAuthModal(){
+  const isSignup=AUTH_STATE.mode==='signup';
+  const badge=document.getElementById('auth-modal-badge');
+  const title=document.getElementById('auth-modal-title');
+  const copy=document.getElementById('auth-modal-copy');
+  const help=document.getElementById('auth-modal-help');
+  const submit=document.getElementById('auth-submit-btn');
+  const switchBtn=document.getElementById('auth-switch-btn');
+  const gamenameWrap=document.getElementById('auth-gamename-wrap');
+  const password=document.getElementById('auth-password-input');
+  const gamenameInput=document.getElementById('auth-gamename-input');
+  if(badge) badge.textContent=isSignup?'Create Account':'Welcome Back';
+  if(title) title.textContent=isSignup?'Create your cloud account':'Sign in to Pixel Creator';
+  if(copy) copy.textContent=isSignup
+    ? 'Use your email and password to create a secure account. Your password is hashed by Supabase Auth.'
+    : 'Sign in with your email and password to reconnect your Pixel Creator account.';
+  if(help) help.textContent=isSignup
+    ? 'Passwords are securely handled by Supabase Auth. This app never stores raw passwords.'
+    : 'Need a new password? Use the reset link below and Supabase will email you a recovery link.';
+  if(submit) submit.textContent=isSignup?'Create account':'Sign in';
+  if(switchBtn) switchBtn.textContent=isSignup?'Already have an account? Sign in':'Need an account? Sign up';
+  if(gamenameWrap) gamenameWrap.hidden=!isSignup;
+  if(password) password.setAttribute('autocomplete', isSignup?'new-password':'current-password');
+  if(isSignup && gamenameInput && !gamenameInput.value) gamenameInput.value=getProfileName();
+}
+
+function setAuthBusy(busy){
+  AUTH_STATE.busy=!!busy;
+  const controls=[
+    document.getElementById('auth-gamename-input'),
+    document.getElementById('auth-email-input'),
+    document.getElementById('auth-password-input'),
+    document.getElementById('auth-submit-btn'),
+  ];
+  controls.forEach(el=>{ if(el) el.disabled=!!busy; });
+}
+
+function openAuthModal(mode='signin'){
+  if(!AUTH_STATE.initialized || !getSupabaseClient()){
+    toast('Cloud auth is still loading. Try again in a moment.');
+    return;
+  }
+  AUTH_STATE.mode=mode==='signup'?'signup':'signin';
+  syncAuthModal();
+  const modal=document.getElementById('auth-modal');
+  const email=document.getElementById('auth-email-input');
+  const password=document.getElementById('auth-password-input');
+  const gamename=document.getElementById('auth-gamename-input');
+  if(email) email.value=AUTH_STATE.session?.user?.email||'';
+  if(password) password.value='';
+  if(gamename && AUTH_STATE.mode==='signup') gamename.value=getProfileName();
+  if(modal) modal.style.display='flex';
+  setTimeout(()=>{
+    const target=AUTH_STATE.mode==='signup' ? gamename : email;
+    target?.focus();
+  },30);
+}
+
+function closeAuthModal(){
+  const modal=document.getElementById('auth-modal');
+  if(modal) modal.style.display='none';
+  setAuthBusy(false);
+}
+
+function toggleAuthMode(){
+  AUTH_STATE.mode=AUTH_STATE.mode==='signup'?'signin':'signup';
+  syncAuthModal();
+}
+
+function applyRemoteProfile(profile){
+  if(!profile) return;
+  AUTH_STATE.profile=profile;
+  if(profile.gamename){
+    ST.profileName=sanitizeGameName(profile.gamename)||ST.profileName;
+    try{localStorage.setItem('pc2_profile_name', ST.profileName);}catch(e){}
+  }
+  if(Number.isFinite(profile.day_streak) && profile.day_streak>=0){
+    ST.streak=profile.day_streak;
+    try{localStorage.setItem('pc2_streak', String(ST.streak));}catch(e){}
+  }
+  if(Number.isFinite(profile.creator_level) && profile.creator_level>0) ST.level=profile.creator_level;
+  if(Number.isFinite(profile.xp) && profile.xp>=0) ST.xp=profile.xp;
+  if(Number.isFinite(profile.xp_max) && profile.xp_max>0) ST.xpMax=profile.xp_max;
+  updateProfileIdentity();
+  refreshProfileStats();
+  refreshHomeStatusBadge();
+  refreshStreakUI();
+}
+
+async function loadCloudProfile(){
+  const client=getSupabaseClient();
+  const userId=AUTH_STATE.session?.user?.id;
+  if(!client || !userId) return null;
+  const {data,error}=await client.from('profiles').select('*').eq('id', userId).maybeSingle();
+  if(error){
+    console.warn('[Supabase profile]', error.message||error);
+    return null;
+  }
+  if(data) applyRemoteProfile(data);
+  syncAuthUI();
+  buildProfile();
+  return data;
+}
+
+async function syncCloudProfile(){
+  const client=getSupabaseClient();
+  const userId=AUTH_STATE.session?.user?.id;
+  if(!client || !userId) return {ok:false};
+  const payload={
+    id:userId,
+    gamename:getProfileName(),
+    creator_level:Math.max(1, ST.level||1),
+    xp:Math.max(0, ST.xp||0),
+    xp_max:Math.max(1, ST.xpMax||600),
+    day_streak:Math.max(0, ST.streak||0),
+  };
+  const {error}=await client.from('profiles').upsert(payload);
+  if(error){
+    console.warn('[Supabase profile sync]', error.message||error);
+    return {ok:false,error};
+  }
+  await loadCloudProfile();
+  return {ok:true};
+}
+
+async function syncCloudSettings(){
+  const client=getSupabaseClient();
+  const userId=AUTH_STATE.session?.user?.id;
+  if(!client || !userId) return {ok:false};
+  const {error}=await client.from('app_settings').upsert({
+    profile_id:userId,
+    sound_effects:!!APP_SETTINGS.soundEffects,
+    last_active_at:new Date().toISOString(),
+  });
+  if(error){
+    console.warn('[Supabase settings sync]', error.message||error);
+    return {ok:false,error};
+  }
+  return {ok:true};
+}
+
+function scheduleCloudProfileSync(delay=900){
+  if(!hasCloudAccount()) return;
+  clearTimeout(cloudProfileSyncTimer);
+  cloudProfileSyncTimer=setTimeout(()=>{
+    syncCloudProfile().catch(err=>console.warn('[Supabase profile sync]', err));
+  },delay);
+}
+
+function scheduleCloudSettingsSync(delay=450){
+  if(!hasCloudAccount()) return;
+  clearTimeout(cloudSettingsSyncTimer);
+  cloudSettingsSyncTimer=setTimeout(()=>{
+    syncCloudSettings().catch(err=>console.warn('[Supabase settings sync]', err));
+  },delay);
+}
+
+async function handleAuthSession(session){
+  AUTH_STATE.session=session||null;
+  if(AUTH_STATE.session?.user){
+    await loadCloudProfile();
+    await syncCloudSettings();
+  }else{
+    AUTH_STATE.profile=null;
+    syncAuthUI();
+    buildProfile();
+  }
+}
+
+async function initSupabaseAuth(){
+  if(AUTH_STATE.initialized) return;
+  const factory=window.supabase?.createClient;
+  if(typeof factory!=='function') return;
+  try{
+    AUTH_STATE.client=factory(SUPABASE_CONFIG.url, SUPABASE_CONFIG.publishableKey, {
+      auth:{
+        persistSession:true,
+        autoRefreshToken:true,
+        detectSessionInUrl:true,
+      },
+    });
+    AUTH_STATE.initialized=true;
+    AUTH_STATE.client.auth.onAuthStateChange((_event, session)=>{
+      handleAuthSession(session).catch(err=>console.warn('[Supabase auth state]', err));
+    });
+    const {data,error}=await AUTH_STATE.client.auth.getSession();
+    if(error) throw error;
+    await handleAuthSession(data.session||null);
+  }catch(err){
+    console.warn('[Supabase init]', err);
+  }
+}
+
+async function submitAuthForm(){
+  const client=getSupabaseClient();
+  if(!client){
+    toast('Cloud auth is unavailable right now.');
+    return;
+  }
+  const emailInput=document.getElementById('auth-email-input');
+  const passwordInput=document.getElementById('auth-password-input');
+  const gamenameInput=document.getElementById('auth-gamename-input');
+  const email=String(emailInput?.value||'').trim().toLowerCase();
+  const password=String(passwordInput?.value||'');
+  const gamename=sanitizeGameName(gamenameInput?.value||getProfileName());
+  if(!email || !/^\S+@\S+\.\S+$/.test(email)){
+    toast('Enter a valid email address.');
+    emailInput?.focus();
+    return;
+  }
+  if(password.length<6){
+    toast('Passwords must be at least 6 characters.');
+    passwordInput?.focus();
+    return;
+  }
+  if(AUTH_STATE.mode==='signup' && !gamename){
+    toast('Choose a gamename first.');
+    gamenameInput?.focus();
+    return;
+  }
+
+  setAuthBusy(true);
+  try{
+    if(AUTH_STATE.mode==='signup'){
+      saveProfileName(gamename,{silent:true});
+      const {data,error}=await client.auth.signUp({
+        email,
+        password,
+        options:{
+          emailRedirectTo:authRedirectURL(),
+          data:{ gamename },
+        },
+      });
+      if(error) throw error;
+      closeAuthModal();
+      if(data.session){
+        await syncCloudProfile();
+        await syncCloudSettings();
+        toast('Cloud account created and connected.');
+      }else{
+        toast('Account created. Check your email to confirm sign-up.');
+      }
+      return;
+    }
+
+    const {error}=await client.auth.signInWithPassword({ email, password });
+    if(error) throw error;
+    closeAuthModal();
+    toast('Signed in successfully.');
+  }catch(err){
+    toast(err?.message || 'Could not complete sign-in right now.');
+  }finally{
+    setAuthBusy(false);
+  }
+}
+
+async function sendPasswordResetEmail(){
+  const client=getSupabaseClient();
+  if(!client){
+    toast('Cloud auth is unavailable right now.');
+    return;
+  }
+  const emailSource=AUTH_STATE.session?.user?.email || document.getElementById('auth-email-input')?.value || '';
+  const email=String(emailSource).trim().toLowerCase() || prompt('Enter your account email address');
+  if(!email || !/^\S+@\S+\.\S+$/.test(email)){
+    toast('Enter a valid email address first.');
+    return;
+  }
+  const {error}=await client.auth.resetPasswordForEmail(email, { redirectTo: authRedirectURL() });
+  if(error){
+    toast(error.message || 'Could not send reset email.');
+    return;
+  }
+  toast('Password reset email sent.');
+}
+
+async function signOutCloudAccount(){
+  const client=getSupabaseClient();
+  if(!client) return;
+  const {error}=await client.auth.signOut();
+  if(error){
+    toast(error.message || 'Could not sign out.');
+    return;
+  }
+  toast('Signed out. Local saves stay on this device.');
+}
+
+async function updateCloudEmail(){
+  const client=getSupabaseClient();
+  const current=AUTH_STATE.session?.user?.email||'';
+  if(!client || !current){
+    toast('Sign in first to change your email.');
+    return;
+  }
+  const next=prompt('Enter your new email address', current);
+  if(next===null) return;
+  const email=String(next).trim().toLowerCase();
+  if(!/^\S+@\S+\.\S+$/.test(email)){
+    toast('Enter a valid email address.');
+    return;
+  }
+  const {error}=await client.auth.updateUser({ email });
+  if(error){
+    toast(error.message || 'Could not update email.');
+    return;
+  }
+  toast('Check your inbox to confirm the email change.');
+}
+
+function handlePrimaryAuthAction(){
+  if(hasCloudAccount()){
+    signOutCloudAccount();
+    return;
+  }
+  openAuthModal('signup');
+}
+
+function handleSecondaryAuthAction(){
+  if(hasCloudAccount()){
+    updateCloudEmail();
+    return;
+  }
+  openAuthModal('signin');
+}
+
+async function claimDailyStreakRemote(){
+  const client=getSupabaseClient();
+  if(!client) return {ok:false};
+  const before=ST.streak||0;
+  const {data,error}=await client.rpc('claim_daily_streak');
+  if(error){
+    toast(error.message || 'Could not claim cloud streak.');
+    return {ok:false,error};
+  }
+  if(data) applyRemoteProfile(data);
+  const changed=(ST.streak||0)!==before;
+  return {ok:true,changed};
 }
 
 const STORAGE_LIMITS = {
@@ -5014,6 +5410,7 @@ function saveProfileName(name,{silent=false}={}){
   if(ST.challengeSubmissions.length) saveChallengeSubmissions();
   buildChallenges();
   updateChallengeSubmitUI();
+  scheduleCloudProfileSync(250);
   closeProfileNameModal();
   if(!silent) toast('Gamename updated ✦');
   return true;
@@ -6200,8 +6597,18 @@ function addXP(n){
   refreshHomeStatusBadge();
   updateXPNextUnlock();
   syncCanvasUnlockUI();
+  scheduleCloudProfileSync();
 }
-function claimStreak(){
+async function claimStreak(){
+  if(hasCloudAccount()){
+    const result=await claimDailyStreakRemote();
+    if(!result.ok) return;
+    if(!result.changed){toast('Streak already claimed today. Come back tomorrow.');return;}
+    refreshStreakUI();
+    updateHomeNavState();
+    addXP(15);confetti();toast('🔥 Streak reward! +15 XP · saved to cloud');SFX.unlock();
+    return;
+  }
   if(!canClaimStreakToday()){toast('Streak already claimed today. Come back tomorrow.');return;}
   ST.streak+=1;
   localStorage.setItem('pc2_streak',String(ST.streak));
@@ -6214,6 +6621,7 @@ function claimStreak(){
 // ── PROFILE ───────────────────────────────────────────
 function buildProfile(){
   updateProfileIdentity();
+  syncAuthUI();
   const name=getProfileName();
   const cvs=document.getElementById('prof-av');
   const ctx=cvs&&typeof cvs.getContext==='function'?cvs.getContext('2d'):null;
@@ -6479,6 +6887,7 @@ captureFrame = function(){
 // ── BOOT ──────────────────────────────────────────────
 function boot(){
   initStore();
+  initSupabaseAuth();
   applyReleaseVisibility();
   buildPalRow();
   loadProfileName();
@@ -6517,6 +6926,9 @@ function boot(){
   document.getElementById('sz-32').classList.remove('on');
   document.getElementById('profile-name-input')?.addEventListener('keydown',e=>{
     if(e.key==='Enter') saveProfileNameFromModal();
+  });
+  document.getElementById('auth-password-input')?.addEventListener('keydown',e=>{
+    if(e.key==='Enter') submitAuthForm();
   });
   startAutoSave();
   document.addEventListener('keydown',onKey);
