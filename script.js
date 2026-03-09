@@ -6239,42 +6239,6 @@ function buildProfile(){
   const el=document.getElementById('ptog-list');
   if(!el) return;
   el.innerHTML='';
-  const timeRow=document.createElement('div');
-  timeRow.className='ptog ptog-stack';
-  timeRow.innerHTML=`
-    <div class="ptog-main">
-      <div class="ptog-copy">
-        <span class="ptog-l">Time Reminders</span>
-        <div class="ptog-sub">Choose when Pixel Creator should remind you to come back.</div>
-      </div>
-      <label class="tog">
-        <input type="checkbox"${APP_SETTINGS.timeReminders?' checked':''}>
-        <div class="tog-tr" style="background:${APP_SETTINGS.timeReminders?'var(--ind)':'var(--s5)'}"></div>
-        <div class="tog-th" style="left:${APP_SETTINGS.timeReminders?'22':'2'}px"></div>
-      </label>
-    </div>
-    <div class="ptog-extra" id="time-reminders-extra"${APP_SETTINGS.timeReminders?'':' hidden'}>
-      <label class="ptog-select-label" for="time-reminder-select">Reminder schedule</label>
-      <select class="ptog-select" id="time-reminder-select">
-        ${REMINDER_OPTIONS.map(([value,label])=>`<option value="${value}"${APP_SETTINGS.reminderSchedule===value?' selected':''}>${label}</option>`).join('')}
-      </select>
-      <div class="ptog-custom-time" id="time-reminders-custom-wrap"${APP_SETTINGS.timeReminders&&APP_SETTINGS.reminderSchedule==='custom'?'':' hidden'}>
-        <label class="ptog-select-label" for="time-reminder-custom">Custom time</label>
-        <input class="ptog-time" id="time-reminder-custom" type="time" value="${APP_SETTINGS.reminderCustomTime}">
-      </div>
-    </div>`;
-  const timeToggle=timeRow.querySelector('input[type="checkbox"]');
-  timeToggle.onchange=async()=>{
-    timeRow.querySelector('.tog-tr').style.background=timeToggle.checked?'var(--ind)':'var(--s5)';
-    timeRow.querySelector('.tog-th').style.left=timeToggle.checked?'22px':'2px';
-    await setTimeRemindersEnabled(timeToggle.checked);
-  };
-  const reminderSelect=timeRow.querySelector('#time-reminder-select');
-  reminderSelect.onchange=()=>setReminderSchedule(reminderSelect.value);
-  const customTimeInput=timeRow.querySelector('#time-reminder-custom');
-  customTimeInput.onchange=()=>setReminderCustomTime(customTimeInput.value);
-  el.appendChild(timeRow);
-
   const soundRow=document.createElement('div');
   soundRow.className='ptog';
   soundRow.innerHTML=`<span class="ptog-l">Sound Effects</span><label class="tog"><input type="checkbox"${APP_SETTINGS.soundEffects?' checked':''}><div class="tog-tr" style="background:${APP_SETTINGS.soundEffects?'var(--ind)':'var(--s5)'}"></div><div class="tog-th" style="left:${APP_SETTINGS.soundEffects?'22':'2'}px"></div></label>`;
