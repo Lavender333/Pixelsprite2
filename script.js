@@ -555,7 +555,7 @@ const ST = {
   mirror:false, onion:false, showGrid:false,
   fps:8, playing:false, playTimer:null, playIdx:0,
   currentFrame:0, frames:[], undoStacks:[], undoIdx:[],
-  projects:[], xp:420, xpMax:600, level:3, streak:0,
+  projects:[], xp:0, xpMax:600, level:1, streak:0,
   closetCat:'All', isDown:false, lastPt:null,
   pinchDist:null,
   // ── Coloring template system ──
