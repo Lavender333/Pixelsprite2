@@ -567,6 +567,7 @@ const ST = {
   activeChallenge: null,
   challengeSubmissions: [],
   profileName: '',
+  publicGallery: [],
 };
 
 const APP_SETTINGS = {
@@ -928,12 +929,14 @@ async function handleAuthSession(session){
     buildChallenges();
     buildHomeGallery();
     renderCloset();
+    await loadPublicGalleryProjects();
   }else{
     AUTH_STATE.profile=null;
     AUTH_STATE.projectsLoaded=false;
     AUTH_STATE.submissionsLoaded=false;
     syncAuthUI();
     buildProfile();
+    loadPublicGalleryProjects().catch(err=>console.warn('[Supabase public gallery]', err));
   }
 }
 
@@ -5559,6 +5562,85 @@ function buildHomeGallery(){
   });
 }
 
+function buildPublicGallery(){
+  const wrap=document.getElementById('public-gallery-strip');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  if(!ST.publicGallery.length){
+    wrap.innerHTML='<div class="gallery-empty">Publish a creation to start the public gallery.</div>';
+    return;
+  }
+  ST.publicGallery.forEach((proj,idx)=>{
+    const card=document.createElement('button');
+    card.className='gallery-item community';
+    card.onclick=()=>loadPublicGalleryProject(idx);
+    const chip=document.createElement('div');
+    chip.className='gallery-chip community';
+    chip.textContent='Community';
+    const cvs=document.createElement('canvas');
+    const size=proj.size||16;
+    cvs.width=size;
+    cvs.height=size;
+    const preview=(proj.frames&&proj.frames[0]) ? proj.frames[0] : null;
+    if(preview) cvs.getContext('2d').putImageData(preview,0,0);
+    const lbl=document.createElement('div');
+    lbl.className='gallery-label';
+    lbl.textContent=proj.name||`Public creation ${idx+1}`;
+    const sub=document.createElement('div');
+    sub.className='gallery-sub';
+    sub.textContent='Tap to remix';
+    card.appendChild(chip);
+    card.appendChild(cvs);
+    card.appendChild(lbl);
+    card.appendChild(sub);
+    wrap.appendChild(card);
+  });
+}
+
+async function loadPublicGalleryProjects(){
+  const client=getSupabaseClient();
+  if(!client) return [];
+  const {data,error}=await client.from('projects')
+    .select('id,title,canvas_size,frames,cover_frame,updated_at,visibility,is_gallery_item')
+    .eq('visibility','public')
+    .eq('is_gallery_item', true)
+    .eq('is_archived', false)
+    .order('updated_at',{ascending:false})
+    .limit(10);
+  if(error){
+    console.warn('[Supabase public gallery]', error.message||error);
+    return [];
+  }
+  ST.publicGallery=(data||[]).map(row=>({
+    cloudId:row.id,
+    name:row.title,
+    size:row.canvas_size||16,
+    frames:deserializeFrames(row.canvas_size||16,row.frames||[]),
+    updatedAt:row.updated_at||null,
+  }));
+  buildPublicGallery();
+  return ST.publicGallery;
+}
+
+function loadPublicGalleryProject(idx){
+  const project=ST.publicGallery[idx];
+  if(!project) return;
+  ST.size=project.size||16;
+  ST.frames=cloneFrames(project.frames||[]);
+  ST.undoStacks=ST.frames.map(frame=>[cloneImageData(frame)]);
+  ST.undoIdx=ST.frames.map(()=>0);
+  ST.currentFrame=0;
+  ['sz-16','sz-32','sz-64'].forEach(id=>document.getElementById(id)?.classList.remove('on'));
+  document.getElementById('sz-'+ST.size)?.classList.add('on');
+  showTab('create');
+  setTimeout(()=>{
+    initCanvas(ST.size);
+    document.getElementById('pname').textContent=`${slugifyProjectName(projectBaseName(project.name))}-remix.px`;
+    drawFrame(0);
+    toast('Public creation loaded. Make it your own ✨');
+  },50);
+}
+
 function buildHomeProof(){
   const proof=document.getElementById('home-proof');
   if(!proof) return;
@@ -6661,6 +6743,7 @@ async function toggleProjectPublishing(idx){
   }catch(err){
     console.warn('[Supabase asset visibility]', err);
   }
+  loadPublicGalleryProjects().catch(err=>console.warn('[Supabase public gallery]', err));
   renderCloset();
   buildHomeGallery();
   toast(nextPublic?'Published to your gallery ✨':'Moved back to private saves');
@@ -7251,6 +7334,8 @@ function showTab(tab){
   if(tab==='home'){
     buildHomeProof();
     buildHomeGallery();
+    buildPublicGallery();
+    loadPublicGalleryProjects().catch(err=>console.warn('[Supabase public gallery]', err));
     refreshStreakUI();
     updateXPNextUnlock();
   }
@@ -7476,6 +7561,7 @@ function boot(){
   buildHomeTemplates();
   buildHomeProof();
   buildHomeGallery();
+  buildPublicGallery();
   if(featureEnabled('templateChallenges')){
     buildTemplateGrid('tmpl-challenge',TEMPLATES.challenge);
   }else{
@@ -7511,6 +7597,7 @@ function boot(){
   startAutoSave();
   document.addEventListener('keydown',onKey);
   ensureProfileName();
+  loadPublicGalleryProjects().catch(err=>console.warn('[Supabase public gallery]', err));
   console.log('%c[PixelStudioCore v2.0] Ready','color:#6C63FF;font-weight:bold;',window.PixelStudioCore.inspect());
 }
 function startAutoSave(){setInterval(()=>{if(ST.frames.length&&ST.projects.length>0)captureFrame();},6000);}
