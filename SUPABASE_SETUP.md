@@ -108,12 +108,16 @@ Already connected in the app:
 - cloud sync for streak, XP, level, and sound setting
 - full Closet project save/load from `public.projects`
 - challenge submission sync from `public.challenge_entries`
+- PNG / transparent PNG / GIF export upload into `project-assets`
+- `public.project_assets` metadata rows for uploaded exports
+- publish / private gallery controls on top of `visibility` and `is_gallery_item`
 
 Not fully connected yet:
 
-- export file upload into `project-assets`
+- optional public gallery browsing screen for other users
+- optional thumbnail generation/upload for gallery cards
 
-So Supabase auth, profile sync, project sync, and challenge sync are now wired. The main remaining cloud step is upload/download of exported files through Storage.
+So Supabase auth, profile sync, project sync, challenge sync, export uploads, and gallery publishing are now wired.
 
 ## Recommended release hardening
 

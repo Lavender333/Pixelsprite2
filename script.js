@@ -1,4 +1,4 @@
-function exportTransparentPNG() {
+async function exportTransparentPNG() {
   // Export current frame as transparent PNG (8x upscaled)
   captureFrame();
   const scale = 8;
@@ -8,18 +8,23 @@ function exportTransparentPNG() {
   const ctx = cvs.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   if (ST.frames[ST.currentFrame]) {
-    createImageBitmap(ST.frames[ST.currentFrame]).then(bmp => {
-      ctx.clearRect(0, 0, cvs.width, cvs.height);
-      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, 0, 0, cvs.width, cvs.height);
-      const a = document.createElement('a');
-      a.href = cvs.toDataURL('image/png');
-      a.download = 'transparent.png';
-      a.click();
-      SFX.share();
-      toast('Transparent PNG exported! 🟪');
-      addXP(6);
-      Economy.track('project:export', { format: 'transparent-png' });
-    });
+    const bmp = await createImageBitmap(ST.frames[ST.currentFrame]);
+    ctx.clearRect(0, 0, cvs.width, cvs.height);
+    ctx.drawImage(bmp, 0, 0, ST.size, ST.size, 0, 0, cvs.width, cvs.height);
+    const blob = await canvasToBlob(cvs,'image/png');
+    downloadBlobFile(blob,'transparent.png');
+    const upload=await uploadExportedBlobForCurrentProject({
+      blob,
+      assetType:'transparent-png',
+      fileName:'transparent.png',
+      mimeType:'image/png',
+      width:cvs.width,
+      height:cvs.height,
+    }).catch(err=>({ok:false,error:err}));
+    SFX.share();
+    toast(upload?.ok?'Transparent PNG exported and backed up ☁️':'Transparent PNG exported! 🟪');
+    addXP(6);
+    Economy.track('project:export', { format: 'transparent-png' });
   }
 }
 
@@ -5141,17 +5146,25 @@ function openExportModal(){
 }
 function closeExportModal(){document.getElementById('export-modal').style.display='none';}
 
-function exportCanvas(){
+async function exportCanvas(){
   captureFrame();const scale=8;const cvs=document.createElement('canvas');
   cvs.width=ST.size*scale;cvs.height=ST.size*scale;
   const ctx=cvs.getContext('2d');ctx.imageSmoothingEnabled=false;
   if(ST.frames[ST.currentFrame]){
-    createImageBitmap(ST.frames[ST.currentFrame]).then(bmp=>{
-      ctx.drawImage(bmp,0,0,ST.size*scale,ST.size*scale);
-      const a=document.createElement('a');a.href=cvs.toDataURL('image/png');a.download='pixel-creator.png';a.click();
-      SFX.share();
-      toast('PNG exported! 🎉');addXP(5);Economy.track('project:export',{format:'png'});
-    });
+    const bmp=await createImageBitmap(ST.frames[ST.currentFrame]);
+    ctx.drawImage(bmp,0,0,ST.size*scale,ST.size*scale);
+    const blob=await canvasToBlob(cvs,'image/png');
+    downloadBlobFile(blob,'pixel-creator.png');
+    const upload=await uploadExportedBlobForCurrentProject({
+      blob,
+      assetType:'png',
+      fileName:'pixel-creator.png',
+      mimeType:'image/png',
+      width:cvs.width,
+      height:cvs.height,
+    }).catch(err=>({ok:false,error:err}));
+    SFX.share();
+    toast(upload?.ok?'PNG exported and backed up ☁️':'PNG exported! 🎉');addXP(5);Economy.track('project:export',{format:'png'});
   }
 }
 function exportJPEG(){
@@ -5312,6 +5325,18 @@ function _buildGIF(){
       wr(0x3B); // GIF trailer
       const blob=new Blob([new Uint8Array(bytes)],{type:'image/gif'});
       downloadBlobFile(blob,'pixel-creator.gif');
+      uploadExportedBlobForCurrentProject({
+        blob,
+        assetType:'gif',
+        fileName:'pixel-creator.gif',
+        mimeType:'image/gif',
+        width:sz,
+        height:sz,
+      }).then(upload=>{
+        if(upload?.ok){
+          toast('🎞 GIF exported and backed up ☁️');
+        }
+      }).catch(err=>console.warn('[Supabase GIF upload]', err));
       SFX.share();
       if(prog) prog.classList.remove('show');
       toast('🎞 GIF exported!');addXP(15);confetti();Economy.track('project:export',{format:'gif'});
@@ -5522,6 +5547,12 @@ function buildHomeGallery(){
     const lbl=document.createElement('div');
     lbl.className='gallery-label';
     lbl.textContent=proj.name||`Creation ${idx+1}`;
+    if(isProjectPublic(proj)){
+      const chip=document.createElement('div');
+      chip.className='gallery-chip';
+      chip.textContent='Public';
+      card.appendChild(chip);
+    }
     card.appendChild(cvs);
     card.appendChild(lbl);
     wrap.appendChild(card);
@@ -5640,7 +5671,20 @@ function renderCloset(){
 
     const info=document.createElement('div');
     info.className='cc-info';
-    info.innerHTML=`<div class="cc-name">${proj.name}</div><div class="cc-meta">${proj.size||16}×${proj.size||16} · ${(proj.frames||[]).length} frame${(proj.frames||[]).length!==1?'s':''}</div>`;
+    const syncLabel=proj.cloudId?'Cloud sync on':'Local only';
+    info.innerHTML=`<div class="cc-name">${proj.name}</div><div class="cc-meta">${proj.size||16}×${proj.size||16} · ${(proj.frames||[]).length} frame${(proj.frames||[]).length!==1?'s':''} · ${syncLabel}</div>`;
+
+    const publishRow=document.createElement('div');
+    publishRow.className='cc-publish-row';
+    const visibility=document.createElement('span');
+    visibility.className='cc-visibility'+(isProjectPublic(proj)?' public':'');
+    visibility.textContent=projectVisibilityLabel(proj);
+    const publishBtn=document.createElement('button');
+    publishBtn.className='cc-publish';
+    publishBtn.textContent=isProjectPublic(proj)?'Make Private':'Publish';
+    publishBtn.onclick=async(e)=>{e.stopPropagation();await toggleProjectPublishing(idx);};
+    publishRow.appendChild(visibility);
+    publishRow.appendChild(publishBtn);
 
     const acts=document.createElement('div');
     acts.className='cc-acts';
@@ -5665,6 +5709,7 @@ function renderCloset(){
     acts.appendChild(deleteBtn);
 
     card.appendChild(info);
+    card.appendChild(publishRow);
     card.appendChild(acts);
     g.appendChild(card);
   });
@@ -5696,7 +5741,20 @@ function exportProject(idx){
   const scale=8;const cvs=document.createElement('canvas');
   cvs.width=(p.size||16)*scale;cvs.height=(p.size||16)*scale;
   const ctx=cvs.getContext('2d');ctx.imageSmoothingEnabled=false;
-  createImageBitmap(p.frames[0]).then(bmp=>{ctx.drawImage(bmp,0,0,(p.size||16)*scale,(p.size||16)*scale);const a=document.createElement('a');a.href=cvs.toDataURL('image/png');a.download=p.name+'.png';a.click();toast('Exported!');});
+  createImageBitmap(p.frames[0]).then(async bmp=>{
+    ctx.drawImage(bmp,0,0,(p.size||16)*scale,(p.size||16)*scale);
+    const blob=await canvasToBlob(cvs,'image/png');
+    downloadBlobFile(blob,p.name+'.png');
+    const upload=await uploadExportedBlobForProject(p,{
+      blob,
+      assetType:'png',
+      fileName:p.name+'.png',
+      mimeType:'image/png',
+      width:cvs.width,
+      height:cvs.height,
+    }).catch(err=>({ok:false,error:err}));
+    toast(upload?.ok?'Exported and backed up ☁️':'Exported!');
+  });
 }
 
 // ── TEMPLATES ─────────────────────────────────────────
@@ -6468,6 +6526,144 @@ function scheduleCloudSubmissionsSync(delay=1000){
       console.warn('[Supabase submissions sync]', err);
     }
   },delay);
+}
+
+function isProjectPublic(proj){
+  return !!(proj && proj.visibility==='public' && proj.isGalleryItem);
+}
+
+function projectVisibilityLabel(proj){
+  return isProjectPublic(proj) ? 'Public gallery' : 'Private';
+}
+
+function currentProjectName(){
+  return document.getElementById('pname')?.textContent?.trim()||'untitled.px';
+}
+
+function findProjectByName(name=currentProjectName()){
+  return ST.projects.find(project=>project.name===name || project.slug===slugifyProjectName(projectBaseName(name)))||null;
+}
+
+function canvasToBlob(canvas, type='image/png', quality){
+  return new Promise((resolve,reject)=>{
+    if(!canvas || typeof canvas.toBlob!=='function'){
+      reject(new Error('Canvas export is unavailable.'));
+      return;
+    }
+    canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('Could not create export file.')), type, quality);
+  });
+}
+
+async function ensureCurrentProjectCloudRecord(){
+  const name=currentProjectName();
+  const snapshot=makeProjectSnapshot(name);
+  const saved=upsertProject(snapshot,{reward:false,silent:true});
+  if(!saved) return null;
+  if(!hasCloudAccount()) return findProjectByName(name);
+  const syncResult=await syncCloudProjects();
+  if(!syncResult.ok) return findProjectByName(name);
+  return findProjectByName(name);
+}
+
+async function saveProjectAssetRecord(project,{assetType,bucketPath,mimeType,width,height}){
+  const client=getSupabaseClient();
+  const userId=AUTH_STATE.session?.user?.id;
+  if(!client || !userId || !project?.cloudId) return;
+  const isPublic=isProjectPublic(project);
+  const {data:existing,error:existingError}=await client.from('project_assets')
+    .select('id')
+    .eq('project_id', project.cloudId)
+    .eq('asset_type', assetType)
+    .maybeSingle();
+  if(existingError) throw existingError;
+  const payload={
+    project_id:project.cloudId,
+    owner_id:userId,
+    asset_type:assetType,
+    bucket_path:bucketPath,
+    mime_type:mimeType,
+    width:width||null,
+    height:height||null,
+    is_public:isPublic,
+  };
+  if(existing?.id){
+    const {error}=await client.from('project_assets').update(payload).eq('id', existing.id);
+    if(error) throw error;
+    return;
+  }
+  const {error}=await client.from('project_assets').insert(payload);
+  if(error) throw error;
+}
+
+async function syncProjectAssetVisibility(project){
+  const client=getSupabaseClient();
+  if(!client || !project?.cloudId) return;
+  const {error}=await client.from('project_assets')
+    .update({ is_public:isProjectPublic(project) })
+    .eq('project_id', project.cloudId);
+  if(error) throw error;
+}
+
+async function uploadExportedBlobForProject(project,{blob,assetType,fileName,mimeType,width,height}){
+  const client=getSupabaseClient();
+  const userId=AUTH_STATE.session?.user?.id;
+  if(!client || !userId || !blob) return {ok:false,skipped:true};
+  if(!project?.cloudId) return {ok:false,skipped:true};
+  const ext=(fileName.split('.').pop()||'bin').toLowerCase();
+  const bucketPath=`${userId}/${project.cloudId}/${assetType}.${ext}`;
+  const {error:uploadError}=await client.storage
+    .from('project-assets')
+    .upload(bucketPath, blob, { upsert:true, contentType:mimeType });
+  if(uploadError) return {ok:false,error:uploadError};
+  try{
+    await saveProjectAssetRecord(project,{assetType,bucketPath,mimeType,width,height});
+    return {ok:true,bucketPath};
+  }catch(error){
+    return {ok:false,error};
+  }
+}
+
+async function uploadExportedBlobForCurrentProject(opts){
+  if(!hasCloudAccount()) return {ok:false,skipped:true};
+  const project=await ensureCurrentProjectCloudRecord();
+  if(!project?.cloudId) return {ok:false,skipped:true};
+  const result=await uploadExportedBlobForProject(project,opts);
+  if(result.ok){
+    project.updatedAt=new Date().toISOString();
+    persistProjectsWithLimits();
+  }
+  return result;
+}
+
+async function toggleProjectPublishing(idx){
+  const project=ST.projects[idx];
+  if(!project) return;
+  if(!hasCloudAccount()){
+    toast('Sign in first to publish creations to your gallery.');
+    showTab('profile');
+    return;
+  }
+  const nextPublic=!isProjectPublic(project);
+  project.visibility=nextPublic?'public':'private';
+  project.isGalleryItem=nextPublic;
+  const saved=saveProjects();
+  if(!saved.ok){
+    toast('Could not update publish settings.');
+    return;
+  }
+  const syncResult=await syncCloudProjects();
+  if(!syncResult.ok){
+    toast('Could not sync publish settings to cloud.');
+    return;
+  }
+  try{
+    await syncProjectAssetVisibility(project);
+  }catch(err){
+    console.warn('[Supabase asset visibility]', err);
+  }
+  renderCloset();
+  buildHomeGallery();
+  toast(nextPublic?'Published to your gallery ✨':'Moved back to private saves');
 }
 
 function estimateBytes(str=''){
