@@ -2,7 +2,7 @@
 // Strategy: cache-first for app shell, network-first for dynamic content
 // Bump CACHE_VERSION to force all clients to update
 
-const CACHE_VERSION = 'pixel-creator-v2';
+const CACHE_VERSION = 'pixel-creator-v3';
 const APP_SHELL = [
   '/',
   '/index.html',
