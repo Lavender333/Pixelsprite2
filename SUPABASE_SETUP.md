@@ -80,6 +80,50 @@ In **Authentication → Email Templates** you can customize:
 
 For production, connect a real email sender in Supabase so password resets and signup confirmations land reliably.
 
+## Final connection checklist
+
+To fully connect this app to your Supabase project, do these remaining steps:
+
+1. Run [supabase/schema.sql](supabase/schema.sql) in the Supabase SQL editor.
+2. Run [supabase/storage.sql](supabase/storage.sql) in the Supabase SQL editor.
+3. In **Authentication → Providers**, turn on **Email**.
+4. Decide whether to keep **Confirm email** on:
+   - keep it **on** for stricter account verification
+   - turn it **off** if you want instant sign-in right after signup
+5. In **Authentication → URL Configuration**, add your production URL and local dev URLs.
+6. In **Storage**, confirm the `project-assets` bucket exists.
+7. In **Authentication → Email Templates / SMTP**, connect a real sender for:
+   - signup confirmation
+   - password reset
+   - change email
+
+## Important: what is connected vs not connected yet
+
+Already connected in the app:
+
+- email/password auth
+- session persistence
+- password reset emails
+- cloud profile sync for gamename
+- cloud sync for streak, XP, level, and sound setting
+
+Not fully connected yet:
+
+- full Closet project save/load from `public.projects`
+- challenge submission sync from `public.challenge_entries`
+- export file upload into `project-assets`
+
+So your Supabase auth is wired, but full art/project cloud sync is still the next implementation step.
+
+## Recommended release hardening
+
+Before launch, also do this:
+
+- replace the hardcoded publishable key in [script.js](script.js) with a small config file or build-time env injection
+- add custom SMTP in Supabase for reliable email delivery
+- test signup, signin, signout, password reset, and change email on both web and iPhone
+- verify your redirect URL matches the exact deployed domain
+
 ## Data model notes
 
 ### `profiles`
