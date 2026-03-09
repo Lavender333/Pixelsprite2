@@ -81,7 +81,13 @@
 <!-- HOME -->
 <div id="home-screen" class="screen active">
   <div class="home-hero">
-    <img class="home-logo" src="icon-512.png" alt="Pixel Creator logo" width="84" height="84">
+    <div class="home-status-badge" id="home-status-badge">
+      <span class="home-status-level">Level <span id="home-status-level-value">3</span> Creator</span>
+      <span class="home-status-xp">XP: <span id="home-status-xp-cur">420</span> / <span id="home-status-xp-max">600</span></span>
+    </div>
+    <div class="home-logo-badge">
+      <img class="home-logo" src="icon-512.png" alt="Pixel Creator logo" width="84" height="84">
+    </div>
     <div class="hero-eyebrow">✦ Smart UX Studio</div>
     <h1 class="hero-title">PIXEL<br><span>CREATOR</span></h1>
     <p class="hero-sub">Professional tools. Zero complexity.<br>Built for creators aged 9–15.</p>
@@ -118,7 +124,7 @@
       <div class="streak-info">
         <div class="streak-n" id="streak-n">5</div>
         <div class="streak-l">Day Streak</div>
-        <div class="streak-note">Saved on this device</div>
+        <div class="streak-note">On this device</div>
       </div>
       <button class="streak-claim" id="streak-claim" onclick="claimStreak()">Claim</button>
     </div>

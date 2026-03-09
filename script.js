@@ -5045,6 +5045,15 @@ function refreshProfileStats(){
   if(streakProfileEl) streakProfileEl.textContent=String(ST.streak||0);
 }
 
+function refreshHomeStatusBadge(){
+  const levelEl=document.getElementById('home-status-level-value');
+  if(levelEl) levelEl.textContent=String(ST.level||0);
+  const xpCurEl=document.getElementById('home-status-xp-cur');
+  if(xpCurEl) xpCurEl.textContent=String(ST.xp||0);
+  const xpMaxEl=document.getElementById('home-status-xp-max');
+  if(xpMaxEl) xpMaxEl.textContent=String(ST.xpMax||0);
+}
+
 function refreshStreakUI(){
   const streakEl=document.getElementById('streak-n');
   if(streakEl) streakEl.textContent=String(ST.streak||0);
@@ -5425,6 +5434,13 @@ function buildY2KGrid(){
 }
 function buildHomeTemplates(){
   const el=document.getElementById('home-templates');if(!el)return;el.innerHTML='';
+  const subtitleMap={
+    kawaii_bunny:'Starter Character',
+    sneaker:'Customize & Design',
+    bag:'Build Your Brand',
+    bw_fox:'Starter Character',
+    pixel_cat:'Expressive Character',
+  };
   const kawaiiQuick = TEMPLATES.chars.find(t => t.id === 'kawaii_bunny');
   const quickPremium = featureEnabled('premiumY2K') ? TEMPLATES.y2k.filter(t => t.id === 'premium_bunny') : [];
   const quickChallenges = featureEnabled('templateChallenges') ? TEMPLATES.challenge : [];
@@ -5453,7 +5469,8 @@ function buildHomeTemplates(){
       prev.className='tcard-icon';prev.textContent=t.ico;
     }
     d.appendChild(prev);
-    d.insertAdjacentHTML('beforeend',`<div class="tcard-bottom"><div class="tcard-name">${t.name}</div>${tag}</div>`);
+    const subtitle=subtitleMap[t.id]|| (t.cat==='chars' ? 'Starter Character' : t.cat==='items' ? 'Customize & Design' : 'Creative Tool');
+    d.insertAdjacentHTML('beforeend',`<div class="tcard-bottom"><div class="tcard-name">${t.name}</div><div class="tcard-sub">${subtitle}</div>${tag}</div>`);
     d.onclick=()=>loadTemplate(t.id,t.name);el.appendChild(d);
   });
 }
@@ -6180,6 +6197,7 @@ function addXP(n){
   ['xp-cur','ps-xp'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=ST.xp;});
   const xpm=document.getElementById('xp-max');if(xpm)xpm.textContent=ST.xpMax;
   const xpl=document.getElementById('xp-lvl');if(xpl)xpl.textContent=ST.level;
+  refreshHomeStatusBadge();
   updateXPNextUnlock();
   syncCanvasUnlockUI();
 }
@@ -6527,6 +6545,7 @@ function boot(){
   buildProfile();
   updateStorageUI();
   refreshProfileStats();
+  refreshHomeStatusBadge();
   initCanvas(16);
   syncCanvasUnlockUI();
   buildLayerPanel();
