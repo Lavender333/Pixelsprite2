@@ -555,7 +555,7 @@ const ST = {
   mirror:false, onion:false, showGrid:false,
   fps:8, playing:false, playTimer:null, playIdx:0,
   currentFrame:0, frames:[], undoStacks:[], undoIdx:[],
-  projects:[], xp:420, xpMax:600, level:3, streak:5,
+  projects:[], xp:420, xpMax:600, level:3, streak:0,
   closetCat:'All', isDown:false, lastPt:null,
   pinchDist:null,
   // ── Coloring template system ──
@@ -850,6 +850,9 @@ function applyRemoteProfile(profile){
     ST.streak=profile.day_streak;
     try{localStorage.setItem('pc2_streak', String(ST.streak));}catch(e){}
   }
+  if(profile.last_streak_claim_on){
+    try{localStorage.setItem('pc2_streak_claim_day', String(profile.last_streak_claim_on));}catch(e){}
+  }
   if(Number.isFinite(profile.creator_level) && profile.creator_level>0) ST.level=profile.creator_level;
   if(Number.isFinite(profile.xp) && profile.xp>=0) ST.xp=profile.xp;
   if(Number.isFinite(profile.xp_max) && profile.xp_max>0) ST.xpMax=profile.xp_max;
@@ -933,6 +936,7 @@ async function handleAuthSession(session){
     const localProjects=[...ST.projects];
     const localSubmissions=[...ST.challengeSubmissions];
     await loadCloudProfile();
+    await autoClaimDailyStreakOnOpen();
     await syncCloudSettings();
     await loadCloudProjects();
     if(localProjects.length){
@@ -960,6 +964,7 @@ async function handleAuthSession(session){
     AUTH_STATE.profile=null;
     AUTH_STATE.projectsLoaded=false;
     AUTH_STATE.submissionsLoaded=false;
+    await autoClaimDailyStreakOnOpen();
     syncAuthUI();
     buildProfile();
     loadPublicGalleryProjects().catch(err=>console.warn('[Supabase public gallery]', err));
@@ -5448,6 +5453,16 @@ function dayStamp(){
   return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
 }
 
+function normalizeDayToken(value){
+  if(!value) return '';
+  const raw=String(value).trim();
+  const parts=raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(parts) return `${parts[1]}-${Number(parts[2])}-${Number(parts[3])}`;
+  const date=new Date(raw);
+  if(Number.isNaN(date.getTime())) return raw;
+  return `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}`;
+}
+
 function sanitizeGameName(name=''){
   return String(name)
     .replace(/[^a-z0-9 _.-]/gi,'')
@@ -5527,7 +5542,10 @@ function ensureProfileName(){
 }
 
 function canClaimStreakToday(){
-  return localStorage.getItem('pc2_streak_claim_day')!==dayStamp();
+  if(hasCloudAccount() && AUTH_STATE.profile?.last_streak_claim_on){
+    return normalizeDayToken(AUTH_STATE.profile.last_streak_claim_on)!==dayStamp();
+  }
+  return normalizeDayToken(localStorage.getItem('pc2_streak_claim_day'))!==dayStamp();
 }
 
 function refreshProfileStats(){
@@ -5553,7 +5571,8 @@ function refreshStreakUI(){
   const btn=document.getElementById('streak-claim');
   if(!btn) return;
   const ready=canClaimStreakToday();
-  btn.textContent=ready?'Claim':'Claimed';
+  btn.textContent=ready?'Auto daily':'Claimed today';
+  btn.disabled=true;
   btn.classList.toggle('off',!ready);
 }
 
@@ -7286,23 +7305,35 @@ function addXP(n){
   syncCanvasUnlockUI();
   scheduleCloudProfileSync();
 }
-async function claimStreak(){
+async function claimStreak({auto=false,quietIfAlreadyClaimed=false}={}){
   if(hasCloudAccount()){
     const result=await claimDailyStreakRemote();
     if(!result.ok) return;
-    if(!result.changed){toast('Streak already claimed today. Come back tomorrow.');return;}
+    if(!result.changed){
+      if(!quietIfAlreadyClaimed) toast('Streak already claimed today. Come back tomorrow.');
+      refreshStreakUI();
+      return;
+    }
     refreshStreakUI();
     updateHomeNavState();
-    addXP(15);confetti();toast('🔥 Streak reward! +15 XP · saved to cloud');SFX.unlock();
+    addXP(15);confetti();toast(auto?'🔥 Daily streak claimed automatically! +15 XP':'🔥 Streak reward! +15 XP · saved to cloud');SFX.unlock();
     return;
   }
-  if(!canClaimStreakToday()){toast('Streak already claimed today. Come back tomorrow.');return;}
+  if(!canClaimStreakToday()){
+    if(!quietIfAlreadyClaimed) toast('Streak already claimed today. Come back tomorrow.');
+    refreshStreakUI();
+    return;
+  }
   ST.streak+=1;
   localStorage.setItem('pc2_streak',String(ST.streak));
   localStorage.setItem('pc2_streak_claim_day',dayStamp());
   refreshStreakUI();
   updateHomeNavState();
-  addXP(15);confetti();toast('🔥 Streak reward! +15 XP · saved on this device');SFX.unlock();
+  addXP(15);confetti();toast(auto?'🔥 Daily streak claimed automatically! +15 XP':'🔥 Streak reward! +15 XP · saved on this device');SFX.unlock();
+}
+
+function autoClaimDailyStreakOnOpen(){
+  return claimStreak({auto:true,quietIfAlreadyClaimed:true}).catch(err=>console.warn('[Auto streak claim]', err));
 }
 
 // ── PROFILE ───────────────────────────────────────────

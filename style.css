@@ -119,6 +119,7 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .streak-note{font-size:8px;color:rgba(128,129,160,.55);margin-top:3px;line-height:1.35;text-transform:uppercase;letter-spacing:.08em}
 .streak-claim{padding:6px 10px;border-radius:14px;background:rgba(255,209,102,.2);border:1px solid rgba(255,209,102,.35);color:#FFD166;font-size:10px;font-weight:800;cursor:pointer;transition:.15s}
 .streak-claim:active{transform:scale(.94)}
+.streak-claim:disabled{cursor:default;transform:none}
 .streak-claim.off{opacity:.55;filter:saturate(.5)}
 .proof-pill{display:flex;align-items:center;justify-content:center;text-align:center;padding:8px 10px;border-radius:12px;border:1px solid var(--border);background:linear-gradient(180deg,rgba(255,255,255,.03) 0%,rgba(255,255,255,.01) 100%);font-size:10px;color:#A7A7C6;line-height:1.45}
 .home-section{padding:0 16px 16px}
