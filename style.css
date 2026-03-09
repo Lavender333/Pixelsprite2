@@ -95,6 +95,12 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .hero-title span{color:#726cff;letter-spacing:-.035em;font-weight:800}
 .hero-sub{font-size:13px;color:rgba(184,185,215,.8);line-height:1.6;margin-bottom:26px;max-width:280px}
 .hero-cta{display:flex;gap:8px;align-items:center}
+.home-auth-cta{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.home-auth-primary,.home-auth-secondary{padding:10px 14px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:.15s}
+.home-auth-primary{border:1px solid rgba(108,99,255,.26);background:rgba(108,99,255,.12);color:#D7D4FF}
+.home-auth-secondary{border:1px solid var(--border2);background:rgba(255,255,255,.03);color:var(--text2)}
+.home-auth-primary:hover,.home-auth-secondary:hover{transform:translateY(-1px)}
+.home-auth-primary:active,.home-auth-secondary:active{transform:scale(.97)}
 .btn-primary{position:relative;isolation:isolate;overflow:hidden;flex:1;padding:16px 18px;border-radius:20px;border:1px solid rgba(255,255,255,.08);background:linear-gradient(145deg,#6f68f4 0%,#5a54d9 55%,#5450c8 100%);color:#fff;font-size:15px;font-weight:800;letter-spacing:.01em;transition:transform .18s ease,box-shadow .18s ease,filter .18s ease;box-shadow:0 14px 28px rgba(78,81,176,.28), inset 0 1px 0 rgba(255,255,255,.16)}
 .btn-primary::before{content:'';position:absolute;inset:1px 1px auto 1px;height:42%;border-radius:19px 19px 14px 14px;background:linear-gradient(180deg,rgba(255,255,255,.18) 0%,rgba(255,255,255,0) 100%);pointer-events:none}
 .btn-primary::after{content:'';position:absolute;inset:0;background:linear-gradient(110deg,transparent 0%,rgba(255,255,255,.08) 42%,rgba(255,255,255,.18) 50%,rgba(255,255,255,.06) 58%,transparent 100%);transform:translateX(-130%);transition:transform .45s ease;pointer-events:none}
@@ -787,6 +793,8 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .prof-edit:focus-visible,
 .auth-btn:focus-visible,
 .auth-link-btn:focus-visible,
+.home-auth-primary:focus-visible,
+.home-auth-secondary:focus-visible,
 .challenge-submit-btn:focus-visible,
 .name-modal-skip:focus-visible,
 .name-modal-save:focus-visible,

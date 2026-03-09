@@ -724,6 +724,9 @@ function syncAuthUI(){
   const primary=document.getElementById('auth-primary-btn');
   const secondary=document.getElementById('auth-secondary-btn');
   const reset=document.getElementById('auth-reset-btn');
+  const homePrimary=document.getElementById('home-auth-primary');
+  const homeSecondary=document.getElementById('home-auth-secondary');
+  const homeWrap=document.getElementById('home-auth-cta');
   const storageNote=document.getElementById('profile-storage-note');
   const signedIn=hasCloudAccount();
   const userEmail=AUTH_STATE.session?.user?.email||'';
@@ -739,9 +742,31 @@ function syncAuthUI(){
   if(primary) primary.textContent=signedIn?'Sign out':'Sign up';
   if(secondary) secondary.textContent=signedIn?'Change email':'Sign in';
   if(reset) reset.hidden=!signedIn;
+  if(homePrimary) homePrimary.textContent=signedIn?'Manage account':'Create account';
+  if(homeSecondary){
+    homeSecondary.textContent=signedIn?'Open Me tab':'Sign in';
+    homeSecondary.hidden=false;
+  }
+  if(homeWrap) homeWrap.hidden=false;
   if(storageNote) storageNote.textContent=signedIn
     ? 'Cloud account connected. Email, password, and recovery are handled securely by Supabase Auth.'
     : 'Profile and streak save on this device until you sign in with email.';
+}
+
+function handleHomeAuthPrimary(){
+  if(hasCloudAccount()){
+    showTab('profile');
+    return;
+  }
+  openAuthModal('signup');
+}
+
+function handleHomeAuthSecondary(){
+  if(hasCloudAccount()){
+    showTab('profile');
+    return;
+  }
+  openAuthModal('signin');
 }
 
 function syncAuthModal(){
