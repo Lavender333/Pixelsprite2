@@ -173,6 +173,10 @@
     <button class="sz-btn" id="sz-32" onclick="changeSize(32)">32×32</button>
     <button class="sz-btn" id="sz-64" onclick="changeSize(64)">64×64</button>
   </div>
+  <div class="canvas-status-row">
+    <div class="tool-chip" id="tool-chip">Tool: Pencil</div>
+    <div class="frame-chip">Use Duplicate, then Play to preview animation</div>
+  </div>
   <div class="challenge-submit-bar" id="challenge-submit-bar" style="display:none">
     <div class="challenge-submit-copy">
       <div class="challenge-submit-kicker">Challenge Mode</div>
@@ -230,11 +234,21 @@
     </div>
     <div id="rail">
       <span class="rlbl">Draw</span>
-      <button class="rb on" id="t-pencil" data-t="pencil" onclick="setTool('pencil')" title="Pencil B">✏️</button>
-      <button class="rb" id="t-fill" data-t="fill" onclick="setTool('fill')" title="Fill F">🪣</button>
-      <button class="rb" id="t-eraser" data-t="eraser" onclick="setTool('eraser')" title="Eraser E">◻</button>
-      <button class="rb" id="t-eye" data-t="eyedrop" onclick="setTool('eyedrop')" title="Pick I">💧</button>
-      <button class="rb" id="t-select" data-t="select" onclick="setTool('select')" title="Select S">⬚</button>
+      <button class="rb on" id="t-pencil" data-t="pencil" onclick="setTool('pencil')" title="Pencil B" aria-label="Pencil tool">
+        <span class="rb-icon">✏️</span><span class="rb-text">Draw</span>
+      </button>
+      <button class="rb" id="t-fill" data-t="fill" onclick="setTool('fill')" title="Fill F" aria-label="Fill tool">
+        <span class="rb-icon">🪣</span><span class="rb-text">Fill</span>
+      </button>
+      <button class="rb" id="t-eraser" data-t="eraser" onclick="setTool('eraser')" title="Eraser E" aria-label="Eraser tool">
+        <span class="rb-icon">◻</span><span class="rb-text">Erase</span>
+      </button>
+      <button class="rb" id="t-eye" data-t="eyedrop" onclick="setTool('eyedrop')" title="Pick I" aria-label="Eyedropper tool">
+        <span class="rb-icon">💧</span><span class="rb-text">Pick</span>
+      </button>
+      <button class="rb" id="t-select" data-t="select" onclick="setTool('select')" title="Select S" aria-label="Select tool">
+        <span class="rb-icon">⬚</span><span class="rb-text">Select</span>
+      </button>
       <!-- Eraser size row — visible only when eraser active -->
       <div id="eraser-sizes" style="display:none;flex-direction:column;align-items:center;gap:3px;width:100%">
         <span class="rlbl">Size</span>
@@ -248,15 +262,29 @@
       <div class="bsz" id="bs-2" onclick="setBrush(2)" title="2px"><div class="bsz-dot" style="width:7px;height:7px"></div></div>
       <div class="bsz" id="bs-4" onclick="setBrush(4)" title="4px"><div class="bsz-dot" style="width:11px;height:11px"></div></div>
       <div class="rsep"></div>
-      <button class="rb" onclick="undo()" title="Undo Ctrl+Z">↩️</button>
-      <button class="rb" onclick="redo()" title="Redo Ctrl+Y">↪️</button>
-      <button class="rb" onclick="clearCanvas()" title="Clear">🗑️</button>
+      <button class="rb" onclick="undo()" title="Undo Ctrl+Z" aria-label="Undo">
+        <span class="rb-icon">↩️</span><span class="rb-text">Undo</span>
+      </button>
+      <button class="rb" onclick="redo()" title="Redo Ctrl+Y" aria-label="Redo">
+        <span class="rb-icon">↪️</span><span class="rb-text">Redo</span>
+      </button>
+      <button class="rb" onclick="clearCanvas()" title="Clear" aria-label="Clear canvas">
+        <span class="rb-icon">🗑️</span><span class="rb-text">Clear</span>
+      </button>
       <div class="rsep"></div>
-      <button class="rb" id="t-mirror" onclick="toggleMirror()" title="Mirror">⇌</button>
-      <button class="rb" id="t-onion" onclick="toggleOnion()" title="Onion">👻</button>
+      <button class="rb" id="t-mirror" onclick="toggleMirror()" title="Mirror" aria-label="Mirror mode">
+        <span class="rb-icon">⇌</span><span class="rb-text">Mirror</span>
+      </button>
+      <button class="rb" id="t-onion" onclick="toggleOnion()" title="Onion" aria-label="Onion skin">
+        <span class="rb-icon">👻</span><span class="rb-text">Onion</span>
+      </button>
       <div class="rsep"></div>
-      <button class="rb" onclick="toggleFXMenu()" title="Effects">⚡</button>
-      <button class="rb" onclick="triggerImageImport()" title="Place image on canvas">🖼️</button>
+      <button class="rb" onclick="toggleFXMenu()" title="Effects" aria-label="Effects">
+        <span class="rb-icon">⚡</span><span class="rb-text">FX</span>
+      </button>
+      <button class="rb" onclick="triggerImageImport()" title="Place image on canvas" aria-label="Import image">
+        <span class="rb-icon">🖼️</span><span class="rb-text">Import</span>
+      </button>
       <input id="image-import-input" type="file" accept="image/*" hidden onchange="handleImageImport(event)">
       <div class="rsep"></div>
       <span class="rlbl">Zoom</span>
@@ -269,7 +297,7 @@
     <div id="frames-list"></div>
     <button class="fadd" onclick="addFrame()" title="Add blank frame">+</button>
     <div class="frames-actions">
-      <button class="fdup-btn" onclick="dupFrame()" title="Duplicate current frame">⧉</button>
+      <button class="fdup-btn" id="dup-frame-btn" onclick="dupFrame()" title="Duplicate current frame">⧉ Duplicate</button>
       <button class="magic-btn" onclick="toggleAnimMenu()" style="height:23px;padding:0 7px;font-size:10px">🪄</button>
     </div>
     <div class="fps-ctrl">
@@ -280,7 +308,7 @@
         <button class="fpsbtn" onclick="adjFPS(1)">+</button>
       </div>
     </div>
-    <button class="playbtn" id="play-btn" onclick="togglePlay()">▶</button>
+    <button class="playbtn" id="play-btn" onclick="togglePlay()"><span class="play-ico">▶</span><span class="play-lbl">Play</span></button>
   </div>
 </div>
 

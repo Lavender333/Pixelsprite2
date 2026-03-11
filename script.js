@@ -4895,7 +4895,28 @@ function startBlank(size){
 }
 function updateThumb(i){const t=document.getElementById('ft-'+i);if(!t||!ST.frames[i])return;const ctx=t.getContext('2d');ctx.clearRect(0,0,ST.size,ST.size);ctx.putImageData(ST.frames[i],0,0);}
 function addFrame(){ST.frames.push(new ImageData(ST.size,ST.size));ST.undoStacks.push([new ImageData(ST.size,ST.size)]);ST.undoIdx.push(0);switchFrame(ST.frames.length-1);buildFramesUI();Economy.track('frame:add');addXP(3);SFX.click();}
-function dupFrame(){captureFrame();const src=ST.frames[ST.currentFrame];const copy=cloneImageData(src);const at=ST.currentFrame+1;ST.frames.splice(at,0,copy);ST.undoStacks.splice(at,0,[cloneImageData(copy)]);ST.undoIdx.splice(at,0,0);buildFramesUI();switchFrame(at);toast('⧉ Frame duplicated!');SFX.click();}
+function updateToolChip(){
+  const chip=document.getElementById('tool-chip');
+  if(!chip) return;
+  const names={pencil:'Pencil',fill:'Fill',eraser:'Eraser',eyedrop:'Eyedropper',select:'Select'};
+  chip.textContent='Tool: '+(names[ST.tool]||'Pencil');
+}
+function updatePlayButton(){
+  const btn=document.getElementById('play-btn');
+  if(!btn) return;
+  const ico=btn.querySelector('.play-ico');
+  const lbl=btn.querySelector('.play-lbl');
+  if(ico) ico.textContent=ST.playing?'⏸':'▶';
+  if(lbl) lbl.textContent=ST.playing?'Pause':'Play';
+  btn.classList.toggle('is-playing',!!ST.playing);
+  const dup=document.getElementById('dup-frame-btn');
+  if(dup){
+    dup.disabled=!!ST.playing;
+    dup.setAttribute('aria-disabled',ST.playing?'true':'false');
+    dup.title=ST.playing?'Pause preview before duplicating':'Duplicate current frame';
+  }
+}
+function dupFrame(){if(ST.playing)stopPlay();captureFrame();const src=ST.frames[ST.currentFrame];const copy=cloneImageData(src);const at=ST.currentFrame+1;ST.frames.splice(at,0,copy);ST.undoStacks.splice(at,0,[cloneImageData(copy)]);ST.undoIdx.splice(at,0,0);buildFramesUI();switchFrame(at);toast('⧉ Frame duplicated!');SFX.click();}
 function deleteFrame(i){if(ST.frames.length<=1){toast('Need at least 1 frame');return;}ST.frames.splice(i,1);ST.undoStacks.splice(i,1);ST.undoIdx.splice(i,1);const ni=Math.min(i,ST.frames.length-1);ST.currentFrame=ni;buildFramesUI();drawFrame(ni);toast('Frame deleted');}
 function switchFrame(i){
   captureFrame();ST.currentFrame=i;
@@ -4907,8 +4928,20 @@ function switchFrame(i){
 }
 function adjFPS(d){ST.fps=Math.max(1,Math.min(24,ST.fps+d));document.getElementById('fps-v').textContent=ST.fps;if(ST.playing){stopPlay();startPlay();}}
 function togglePlay(){ST.playing?stopPlay():startPlay();}
-function startPlay(){if(ST.frames.length<2){toast('Add more frames first!');return;}ST.playing=true;document.getElementById('play-btn').textContent='⏸';ST.playTimer=setInterval(()=>{ST.playIdx=(ST.playIdx+1)%ST.frames.length;if(ST.frames[ST.playIdx])document.getElementById('mc').getContext('2d').putImageData(ST.frames[ST.playIdx],0,0);},1000/ST.fps);}
-function stopPlay(){ST.playing=false;clearInterval(ST.playTimer);document.getElementById('play-btn').textContent='▶';drawFrame(ST.currentFrame);}
+function startPlay(){
+  if(ST.frames.length<2){toast('Add more frames first!');return;}
+  if(ST.playing) return;
+  captureFrame();
+  ST.playing=true;
+  ST.playIdx=ST.currentFrame;
+  updatePlayButton();
+  drawFrame(ST.playIdx);
+  ST.playTimer=setInterval(()=>{
+    ST.playIdx=(ST.playIdx+1)%ST.frames.length;
+    if(ST.frames[ST.playIdx])document.getElementById('mc').getContext('2d').putImageData(ST.frames[ST.playIdx],0,0);
+  },1000/ST.fps);
+}
+function stopPlay(){ST.playing=false;clearInterval(ST.playTimer);ST.playTimer=null;updatePlayButton();drawFrame(ST.currentFrame);}
 
 // ── TOOL CONTROLS ─────────────────────────────────────
 // ── ERASER SIZE ────────────────────────────────────────
@@ -4923,6 +4956,7 @@ function setTool(t){
   ST.tool=t;
   Store.dispatch({ type:'tool:set', tool:t });
   document.querySelectorAll('.rb[data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  updateToolChip();
   const esizes=document.getElementById('eraser-sizes');
   if(esizes) esizes.style.display=(t==='eraser')?'flex':'none';
   SFX.click();
@@ -7748,6 +7782,8 @@ function boot(){
   refreshHomeStatusBadge();
   applyAutoZoom(16);
   initCanvas(16);
+  updateToolChip();
+  updatePlayButton();
   syncCanvasUnlockUI();
   buildLayerPanel();
   document.getElementById('sz-16').classList.add('on');
