@@ -100,6 +100,12 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .hero-title span{color:#726cff;letter-spacing:-.035em;font-weight:800}
 .hero-sub{font-size:13px;color:rgba(184,185,215,.8);line-height:1.6;margin-bottom:26px;max-width:280px}
 .hero-cta{display:flex;gap:8px;align-items:center}
+.home-blank-card{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding:14px 14px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,rgba(18,20,34,.82) 0%,rgba(12,14,24,.7) 100%);box-shadow:0 12px 26px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.04);flex-wrap:wrap}
+.home-blank-copy{display:flex;flex-direction:column;gap:4px;min-width:0}
+.home-blank-title{font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#d9dcff}
+.home-blank-sub{font-size:11px;line-height:1.45;color:rgba(184,185,215,.78)}
+.home-blank-actions{display:flex;gap:6px;flex-wrap:wrap;flex:1;justify-content:flex-end}
+.home-blank-btn{min-width:72px;padding:8px 12px;flex:0 0 auto}
 .home-auth-cta{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
 .home-auth-primary,.home-auth-secondary{padding:10px 14px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:.15s}
 .home-auth-primary{border:1px solid rgba(108,99,255,.26);background:rgba(108,99,255,.12);color:#D7D4FF}
@@ -344,6 +350,7 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 #mc{image-rendering:pixelated;cursor:crosshair;touch-action:none;position:relative;z-index:2;transition:box-shadow .25s}
 #mc.effect-flash{box-shadow:0 0 40px rgba(108,99,255,.6),0 0 80px rgba(255,107,107,.3)}
 #oc{position:absolute;image-rendering:pixelated;pointer-events:none;opacity:.3;z-index:1}
+#text-canvas{position:absolute;image-rendering:pixelated;pointer-events:none;z-index:3;filter:drop-shadow(0 0 10px rgba(108,99,255,.08))}
 #sel-canvas{position:absolute;image-rendering:pixelated;pointer-events:none;z-index:3}
 #outline-canvas{position:absolute;image-rendering:pixelated;image-rendering:crisp-edges;pointer-events:none;z-index:10}
 .coloring-section-sub{font-size:10px;color:var(--text3);margin:-8px 0 12px;letter-spacing:.04em;padding:0 16px}
@@ -401,6 +408,12 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .tool-chip,.frame-chip{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid var(--border2);background:rgba(255,255,255,.03);font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
 .tool-chip{color:#D7D4FF;border-color:rgba(108,99,255,.26);background:rgba(108,99,255,.1)}
 .frame-chip{color:var(--text2)}
+.text-edit-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 10px 8px;flex-wrap:wrap}
+.text-edit-copy{font-size:11px;line-height:1.45;color:var(--text2)}
+.text-edit-actions{display:flex;gap:8px;flex-wrap:wrap}
+.text-mini-btn{padding:8px 10px;border-radius:999px;border:1px solid var(--border2);background:var(--s2);color:var(--text);font-size:10px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:.14s}
+.text-mini-btn:hover{border-color:var(--ind);background:rgba(108,99,255,.1);color:var(--ind2)}
+.text-mini-btn.danger:hover{border-color:#ff7b7b;background:rgba(255,123,123,.12);color:#ffd0d0}
 .challenge-submit-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 8px 8px;padding:10px 12px;border-radius:14px;border:1px solid rgba(108,99,255,.22);background:linear-gradient(180deg,rgba(108,99,255,.12) 0%,rgba(108,99,255,.04) 100%);box-shadow:0 10px 20px rgba(10,10,18,.16)}
 .challenge-submit-bar{position:sticky;top:0;z-index:12;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .challenge-submit-copy{min-width:0;flex:1}
@@ -890,6 +903,12 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .auth-modal-card .name-modal-input + .name-modal-input{margin-top:12px}
 .modal-auth-switch{margin-top:14px}
 .modal-auth-reset{margin-top:4px;color:var(--text2)}
+.text-scale-wrap{margin-top:16px;padding:14px 15px;border-radius:18px;border:1px solid var(--border2);background:var(--s2)}
+.text-scale-label{display:block;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:10px}
+.text-scale-row{display:flex;align-items:center;gap:10px}
+.text-scale-slider{flex:1;accent-color:var(--ind)}
+.text-scale-value{min-width:28px;font-size:13px;font-weight:800;color:var(--text)}
+.text-color-note{margin-top:10px;font-size:11px;line-height:1.45;color:var(--text2)}
 
 @keyframes name-modal-in{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 
@@ -909,6 +928,11 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 }
 
 @media (max-width:380px){
+  .home-blank-card{padding:12px}
+  .home-blank-actions{width:100%;justify-content:flex-start}
+  .home-blank-btn{flex:1 1 calc(33.333% - 6px);min-width:0}
+  .text-edit-actions{width:100%}
+  .text-mini-btn{flex:1}
   .frame-chip{display:none}
   .fdup-btn{min-width:72px;font-size:9px;padding:0 10px}
   .playbtn{min-width:76px;padding:0 12px}

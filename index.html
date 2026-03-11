@@ -95,6 +95,17 @@
       <button class="btn-primary" onclick="openStudio()">+ New Creation</button>
       <button class="btn-secondary" onclick="showTab('closet')">My Work</button>
     </div>
+    <div class="home-blank-card" aria-label="Start a blank canvas">
+      <div class="home-blank-copy">
+        <div class="home-blank-title">Start Blank</div>
+        <div class="home-blank-sub">Jump straight into a fresh canvas size.</div>
+      </div>
+      <div class="home-blank-actions">
+        <button class="blank-size-btn home-blank-btn" onclick="startBlank(16)">16×16</button>
+        <button class="blank-size-btn home-blank-btn" onclick="startBlank(32)">32×32</button>
+        <button class="blank-size-btn home-blank-btn" onclick="startBlank(64)">64×64</button>
+      </div>
+    </div>
     <div class="home-auth-cta" id="home-auth-cta">
       <button class="home-auth-primary" id="home-auth-primary" onclick="handleHomeAuthPrimary()">Create account</button>
       <button class="home-auth-secondary" id="home-auth-secondary" onclick="handleHomeAuthSecondary()">Sign in</button>
@@ -177,6 +188,13 @@
     <div class="tool-chip" id="tool-chip">Tool: Pencil</div>
     <div class="frame-chip">Use Duplicate, then Play to preview animation</div>
   </div>
+  <div class="text-edit-row" id="text-edit-row" style="display:none">
+    <div class="text-edit-copy" id="text-edit-copy">Tap the canvas to place pixel text. Drag selected text to move it.</div>
+    <div class="text-edit-actions">
+      <button class="text-mini-btn" id="text-edit-btn" onclick="openTextModalForSelection()">Edit Text</button>
+      <button class="text-mini-btn danger" id="text-delete-btn" onclick="deleteSelectedText()">Delete</button>
+    </div>
+  </div>
   <div class="challenge-submit-bar" id="challenge-submit-bar" style="display:none">
     <div class="challenge-submit-copy">
       <div class="challenge-submit-kicker">Challenge Mode</div>
@@ -218,6 +236,7 @@
     <div id="cvs-wrap">
       <canvas id="oc"></canvas>
       <canvas id="mc"></canvas>
+      <canvas id="text-canvas"></canvas>
       <canvas id="sel-canvas"></canvas>
       <canvas id="grid-canvas"></canvas>
       <canvas id="outline-canvas"></canvas>
@@ -248,6 +267,9 @@
       </button>
       <button class="rb" id="t-select" data-t="select" onclick="setTool('select')" title="Select S" aria-label="Select tool">
         <span class="rb-icon">⬚</span><span class="rb-text">Select</span>
+      </button>
+      <button class="rb" id="t-text" data-t="text" onclick="setTool('text')" title="Text T" aria-label="Text tool">
+        <span class="rb-icon">🔤</span><span class="rb-text">Text</span>
       </button>
       <!-- Eraser size row — visible only when eraser active -->
       <div id="eraser-sizes" style="display:none;flex-direction:column;align-items:center;gap:3px;width:100%">
@@ -475,6 +497,27 @@
     </div>
     <button class="auth-link-btn modal-auth-switch" id="auth-switch-btn" onclick="toggleAuthMode()">Need an account? Sign up</button>
     <button class="auth-link-btn modal-auth-reset" onclick="sendPasswordResetEmail()">Forgot password?</button>
+  </div>
+</div>
+
+<div id="text-modal" class="modal-bg centered" style="display:none">
+  <div class="name-modal-card auth-modal-card">
+    <div class="name-modal-badge">Pixel Text</div>
+    <h2 class="name-modal-title" id="text-modal-title">Add text</h2>
+    <p class="name-modal-copy">Text stays pixelated, can be dragged around, and can be re-edited later.</p>
+    <input id="text-input" class="name-modal-input" type="text" maxlength="24" placeholder="Type text" autocomplete="off" spellcheck="false">
+    <div class="text-scale-wrap">
+      <label class="text-scale-label" for="text-scale">Pixel size</label>
+      <div class="text-scale-row">
+        <input id="text-scale" class="text-scale-slider" type="range" min="1" max="4" value="1" oninput="updateTextScaleValue(this.value)">
+        <span class="text-scale-value" id="text-scale-value">1×</span>
+      </div>
+      <div class="text-color-note">Uses your current selected color.</div>
+    </div>
+    <div class="name-modal-actions">
+      <button class="name-modal-skip" onclick="closeTextModal()">Cancel</button>
+      <button class="name-modal-save" onclick="saveTextFromModal()">Save Text</button>
+    </div>
   </div>
 </div>
 <!-- COLOR MODAL -->
