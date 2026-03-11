@@ -11,6 +11,37 @@ begin
 end;
 $$;
 
+create or replace function public.is_allowed_gamename(name text)
+returns boolean
+language sql
+immutable
+as $$
+  select
+    coalesce(char_length(btrim(name)) between 3 and 18, false)
+    and coalesce(name ~ '^[A-Za-z0-9 _.-]+$', false)
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%fuck%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%shit%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%bitch%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%dick%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%cock%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%pussy%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%slut%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%whore%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%nude%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%naked%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%porn%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%hentai%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%boobs%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%tits%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%cum%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%anal%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%penis%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%vagina%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%horny%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%sexy%'
+    and lower(regexp_replace(name, '[^a-z0-9]', '', 'gi')) not like '%xxx%';
+$$;
+
 create or replace function public.make_unique_gamename(base_name text)
 returns citext
 language plpgsql
@@ -20,7 +51,7 @@ declare
 begin
   candidate := left(regexp_replace(coalesce(base_name, 'PixelCreator'), '[^A-Za-z0-9 _.-]', '', 'g'), 18);
 
-  if candidate is null or btrim(candidate) = '' then
+  if candidate is null or btrim(candidate) = '' or not public.is_allowed_gamename(candidate) then
     candidate := 'PixelCreator';
   end if;
 
@@ -49,8 +80,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   gamename citext not null unique
     check (
-      char_length(gamename::text) between 3 and 18
-      and gamename::text ~ '^[A-Za-z0-9 _.-]+$'
+      public.is_allowed_gamename(gamename::text)
     ),
   creator_level integer not null default 1 check (creator_level >= 1),
   xp integer not null default 0 check (xp >= 0),
@@ -69,6 +99,13 @@ create trigger profiles_touch_updated_at
 before update on public.profiles
 for each row
 execute function public.touch_updated_at();
+
+alter table public.profiles
+drop constraint if exists profiles_gamename_moderation_check;
+
+alter table public.profiles
+add constraint profiles_gamename_moderation_check
+check (public.is_allowed_gamename(gamename::text));
 
 create table if not exists public.app_settings (
   profile_id uuid primary key references public.profiles (id) on delete cascade,

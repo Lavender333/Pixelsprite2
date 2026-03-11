@@ -557,6 +557,7 @@ const ST = {
   currentFrame:0, frames:[], undoStacks:[], undoIdx:[],
   projects:[], xp:0, xpMax:600, level:1, streak:0,
   closetCat:'All', isDown:false, lastPt:null,
+  userSetZoom:false,
   pinchDist:null,
   // ── Coloring template system ──
   locked: null,          // Uint8Array(size²) bitmask — 1 = locked outline pixel
@@ -793,7 +794,7 @@ function syncAuthModal(){
   if(switchBtn) switchBtn.textContent=isSignup?'Already have an account? Sign in':'Need an account? Sign up';
   if(gamenameWrap) gamenameWrap.hidden=!isSignup;
   if(password) password.setAttribute('autocomplete', isSignup?'new-password':'current-password');
-  if(isSignup && gamenameInput && !gamenameInput.value) gamenameInput.value=getProfileName();
+  if(isSignup && gamenameInput && !gamenameInput.value) gamenameInput.value=getSavedProfileName();
 }
 
 function setAuthBusy(busy){
@@ -820,7 +821,7 @@ function openAuthModal(mode='signin'){
   const gamename=document.getElementById('auth-gamename-input');
   if(email) email.value=AUTH_STATE.session?.user?.email||'';
   if(password) password.value='';
-  if(gamename && AUTH_STATE.mode==='signup') gamename.value=getProfileName();
+  if(gamename && AUTH_STATE.mode==='signup') gamename.value=getSavedProfileName();
   if(modal) modal.style.display='flex';
   setTimeout(()=>{
     const target=AUTH_STATE.mode==='signup' ? gamename : email;
@@ -935,7 +936,8 @@ async function handleAuthSession(session){
   if(AUTH_STATE.session?.user){
     const localProjects=[...ST.projects];
     const localSubmissions=[...ST.challengeSubmissions];
-    await loadCloudProfile();
+    const profile=await loadCloudProfile();
+    if(!profile && getSavedProfileName()) await syncCloudProfile();
     await autoClaimDailyStreakOnOpen();
     await syncCloudSettings();
     await loadCloudProjects();
@@ -1006,7 +1008,7 @@ async function submitAuthForm(){
   const gamenameInput=document.getElementById('auth-gamename-input');
   const email=String(emailInput?.value||'').trim().toLowerCase();
   const password=String(passwordInput?.value||'');
-  const gamename=sanitizeGameName(gamenameInput?.value||getProfileName());
+  const gamename=sanitizeGameName(gamenameInput?.value||getSavedProfileName());
   if(!email || !/^\S+@\S+\.\S+$/.test(email)){
     toast('Enter a valid email address.');
     emailInput?.focus();
@@ -1017,6 +1019,20 @@ async function submitAuthForm(){
     passwordInput?.focus();
     return;
   }
+  if(AUTH_STATE.mode==='signup'){
+    const gamenameError=validateGamename(gamename);
+    if(gamenameError){
+      toast(gamenameError);
+      gamenameInput?.focus();
+      return;
+    }
+    const available=await isGamenameAvailable(gamename);
+    if(!available){
+      toast('That gamename is already taken. Pick another.');
+      gamenameInput?.focus();
+      return;
+    }
+  }
   if(AUTH_STATE.mode==='signup' && !gamename){
     toast('Choose a gamename first.');
     gamenameInput?.focus();
@@ -1026,7 +1042,7 @@ async function submitAuthForm(){
   setAuthBusy(true);
   try{
     if(AUTH_STATE.mode==='signup'){
-      saveProfileName(gamename,{silent:true});
+      await saveProfileName(gamename,{silent:true,skipAvailability:true});
       const {data,error}=await client.auth.signUp({
         email,
         password,
@@ -4288,6 +4304,37 @@ premium_bunny(ctx,sz){
 
 
 // ── CANVAS INIT ───────────────────────────────────────
+function syncZoomSlider(){
+  const slider=document.getElementById('zslider');
+  if(slider) slider.value=String(ST.zoom);
+}
+
+function computeAutoZoom(size=ST.size){
+  const wrap=document.getElementById('cvs-wrap');
+  if(!wrap) return ST.zoom||14;
+  const isLargeScreen=window.innerWidth>=768 || window.innerHeight>=900;
+  const isWideLandscape=window.matchMedia('(min-width: 900px) and (orientation: landscape)').matches;
+  const fillRatio=isWideLandscape ? 0.97 : (isLargeScreen ? 0.94 : 0.88);
+  const padding=isWideLandscape ? 4 : (isLargeScreen ? 10 : 20);
+  const available=(Math.min(wrap.clientWidth,wrap.clientHeight)*fillRatio)-padding;
+  const cap=isWideLandscape ? 28 : (isLargeScreen ? 24 : 20);
+  return Math.max(3,Math.min(cap,Math.floor(available/Math.max(1,size))));
+}
+
+function applyAutoZoom(size=ST.size){
+  ST.userSetZoom=false;
+  ST.zoom=computeAutoZoom(size);
+  syncZoomSlider();
+}
+
+function refreshResponsiveCanvasScale(){
+  if(ST.userSetZoom) return;
+  ST.zoom=computeAutoZoom(ST.size);
+  syncZoomSlider();
+  applyZoom();
+  if(ST.showGrid) drawGridOverlay();
+}
+
 function initCanvas(size) {
   if(size) ST.size = size;
   ['mc','oc','sel-canvas','grid-canvas','outline-canvas'].forEach(id=>{
@@ -4309,7 +4356,7 @@ function applyZoom(){
   ['mc','oc','sel-canvas','grid-canvas','outline-canvas'].forEach(id=>{const e=document.getElementById(id);if(e){e.style.width=w;e.style.height=w;}});
 }
 
-function setZoom(v){ ST.zoom=v; applyZoom(); if(ST.showGrid) drawGridOverlay(); }
+function setZoom(v){ ST.userSetZoom=true; ST.zoom=v; syncZoomSlider(); applyZoom(); if(ST.showGrid) drawGridOverlay(); }
 
 function resizeImageData(src, oldSize, newSize){
   const dst = new ImageData(newSize, newSize);
@@ -4341,11 +4388,7 @@ function changeSize(sz){
   ST.undoIdx = resizedFrames.map(() => 0);
   ['sz-16','sz-32','sz-64'].forEach(id=>document.getElementById(id).classList.remove('on'));
   document.getElementById('sz-'+sz).classList.add('on');
-  // Adjust zoom to fit well
-  const wrap=document.getElementById('cvs-wrap');
-  const available=Math.min(wrap.clientWidth,wrap.clientHeight)-20;
-  ST.zoom=Math.max(3,Math.min(20,Math.floor(available/sz)));
-  document.getElementById('zslider').value=ST.zoom;
+  applyAutoZoom(sz);
   initCanvas(sz);
   SFX.click();
 }
@@ -4473,7 +4516,7 @@ function setupEvents(mc){
       const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
       const ratio=d/ST.pinchDist; ST.pinchDist=d;
       const newZoom=Math.max(2,Math.min(28,Math.round(ST.zoom*ratio)));
-      if(newZoom!==ST.zoom){ ST.zoom=newZoom; document.getElementById('zslider').value=newZoom; applyZoom(); if(ST.showGrid) drawGridOverlay(); }
+      if(newZoom!==ST.zoom){ ST.userSetZoom=true; ST.zoom=newZoom; syncZoomSlider(); applyZoom(); if(ST.showGrid) drawGridOverlay(); }
     }
   },{passive:false});
   wrap.addEventListener('touchend',e=>{ if(e.touches.length<2) ST.pinchDist=null; },{passive:true});
@@ -4842,6 +4885,7 @@ function startBlank(size){
   ST.size=size; ST.frames=[]; ST.undoStacks=[]; ST.undoIdx=[];
   showTab('create');
   setTimeout(()=>{
+    applyAutoZoom(size);
     initCanvas();
     document.getElementById('pname').textContent='untitled.px';
     captureFrame(); pushHistory();
@@ -5471,8 +5515,51 @@ function sanitizeGameName(name=''){
     .slice(0,18);
 }
 
+const DISALLOWED_GAMENAME_PARTS=[
+  'fuck','shit','bitch','dick','cock','pussy','slut','whore',
+  'nude','naked','porn','hentai','boobs','tits','cum','anal',
+  'penis','vagina','horny','sexy','xxx'
+];
+
+function normalizeGamenameForModeration(name=''){
+  return sanitizeGameName(name).toLowerCase().replace(/[^a-z0-9]/g,'');
+}
+
+function validateGamename(name=''){
+  const clean=sanitizeGameName(name);
+  if(!clean) return 'Enter a gamename first.';
+  if(clean.length<3) return 'Gamename must be at least 3 characters.';
+  const normalized=normalizeGamenameForModeration(clean);
+  if(DISALLOWED_GAMENAME_PARTS.some(part=>normalized.includes(part))){
+    return 'Choose a cleaner gamename.';
+  }
+  return '';
+}
+
+function isGamenameConflictError(error){
+  const message=String(error?.message||'').toLowerCase();
+  return error?.code==='23505' || message.includes('duplicate key') || message.includes('gamename');
+}
+
+async function isGamenameAvailable(name){
+  const client=getSupabaseClient();
+  const clean=sanitizeGameName(name);
+  const userId=AUTH_STATE.session?.user?.id||null;
+  if(!client || !clean) return true;
+  const {data,error}=await client.from('profiles').select('id').eq('gamename', clean).maybeSingle();
+  if(error){
+    console.warn('[Supabase gamename check]', error.message||error);
+    return true;
+  }
+  return !data || data.id===userId;
+}
+
+function getSavedProfileName(){
+  return sanitizeGameName(ST.profileName);
+}
+
 function getProfileName(){
-  return sanitizeGameName(ST.profileName)||'PixelCreator';
+  return getSavedProfileName()||'PixelCreator';
 }
 
 function makeProfileHandle(name=getProfileName()){
@@ -5507,12 +5594,21 @@ function closeProfileNameModal(){
   modal.style.display='none';
 }
 
-function saveProfileName(name,{silent=false}={}){
+async function saveProfileName(name,{silent=false,skipAvailability=false}={}){
   const clean=sanitizeGameName(name);
-  if(!clean){
-    toast('Enter a gamename first.');
+  const validationError=validateGamename(clean);
+  if(validationError){
+    toast(validationError);
     return false;
   }
+  if(!skipAvailability){
+    const available=await isGamenameAvailable(clean);
+    if(!available){
+      toast('That gamename is already taken.');
+      return false;
+    }
+  }
+  const previousName=getSavedProfileName();
   ST.profileName=clean;
   try{localStorage.setItem('pc2_profile_name',clean);}catch(e){}
   updateProfileIdentity();
@@ -5520,16 +5616,30 @@ function saveProfileName(name,{silent=false}={}){
   if(ST.challengeSubmissions.length) saveChallengeSubmissions();
   buildChallenges();
   updateChallengeSubmitUI();
-  scheduleCloudProfileSync(250);
+  if(hasCloudAccount()){
+    const result=await syncCloudProfile();
+    if(!result.ok){
+      ST.profileName=previousName;
+      try{localStorage.setItem('pc2_profile_name',previousName);}catch(e){}
+      updateProfileIdentity();
+      buildProfile();
+      buildChallenges();
+      updateChallengeSubmitUI();
+      toast(isGamenameConflictError(result.error)?'That gamename is already taken.':'Could not update gamename right now.');
+      return false;
+    }
+  }else{
+    scheduleCloudProfileSync(250);
+  }
   closeProfileNameModal();
   if(!silent) toast('Gamename updated ✦');
   return true;
 }
 
-function saveProfileNameFromModal(){
+async function saveProfileNameFromModal(){
   const input=document.getElementById('profile-name-input');
   if(!input) return;
-  saveProfileName(input.value);
+  await saveProfileName(input.value);
 }
 
 function loadProfileName(){
@@ -6122,12 +6232,8 @@ function loadTemplate(id,name){
       ST.size = desiredSize;
       ['sz-16','sz-32','sz-64'].forEach(btnId=>document.getElementById(btnId)?.classList.remove('on'));
       document.getElementById('sz-'+desiredSize)?.classList.add('on');
-      const wrap=document.getElementById('cvs-wrap');
-      const available=Math.min(wrap.clientWidth,wrap.clientHeight)-20;
-      ST.zoom=Math.max(3,Math.min(20,Math.floor(available/desiredSize)));
-      const z=document.getElementById('zslider');
-      if(z) z.value=ST.zoom;
     }
+    applyAutoZoom(desiredSize);
     initCanvas(desiredSize);
     document.getElementById('pname').textContent=name.toLowerCase().replace(/ /g,'-')+'.px';
     if(DRAWERS[id]){
@@ -7640,6 +7746,7 @@ function boot(){
   updateStorageUI();
   refreshProfileStats();
   refreshHomeStatusBadge();
+  applyAutoZoom(16);
   initCanvas(16);
   syncCanvasUnlockUI();
   buildLayerPanel();
@@ -7651,9 +7758,9 @@ function boot(){
   document.getElementById('auth-password-input')?.addEventListener('keydown',e=>{
     if(e.key==='Enter') submitAuthForm();
   });
+  window.addEventListener('resize',refreshResponsiveCanvasScale);
   startAutoSave();
   document.addEventListener('keydown',onKey);
-  ensureProfileName();
   loadPublicGalleryProjects().catch(err=>console.warn('[Supabase public gallery]', err));
   console.log('%c[PixelStudioCore v2.0] Ready','color:#6C63FF;font-weight:bold;',window.PixelStudioCore.inspect());
 }

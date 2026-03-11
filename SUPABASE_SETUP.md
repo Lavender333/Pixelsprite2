@@ -24,6 +24,7 @@ It also adds:
 
 - `public.claim_daily_streak()` to safely update streaks once per day
 - auto-created profile + settings rows when a new auth user is created
+- unique gamename enforcement plus profanity / lewd-name filtering in `public.profiles`
 - row-level security policies for private saves and optional public gallery items
 
 ## Recommended Supabase project setup
@@ -99,6 +100,8 @@ To fully connect this app to your Supabase project, do these remaining steps:
    - signup confirmation
    - password reset
    - change email
+
+If you already ran the schema before the gamename moderation update, run [supabase/schema.sql](supabase/schema.sql) again so the new username safety checks are added to your existing project.
 
 ## Important: what is connected vs not connected yet
 
