@@ -2463,6 +2463,21 @@ function renderStoredFramePreview(ctx,projectOrState,frameIndex=0,dx=0,dy=0,dw,d
   if(frame) renderFrameImageToContext(ctx,frame,size,dx,dy,width,height);
   texts.forEach(item=>renderPixelTextToContext(ctx,item,{canvasScale:width/size,offsetX:dx,offsetY:dy}));
 }
+function frameHasVisiblePixels(frame){
+  if(!frame?.data?.length) return false;
+  for(let i=3;i<frame.data.length;i+=4){
+    if(frame.data[i]>0) return true;
+  }
+  return false;
+}
+function getProjectPreviewFrameIndex(projectOrState){
+  const frames=projectOrState?.frames||[];
+  const textFrames=projectOrState?.textFrames||[];
+  for(let i=0;i<Math.max(frames.length,textFrames.length);i++){
+    if(frameHasVisiblePixels(frames[i]) || (textFrames[i]&&textFrames[i].length)) return i;
+  }
+  return 0;
+}
 function getActiveProjectState(){return{size:ST.size,frames:ST.frames,textFrames:ST.textFrames};}
 function createCompositeFrameCanvas(frameIndex=ST.currentFrame,projectOrState=getActiveProjectState()){
   const size=projectOrState.size||ST.size;
@@ -6131,7 +6146,7 @@ function buildPublicGallery(){
     const size=proj.size||16;
     cvs.width=size;
     cvs.height=size;
-    renderStoredFramePreview(cvs.getContext('2d'),proj,0,0,0,size,size);
+    renderStoredFramePreview(cvs.getContext('2d'),proj,getProjectPreviewFrameIndex(proj),0,0,size,size);
     const lbl=document.createElement('div');
     lbl.className='gallery-label';
     lbl.textContent=proj.name||`Public creation ${idx+1}`;
@@ -6148,7 +6163,11 @@ function buildPublicGallery(){
 
 async function loadPublicGalleryProjects(){
   const client=getSupabaseClient();
-  if(!client) return [];
+  if(!client){
+    ST.publicGallery=[];
+    buildPublicGallery();
+    return [];
+  }
   const {data,error}=await client.from('projects')
     .select('id,title,canvas_size,frames,cover_frame,updated_at,visibility,is_gallery_item,metadata')
     .eq('visibility','public')
@@ -6158,6 +6177,8 @@ async function loadPublicGalleryProjects(){
     .limit(10);
   if(error){
     console.warn('[Supabase public gallery]', error.message||error);
+    ST.publicGallery=[];
+    buildPublicGallery();
     return [];
   }
   ST.publicGallery=(data||[]).map(row=>({
