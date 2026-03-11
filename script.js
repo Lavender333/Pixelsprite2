@@ -324,10 +324,7 @@ const ToolEngine = (() => {
       if (d[3] > 0) {
         const hex = rgbToHex(d[0], d[1], d[2]);
         Store.dispatch({ type: 'tool:setColor', color: hex });
-        // Sync legacy ST and UI
-        ST.color = hex;
-        const sw = document.querySelector('.sw.sel');
-        if (sw) sw.style.background = hex;
+        setActiveColor(hex);
         Store.dispatch({ type: 'tool:set', tool: 'pencil' });
         setTool('pencil');
       }
@@ -559,6 +556,7 @@ const ST = {
   closetCat:'All', isDown:false, lastPt:null,
   userSetZoom:false,
   pinchDist:null,
+  pinchZoomStart:null,
   textSelection:null,
   textDrag:null,
   pendingTextPoint:null,
@@ -580,6 +578,8 @@ const APP_SETTINGS = {
   reminderCustomTime: '16:00',
   soundEffects: true,
 };
+
+const GALLERY_CATEGORIES = ['Avatar','Items','Rooms','Closet'];
 
 const SUPABASE_CONFIG = {
   url: 'https://xqltgcxqlzchrnulomkv.supabase.co',
@@ -4421,7 +4421,7 @@ premium_bunny(ctx,sz){
 // ── CANVAS INIT ───────────────────────────────────────
 function syncZoomSlider(){
   const slider=document.getElementById('zslider');
-  if(slider) slider.value=String(ST.zoom);
+  if(slider) slider.value=String(Math.max(2,Math.min(28,ST.zoom)));
 }
 
 function computeAutoZoom(size=ST.size){
@@ -4477,7 +4477,7 @@ function applyZoom(){
   ['mc','oc','text-canvas','sel-canvas','grid-canvas','outline-canvas'].forEach(id=>{const e=document.getElementById(id);if(e){e.style.width=w;e.style.height=w;}});
 }
 
-function setZoom(v){ ST.userSetZoom=true; ST.zoom=v; syncZoomSlider(); applyZoom(); if(ST.showGrid) drawGridOverlay(); }
+function setZoom(v){ ST.userSetZoom=true; ST.zoom=Math.max(2,Math.min(28,Math.round(Number(v)*2)/2)); syncZoomSlider(); applyZoom(); if(ST.showGrid) drawGridOverlay(); }
 
 function resizeImageData(src, oldSize, newSize){
   const dst = new ImageData(newSize, newSize);
@@ -4636,18 +4636,19 @@ function setupEvents(mc){
   wrap.addEventListener('touchstart',e=>{
     if(e.touches.length===2){
       ST.pinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      ST.pinchZoomStart=ST.zoom;
     }
   },{passive:true});
   wrap.addEventListener('touchmove',e=>{
     if(e.touches.length===2 && ST.pinchDist!==null){
       e.preventDefault();
       const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-      const ratio=d/ST.pinchDist; ST.pinchDist=d;
-      const newZoom=Math.max(2,Math.min(28,Math.round(ST.zoom*ratio)));
-      if(newZoom!==ST.zoom){ ST.userSetZoom=true; ST.zoom=newZoom; syncZoomSlider(); applyZoom(); if(ST.showGrid) drawGridOverlay(); }
+      const ratio=d/ST.pinchDist;
+      const newZoom=Math.max(2,Math.min(28,Math.round((ST.pinchZoomStart*ratio)*2)/2));
+      if(Math.abs(newZoom-ST.zoom)>=0.25){ ST.userSetZoom=true; ST.zoom=newZoom; syncZoomSlider(); applyZoom(); if(ST.showGrid) drawGridOverlay(); }
     }
   },{passive:false});
-  wrap.addEventListener('touchend',e=>{ if(e.touches.length<2) ST.pinchDist=null; },{passive:true});
+  wrap.addEventListener('touchend',e=>{ if(e.touches.length<2){ ST.pinchDist=null; ST.pinchZoomStart=null; } },{passive:true});
 }
 
 function cpos(e){
@@ -4690,7 +4691,7 @@ function handleDraw([x,y], isDown){
   }
   if(ST.tool==='eyedrop'){
     if(tool) tool.apply(ctx,x,y,ST);
-    else { const d=ctx.getImageData(x,y,1,1).data; if(d[3]>0) ST.color=rgbToHex(d[0],d[1],d[2]); setTool('pencil'); }
+    else { const d=ctx.getImageData(x,y,1,1).data; if(d[3]>0) setActiveColor(rgbToHex(d[0],d[1],d[2])); setTool('pencil'); }
     SFX.click(); return;
   }
   // Pencil / eraser — use tool engine or fallback
@@ -5040,6 +5041,38 @@ function updateToolChip(){
   const names={pencil:'Pencil',fill:'Fill',eraser:'Eraser',eyedrop:'Eyedropper',select:'Select',text:'Pixel Text'};
   chip.textContent='Tool: '+(names[ST.tool]||'Pencil');
 }
+function getTextOccurrences(id){
+  if(!id) return [];
+  const hits=[];
+  ST.textFrames.forEach((items,frameIndex)=>{
+    (items||[]).forEach(item=>{ if(item.id===id) hits.push({frameIndex,item}); });
+  });
+  return hits;
+}
+function reseedTextHistory(frameIndex){
+  ST.undoStacks[frameIndex]=[cloneImageData(ST.frames[frameIndex])];
+  ST.undoTextStacks[frameIndex]=[cloneTextObjectArray(getFrameTextObjects(frameIndex))];
+  ST.undoIdx[frameIndex]=0;
+  updateThumb(frameIndex);
+}
+function updateTextModalColor(value){
+  const input=document.getElementById('text-color');
+  if(input && value) input.value=value;
+}
+function setTextModalColorToCurrent(){ updateTextModalColor(ST.color||'#6C63FF'); }
+function updateTextModalUI(existing=null){
+  const note=document.getElementById('text-modal-note');
+  const actions=document.getElementById('text-modal-edit-actions');
+  const saveBtn=document.getElementById('text-save-btn');
+  if(saveBtn) saveBtn.textContent=existing?'Save This Frame':'Add Text';
+  if(actions) actions.style.display=existing?'flex':'none';
+  if(note){
+    const total=existing?getTextOccurrences(existing.id).length:0;
+    note.textContent=existing && total>1
+      ? `This text appears on ${total} frames. Save or delete just this frame, or every frame.`
+      : 'Use your current selected color or choose a new one here.';
+  }
+}
 function updateTextUI(){
   const row=document.getElementById('text-edit-row');
   const copy=document.getElementById('text-edit-copy');
@@ -5102,46 +5135,72 @@ function openTextModal(options={}){
   const modal=document.getElementById('text-modal');
   const input=document.getElementById('text-input');
   const scale=document.getElementById('text-scale');
+  const color=document.getElementById('text-color');
   const title=document.getElementById('text-modal-title');
-  if(!modal||!input||!scale) return;
+  if(!modal||!input||!scale||!color) return;
   const existing=options.textObject||null;
   ST.pendingTextPoint={x:options.x??existing?.x??0,y:options.y??existing?.y??0,frame:options.frame??ST.currentFrame,editId:existing?.id||null};
   if(title) title.textContent=existing?'Edit text':'Add text';
   input.value=existing?.text||'';
   scale.value=String(existing?.scale||1);
+  color.value=existing?.color||ST.color||'#6C63FF';
   updateTextScaleValue(scale.value);
+  updateTextModalUI(existing);
   modal.style.display='flex';
   setTimeout(()=>{input.focus();input.select();},20);
 }
 function closeTextModal(){const modal=document.getElementById('text-modal');if(modal) modal.style.display='none';ST.pendingTextPoint=null;}
-function saveTextFromModal(){
+function saveTextFromModal(applyAllFrames=false){
   const input=document.getElementById('text-input');
   const scale=document.getElementById('text-scale');
-  if(!input||!scale||!ST.pendingTextPoint) return;
+  const colorInput=document.getElementById('text-color');
+  if(!input||!scale||!colorInput||!ST.pendingTextPoint) return;
   const text=normalizeTextValue(input.value);
   if(!text){toast('Type text first.');input.focus();return;}
   const frameIndex=ST.pendingTextPoint.frame??ST.currentFrame;
   const items=getFrameTextObjects(frameIndex);
-  const draft={id:ST.pendingTextPoint.editId||`txt-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,text,x:ST.pendingTextPoint.x,y:ST.pendingTextPoint.y,scale:+scale.value||1,color:ST.color};
+  const pickedColor=colorInput.value||ST.color||'#6C63FF';
+  const draft={id:ST.pendingTextPoint.editId||`txt-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,text,x:ST.pendingTextPoint.x,y:ST.pendingTextPoint.y,scale:+scale.value||1,color:pickedColor};
   const next=clampTextObjectToCanvas(draft);
   const idx=items.findIndex(item=>item.id===next.id);
-  if(idx>=0) items[idx]=next; else items.push(next);
+  if(applyAllFrames && ST.pendingTextPoint.editId){
+    getTextOccurrences(ST.pendingTextPoint.editId).forEach(({frameIndex:fi,item})=>{
+      item.text=next.text;
+      item.scale=next.scale;
+      item.color=next.color;
+      if(fi===frameIndex){ item.x=next.x; item.y=next.y; }
+      reseedTextHistory(fi);
+    });
+  } else if(idx>=0) items[idx]=next; else items.push(next);
+  ST.color=pickedColor;
   ST.textSelection={id:next.id,frame:frameIndex};
   closeTextModal();
   if(frameIndex===ST.currentFrame){renderTextOverlay(frameIndex);drawSelOverlay();updateTextUI();updateThumb(frameIndex);} 
-  pushHistory();
-  toast(idx>=0?'Text updated ✦':'Text added ✦');
+  if(applyAllFrames && ST.pendingTextPoint.editId){
+    ST.textFrames.forEach((_,fi)=>{ if(fi!==frameIndex && getTextOccurrences(next.id).some(hit=>hit.frameIndex===fi)) updateThumb(fi); });
+    pushHistory();
+    toast('Text updated on all frames ✦');
+  } else {
+    pushHistory();
+    toast(idx>=0?'Text updated ✦':'Text added ✦');
+  }
 }
 function openTextModalForSelection(){const selected=getSelectedTextObject();if(!selected){toast('Select text first.');return;}openTextModal({textObject:selected,frame:ST.currentFrame});}
-function deleteSelectedText(){
+function deleteSelectedText(removeAllFrames=false){
   const selected=getSelectedTextObject();
   if(!selected){toast('Select text first.');return;}
-  ST.textFrames[ST.currentFrame]=getFrameTextObjects(ST.currentFrame).filter(item=>item.id!==selected.id);
+  if(removeAllFrames){
+    ST.textFrames=ST.textFrames.map(items=>items.filter(item=>item.id!==selected.id));
+    ST.textFrames.forEach((_,fi)=>reseedTextHistory(fi));
+  } else {
+    ST.textFrames[ST.currentFrame]=getFrameTextObjects(ST.currentFrame).filter(item=>item.id!==selected.id);
+  }
   clearTextSelection();
   renderTextOverlay(ST.currentFrame);
   updateThumb(ST.currentFrame);
   pushHistory();
-  toast('Text deleted');
+  closeTextModal();
+  toast(removeAllFrames?'Text deleted on all frames':'Text deleted');
 }
 function handleTextDown(x,y){
   const hit=hitTextObject(x,y,ST.currentFrame);
@@ -5433,11 +5492,30 @@ function handleSelectUp(){
 function buildPalRow(){
   const row=document.getElementById('pal-row');row.innerHTML='';
   const remix=document.createElement('button');remix.className='sw-remix';remix.title='Color Remix';remix.textContent='🎲';remix.onclick=()=>runFX('remix');row.appendChild(remix);
-  PALETTE.forEach((c,i)=>{const sw=document.createElement('div');sw.className='sw'+(i===0?' sel':'');sw.style.background=c;sw.onclick=()=>pickSwatch(i,c);row.appendChild(sw);});
+  PALETTE.forEach((c,i)=>{const sw=document.createElement('div');sw.className='sw';sw.style.background=c;sw.onclick=()=>pickSwatch(i,c);row.appendChild(sw);});
   const add=document.createElement('button');add.className='sw-add';add.innerHTML='+';add.onclick=openColorModal;row.appendChild(add);
+  syncPaletteSelection();
   syncCanvasUnlockUI();
 }
-function pickSwatch(i,c){ST.color=c;ST.palIdx=i;document.querySelectorAll('.sw').forEach((s,idx)=>s.classList.toggle('sel',idx===i));}
+function syncPaletteSelection(){
+  const match=PALETTE.findIndex(c=>String(c).toLowerCase()===String(ST.color).toLowerCase());
+  ST.palIdx=match;
+  document.querySelectorAll('.sw').forEach((s,idx)=>s.classList.toggle('sel',idx===match));
+}
+function syncColorInputs(){
+  const native=document.getElementById('color-native'); if(native) native.value=ST.color;
+  const hex=document.getElementById('hex-in'); if(hex) hex.value=ST.color;
+  const textColor=document.getElementById('text-color'); if(textColor && document.getElementById('text-modal')?.style.display==='flex') textColor.value=ST.color;
+  syncPaletteSelection();
+}
+function setActiveColor(color,{switchToPencil=false}={}){
+  if(!/^#[0-9a-fA-F]{6}$/.test(String(color||''))) return;
+  ST.color=color;
+  syncColorInputs();
+  trackRecent(color);
+  if(switchToPencil) setTool('pencil');
+}
+function pickSwatch(i,c){ST.palIdx=i;setActiveColor(c);}
 let RECENT_COLORS = [];
 function buildCMRow(id, colors){
   const el=document.getElementById(id); if(!el)return; el.innerHTML='';
@@ -5458,8 +5536,7 @@ function buildPPGrid(){
 }
 function openColorModal(){
   document.getElementById('color-modal').style.display='flex';
-  document.getElementById('color-native').value=ST.color;
-  document.getElementById('hex-in').value=ST.color;
+  syncColorInputs();
   // Recent
   buildCMRow('cm-recent', RECENT_COLORS.length ? RECENT_COLORS : ['#6C63FF','#FF6B6B','#FFD166','#3DDC97','#CE93D8']);
   // B&W ramp
@@ -5477,9 +5554,9 @@ function openColorModal(){
   buildPPGrid();
 }
 function closeColorModal(){document.getElementById('color-modal').style.display='none';}
-function nativeCC(v){ST.color=v;document.getElementById('hex-in').value=v;trackRecent(v);}
-function hexCC(v){if(/^#[0-9a-fA-F]{6}$/.test(v)){ST.color=v;document.getElementById('color-native').value=v;trackRecent(v);}}
-function quickC(c){ST.color=c;document.getElementById('color-native').value=c;document.getElementById('hex-in').value=c;trackRecent(c);}
+function nativeCC(v){setActiveColor(v);}
+function hexCC(v){if(/^#[0-9a-fA-F]{6}$/.test(v)) setActiveColor(v);}
+function quickC(c){setActiveColor(c);}
 function trackRecent(c){RECENT_COLORS=RECENT_COLORS.filter(x=>x!==c);RECENT_COLORS.unshift(c);if(RECENT_COLORS.length>16)RECENT_COLORS=RECENT_COLORS.slice(0,16);buildCMRow('cm-recent',RECENT_COLORS);}
 function addColorToPal(){PALETTE.push(ST.color);buildPalRow();pickSwatch(PALETTE.length-1,ST.color);closeColorModal();toast('Color added ✦');}
 
@@ -5761,6 +5838,7 @@ function loadProjects(){
         updatedAt:p.updatedAt||null,
         frames:deserializeFrames(p.size||16,p.fd),
         textFrames:deserializeTextFrames(p.tf),
+        category:normalizeProjectCategory(p.category, p.starterKey, p.name),
       })).slice(-STORAGE_LIMITS.maxProjects);
     }
   } catch(e){}
@@ -5770,10 +5848,39 @@ function saveProjects(){
   if(result.ok) scheduleCloudProjectsSync();
   return result;
 }
-function saveProject(){
-  const name=document.getElementById('pname').textContent.trim();
-  upsertProject(makeProjectSnapshot(name),{reward:true});
-  updateChallengeSubmitUI();
+function saveProject(){openSaveProjectModal();}
+
+function openSaveProjectModal(){
+  const modal=document.getElementById('save-project-modal');
+  const nameInput=document.getElementById('save-project-name');
+  const categorySelect=document.getElementById('save-project-category');
+  if(!modal||!nameInput||!categorySelect) return;
+  const currentName=currentProjectName();
+  const existing=findProjectByName(currentName);
+  nameInput.value=currentName;
+  categorySelect.value=normalizeProjectCategory(existing?.category, existing?.starterKey||ST.challengeStarterKey, currentName);
+  modal.style.display='flex';
+  setTimeout(()=>{nameInput.focus();nameInput.select();},20);
+}
+
+function closeSaveProjectModal(){
+  const modal=document.getElementById('save-project-modal');
+  if(modal) modal.style.display='none';
+}
+
+function confirmSaveProject(){
+  const nameInput=document.getElementById('save-project-name');
+  const categorySelect=document.getElementById('save-project-category');
+  if(!nameInput||!categorySelect) return;
+  const cleanName=(nameInput.value||'untitled').trim()||'untitled';
+  const finalName=/\.px$/i.test(cleanName)?cleanName:`${cleanName}.px`;
+  const category=normalizeProjectCategory(categorySelect.value, ST.challengeStarterKey, finalName);
+  document.getElementById('pname').textContent=finalName;
+  const saved=upsertProject(makeProjectSnapshot(finalName,{category}),{reward:true});
+  if(saved){
+    closeSaveProjectModal();
+    updateChallengeSubmitUI();
+  }
 }
 
 function dayStamp(){
@@ -5972,12 +6079,14 @@ function refreshStreakUI(){
 
 function buildHomeGallery(){
   const wrap=document.getElementById('home-gallery-strip');
-  if(!wrap) return;
+  const section=document.getElementById('home-gallery-section');
+  if(!wrap||!section) return;
   wrap.innerHTML='';
   if(!ST.projects.length){
-    wrap.innerHTML='<button class="gallery-empty" onclick="showTab(\'studio\')">Start your first piece to build your gallery.</button>';
+    section.style.display='none';
     return;
   }
+  section.style.display='block';
   [...ST.projects].slice(-3).reverse().forEach((proj,idx)=>{
     const card=document.createElement('button');
     card.className='gallery-item';
@@ -6003,12 +6112,14 @@ function buildHomeGallery(){
 
 function buildPublicGallery(){
   const wrap=document.getElementById('public-gallery-strip');
-  if(!wrap) return;
+  const section=document.getElementById('public-gallery-section');
+  if(!wrap||!section) return;
   wrap.innerHTML='';
   if(!ST.publicGallery.length){
-    wrap.innerHTML='<div class="gallery-empty">Publish a creation to start the public gallery.</div>';
+    section.style.display='none';
     return;
   }
+  section.style.display='block';
   ST.publicGallery.forEach((proj,idx)=>{
     const card=document.createElement('button');
     card.className='gallery-item community';
@@ -6055,6 +6166,7 @@ async function loadPublicGalleryProjects(){
     size:row.canvas_size||16,
     frames:deserializeFrames(row.canvas_size||16,row.frames||[]),
     textFrames:deserializeTextFrames(row.metadata?.text_frames),
+    category:normalizeProjectCategory(row.metadata?.category, '', row.title),
     updatedAt:row.updated_at||null,
   }));
   buildPublicGallery();
@@ -6175,7 +6287,9 @@ function loadEngagementState(){
 }
 function buildClosetCats(){
   const el=document.getElementById('closet-cats');
-  ['All','Avatars','Items','Rooms'].forEach((c,i)=>{
+  if(!el) return;
+  el.innerHTML='';
+  ['All',...GALLERY_CATEGORIES].forEach((c,i)=>{
     const btn=document.createElement('button');btn.className='ccat'+(i===0?' on':'');btn.textContent=c;
     btn.onclick=()=>{document.querySelectorAll('.ccat').forEach(b=>b.classList.remove('on'));btn.classList.add('on');ST.closetCat=c;renderCloset();};
     el.appendChild(btn);
@@ -6186,7 +6300,12 @@ function renderCloset(){
   const g=document.getElementById('closet-grid');g.innerHTML='';
   updateStorageUI();
   if(!ST.projects.length){g.innerHTML='<div class="ce"><div class="ce-ico">📁</div><div style="font-size:13px;color:var(--text2)">No creations yet!<br>Tap + to start.</div></div>';return;}
-  ST.projects.forEach((proj,idx)=>{
+  const filtered=ST.closetCat==='All'
+    ? ST.projects
+    : ST.projects.filter(proj=>projectCategoryLabel(proj)===ST.closetCat);
+  if(!filtered.length){g.innerHTML=`<div class="ce"><div class="ce-ico">🖼️</div><div style="font-size:13px;color:var(--text2)">No ${ST.closetCat.toLowerCase()} creations yet.<br>Save one to this section.</div></div>`;return;}
+  filtered.forEach((proj)=>{
+    const idx=ST.projects.indexOf(proj);
     const card=document.createElement('div');card.className='cc';
     const cvs=document.createElement('canvas');cvs.className='cc-cvs';cvs.width=proj.size||16;cvs.height=proj.size||16;
     renderStoredFramePreview(cvs.getContext('2d'),proj,0,0,0,proj.size||16,proj.size||16);
@@ -6195,7 +6314,7 @@ function renderCloset(){
     const info=document.createElement('div');
     info.className='cc-info';
     const syncLabel=proj.cloudId?'Cloud sync on':'Local only';
-    info.innerHTML=`<div class="cc-name">${proj.name}</div><div class="cc-meta">${proj.size||16}×${proj.size||16} · ${(proj.frames||[]).length} frame${(proj.frames||[]).length!==1?'s':''} · ${syncLabel}</div>`;
+    info.innerHTML=`<div class="cc-name">${proj.name}</div><div class="cc-meta">${projectCategoryLabel(proj)} · ${proj.size||16}×${proj.size||16} · ${(proj.frames||[]).length} frame${(proj.frames||[]).length!==1?'s':''} · ${syncLabel}</div>`;
 
     const publishRow=document.createElement('div');
     publishRow.className='cc-publish-row';
@@ -6457,6 +6576,19 @@ function buildY2KGrid(){
 }
 function buildHomeTemplates(){
   const el=document.getElementById('home-templates');if(!el)return;el.innerHTML='';
+  const blankCard=document.createElement('div');
+  blankCard.className='tcard blank';
+  blankCard.innerHTML=`
+    <div class="tcard-preview blank-preview">
+      <div class="blank-preview-canvas"></div>
+    </div>
+    <div class="tcard-bottom">
+      <div class="tcard-name">Blank Canvas</div>
+      <div class="tcard-sub">Start from scratch right away</div>
+      <span class="tcard-tag">✦ START</span>
+    </div>`;
+  blankCard.onclick=()=>startBlank(16);
+  el.appendChild(blankCard);
   const subtitleMap={
     kawaii_bunny:'Starter Character',
     sneaker:'Customize & Design',
@@ -6715,6 +6847,7 @@ function serializeProjectsPayload(){
     size:p.size,
     fd:serializeFrames(p.frames),
     tf:serializeTextFrames(p.textFrames),
+    category:projectCategoryLabel(p),
     cloudId:p.cloudId||null,
     slug:p.slug||slugifyProjectName(p.name),
     visibility:p.visibility||'private',
@@ -6737,6 +6870,7 @@ function serializeChallengeSubmissionsPayload(){
     name:item.name,
     size:item.size,
     tf:serializeTextFrames(item.textFrames),
+    category:normalizeProjectCategory(item.category, item.starterKey, item.projectName),
     starterKey:item.starterKey||'',
     submittedAt:item.submittedAt,
     fd:serializeFrames(item.frames),
@@ -6746,6 +6880,18 @@ function serializeChallengeSubmissionsPayload(){
 function projectBaseName(name=''){
   return String(name||'untitled.px').replace(/\.px$/i,'');
 }
+
+function normalizeProjectCategory(category='', starterKey='', name=''){
+  const raw=String(category||'').trim();
+  if(GALLERY_CATEGORIES.includes(raw)) return raw;
+  const key=String(starterKey||name||'').toLowerCase();
+  if(/room|scene|space|forest|city/.test(key)) return 'Rooms';
+  if(/item|bag|shoe|sneaker|shirt|pants|cap|hoodie|boot|wear/.test(key)) return 'Items';
+  if(/avatar|char|bunny|cat|fox|pet|walk|premium_bunny/.test(key)) return 'Avatar';
+  return 'Closet';
+}
+
+function projectCategoryLabel(proj){return normalizeProjectCategory(proj?.category, proj?.starterKey, proj?.name);}
 
 function serializeProjectForCloud(proj){
   const frames=serializeFrames(proj.frames||[]);
@@ -6764,6 +6910,7 @@ function serializeProjectForCloud(proj){
       source:'pixel-creator-web',
       local_name:proj.name||'untitled.px',
       text_frames:serializeTextFrames(proj.textFrames),
+      category:projectCategoryLabel(proj),
     },
   };
 }
@@ -6780,6 +6927,7 @@ function deserializeCloudProject(row){
     visibility:row.visibility||'private',
     isGalleryItem:!!row.is_gallery_item,
     starterKey:row.starter_key||'',
+    category:normalizeProjectCategory(row.metadata?.category, row.starter_key, row.title),
     updatedAt:row.updated_at||null,
   };
 }
@@ -6799,6 +6947,7 @@ function deserializeCloudSubmission(entry, project){
     size:project.canvas_size||16,
     frames:deserializeFrames(project.canvas_size||16,project.frames||[]),
     textFrames:deserializeTextFrames(project.metadata?.text_frames),
+    category:normalizeProjectCategory(project.metadata?.category, entry.starter_key, project.title),
     starterKey:entry.starter_key||'',
     submittedAt:Date.parse(entry.submitted_at||entry.created_at||new Date().toISOString())||Date.now(),
   };
@@ -7247,7 +7396,7 @@ function updateStorageUI(message=''){
   const snap=getStorageSnapshot();
   const parts=[
     `${formatBytes(snap.totalBytes)} used`,
-    `${snap.projectCount}/${STORAGE_LIMITS.maxProjects} closet saves`,
+    `${snap.projectCount}/${STORAGE_LIMITS.maxProjects} gallery saves`,
     `${snap.submissionCount}/${STORAGE_LIMITS.maxSubmissions} challenge entries`,
   ];
   el.textContent=message || parts.join(' · ');
@@ -7317,9 +7466,10 @@ function deserializeFrames(size, rawFrames){
   });
 }
 
-function makeProjectSnapshot(name=document.getElementById('pname')?.textContent?.trim()||'untitled.px'){
+function makeProjectSnapshot(name=document.getElementById('pname')?.textContent?.trim()||'untitled.px', options={}){
   captureFrame();
   const existing=ST.projects.find(project=>project.name===name || project.slug===slugifyProjectName(projectBaseName(name)));
+  const category=normalizeProjectCategory(options.category||existing?.category, existing?.starterKey||ST.challengeStarterKey, name);
   return {
     name,
     size:ST.size,
@@ -7330,6 +7480,7 @@ function makeProjectSnapshot(name=document.getElementById('pname')?.textContent?
     visibility:existing?.visibility||'private',
     isGalleryItem:!!existing?.isGalleryItem,
     starterKey:existing?.starterKey||ST.challengeStarterKey||'',
+    category,
     updatedAt:existing?.updatedAt||null,
   };
 }
@@ -7347,9 +7498,9 @@ function upsertProject(proj,{reward=true,silent=false}={}){
   buildHomeGallery();
   renderCloset();
   if(reward){
-    confetti();addXP(20);toast(saved.removed>0?`✦ Saved! Replaced ${saved.removed} older save${saved.removed===1?'':'s'} to stay within device storage.`:'✦ Saved to Closet!');SFX.save();Economy.track('project:save');
+    confetti();addXP(20);toast(saved.removed>0?`✦ Saved! Replaced ${saved.removed} older save${saved.removed===1?'':'s'} to stay within device storage.`:'✦ Saved to Gallery!');SFX.save();Economy.track('project:save');
   } else if(!silent){
-    toast('Updated in Closet ✦');
+    toast('Updated in Gallery ✦');
   }
   if(saved.removed>0 && !reward){
     toast(`Storage trimmed ${saved.removed} older save${saved.removed===1?'':'s'}.`);
@@ -7369,6 +7520,7 @@ function loadChallengeSubmissions(){
       kind:'submission',
       frames:deserializeFrames(item.size||16,item.fd),
       textFrames:deserializeTextFrames(item.tf),
+      category:normalizeProjectCategory(item.category, item.starterKey, item.projectName),
     })).slice(0,STORAGE_LIMITS.maxSubmissions);
   }catch(e){ ST.challengeSubmissions=[]; }
 }
@@ -7822,7 +7974,7 @@ function onKey(e){
   else if(k==='s'&&!e.ctrlKey) setTool('select');
   else if(k==='t') setTool('text');
   else if(k==='g') toggleGrid();
-  else if(k==='escape'){clearSel();closeTextModal();}
+  else if(k==='escape'){clearSel();closeTextModal();closeSaveProjectModal();closeColorModal();}
   else if((k==='backspace'||k==='delete')&&getSelectedTextObject()){e.preventDefault();deleteSelectedText();}
   else if(SEL.active&&k==='arrowup'){e.preventDefault();nudgeSel(0,-1);}
   else if(SEL.active&&k==='arrowdown'){e.preventDefault();nudgeSel(0,1);}
@@ -8062,6 +8214,21 @@ function boot(){
   });
   document.getElementById('text-input')?.addEventListener('keydown',e=>{
     if(e.key==='Enter'){ e.preventDefault(); saveTextFromModal(); }
+  });
+  document.getElementById('save-project-name')?.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){ e.preventDefault(); confirmSaveProject(); }
+  });
+  ['color-modal','text-modal','save-project-modal','profile-name-modal','auth-modal'].forEach(id=>{
+    const modal=document.getElementById(id);
+    if(!modal) return;
+    modal.addEventListener('click',e=>{
+      if(e.target!==modal) return;
+      if(id==='color-modal') closeColorModal();
+      else if(id==='text-modal') closeTextModal();
+      else if(id==='save-project-modal') closeSaveProjectModal();
+      else if(id==='profile-name-modal') closeProfileNameModal();
+      else if(id==='auth-modal') closeAuthModal();
+    });
   });
   updateTextScaleValue(document.getElementById('text-scale')?.value||1);
   window.addEventListener('resize',refreshResponsiveCanvasScale);

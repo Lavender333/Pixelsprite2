@@ -93,7 +93,7 @@
     <p class="hero-sub">Professional tools. Zero complexity.<br>Built for creators aged 9–15.</p>
     <div class="hero-cta">
       <button class="btn-primary" onclick="openStudio()">+ New Creation</button>
-      <button class="btn-secondary" onclick="showTab('closet')">My Work</button>
+      <button class="btn-secondary" onclick="showTab('closet')">My Gallery</button>
     </div>
     <div class="home-blank-card" aria-label="Start a blank canvas">
       <div class="home-blank-copy">
@@ -144,18 +144,10 @@
       <button class="streak-claim" id="streak-claim" type="button" disabled>Auto daily</button>
     </div>
   </div>
-  <div class="home-section">
-    <div class="sec-header">
-      <span class="sec-title">Gallery</span>
-      <button class="sec-link" onclick="showTab('closet')">Open Closet →</button>
-    </div>
+  <div class="home-section" id="home-gallery-section">
     <div class="gallery-strip" id="home-gallery-strip"></div>
   </div>
-  <div class="home-section">
-    <div class="sec-header">
-      <span class="sec-title">Creator Gallery</span>
-      <span class="sec-link sec-link-static">Public creations</span>
-    </div>
+  <div class="home-section" id="public-gallery-section">
     <div class="gallery-strip" id="public-gallery-strip"></div>
   </div>
   <div class="home-section">
@@ -310,7 +302,7 @@
       <input id="image-import-input" type="file" accept="image/*" hidden onchange="handleImageImport(event)">
       <div class="rsep"></div>
       <span class="rlbl">Zoom</span>
-      <input type="range" id="zslider" min="2" max="28" value="10" oninput="setZoom(+this.value)">
+      <input type="range" id="zslider" min="2" max="28" step="0.5" value="10" oninput="setZoom(+this.value)">
     </div>
   </div>
   <div id="pal-bar"><div id="pal-row"></div></div>
@@ -375,10 +367,10 @@
   <div class="studio-section" style="padding-bottom:80px"><div class="ss-title">⚡ Smart Effects</div><div class="fx-grid" id="fx-grid"></div></div>
 </div>
 
-<!-- CLOSET -->
+<!-- GALLERY -->
 <div id="closet-screen" class="screen" style="position:relative">
   <div class="closet-hdr">
-    <div style="font-family:var(--ff-display);font-size:22px">My Closet</div>
+    <div style="font-family:var(--ff-display);font-size:22px">My Gallery</div>
     <div style="font-size:12px;color:var(--text2);margin-top:3px">All your saved creations</div>
     <div class="closet-storage" id="closet-storage">Storage ready</div>
   </div>
@@ -460,7 +452,7 @@
 <nav id="nav">
   <button class="nt nt-home on" id="nav-home" onclick="showTab('home')"><span class="icon">🏠<span class="nt-dot" id="home-dot"></span></span><span class="nt-label" id="home-label">Home</span></button>
   <button class="nt" id="nav-studio" onclick="showTab('studio')"><span class="icon">🎨</span>Studio</button>
-  <button class="nt" id="nav-closet" onclick="showTab('closet')"><span class="icon">📁</span>Closet</button>
+  <button class="nt" id="nav-closet" onclick="showTab('closet')"><span class="icon">📁</span>Gallery</button>
   <button class="nt" id="nav-challenges" onclick="showTab('challenges')"><span class="icon">🏆</span>Wins</button>
   <button class="nt" id="nav-profile" onclick="showTab('profile')"><span class="icon">👾</span>Me</button>
 </nav>
@@ -512,11 +504,44 @@
         <input id="text-scale" class="text-scale-slider" type="range" min="1" max="4" value="1" oninput="updateTextScaleValue(this.value)">
         <span class="text-scale-value" id="text-scale-value">1×</span>
       </div>
-      <div class="text-color-note">Uses your current selected color.</div>
+      <label class="text-scale-label text-color-label" for="text-color">Text color</label>
+      <div class="text-color-inline">
+        <input id="text-color" class="text-color-input" type="color" value="#6C63FF" oninput="updateTextModalColor(this.value)">
+        <button class="text-mini-btn" type="button" onclick="setTextModalColorToCurrent()">Use Current</button>
+      </div>
+      <div class="text-color-note" id="text-modal-note">Use your current selected color or choose a new one here.</div>
     </div>
     <div class="name-modal-actions">
       <button class="name-modal-skip" onclick="closeTextModal()">Cancel</button>
-      <button class="name-modal-save" onclick="saveTextFromModal()">Save Text</button>
+      <button class="name-modal-save" id="text-save-btn" onclick="saveTextFromModal()">Save This Frame</button>
+    </div>
+    <div class="text-edit-actions text-modal-edit-actions" id="text-modal-edit-actions" style="display:none">
+      <button class="text-mini-btn" type="button" onclick="saveTextFromModal(true)">Save All Frames</button>
+      <button class="text-mini-btn danger" type="button" onclick="deleteSelectedText()">Delete This Frame</button>
+      <button class="text-mini-btn danger" type="button" onclick="deleteSelectedText(true)">Delete All Frames</button>
+    </div>
+  </div>
+</div>
+
+<div id="save-project-modal" class="modal-bg centered" style="display:none">
+  <div class="name-modal-card auth-modal-card">
+    <div class="name-modal-badge">Save Creation</div>
+    <h2 class="name-modal-title">Save to Gallery</h2>
+    <p class="name-modal-copy">Choose a name and where this creation belongs in your gallery.</p>
+    <input id="save-project-name" class="name-modal-input" type="text" maxlength="32" placeholder="Project name" autocomplete="off" spellcheck="false">
+    <div class="text-scale-wrap">
+      <label class="text-scale-label" for="save-project-category">Gallery section</label>
+      <select id="save-project-category" class="ptog-select">
+        <option value="Avatar">Avatar</option>
+        <option value="Items">Items</option>
+        <option value="Rooms">Rooms</option>
+        <option value="Closet">Closet</option>
+      </select>
+      <div class="text-color-note">You can filter saved creations by this section later.</div>
+    </div>
+    <div class="name-modal-actions">
+      <button class="name-modal-skip" onclick="closeSaveProjectModal()">Cancel</button>
+      <button class="name-modal-save" onclick="confirmSaveProject()">Save</button>
     </div>
   </div>
 </div>
