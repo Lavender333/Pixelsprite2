@@ -2615,20 +2615,42 @@ if (typeof upgradeAllPalettesExtended === 'function' && !window.__pcPalettesUpgr
 }
 
 // ── EXPORT STUBS FOR NEW FORMATS ─────
+function createStandardExportCanvas(width,height,{background=null}={}){
+  const cvs=document.createElement('canvas');
+  cvs.width=width;
+  cvs.height=height;
+  const ctx=cvs.getContext('2d');
+  ctx.imageSmoothingEnabled=false;
+  if(background){
+    ctx.fillStyle=background;
+    ctx.fillRect(0,0,width,height);
+  }else{
+    ctx.clearRect(0,0,width,height);
+  }
+  return { cvs, ctx };
+}
+
+function drawBitmapIntoStandardExport(ctx,bmp,{targetWidth,targetHeight,maxWidth=targetWidth,maxHeight=targetHeight,offsetX=0,offsetY=0}={}){
+  const safeMaxWidth=Math.max(1,Math.floor(maxWidth));
+  const safeMaxHeight=Math.max(1,Math.floor(maxHeight));
+  const scale=Math.min(safeMaxWidth/ST.size,safeMaxHeight/ST.size);
+  const drawWidth=Math.max(1,Math.floor(ST.size*scale));
+  const drawHeight=Math.max(1,Math.floor(ST.size*scale));
+  const x=Math.floor((targetWidth-drawWidth)/2 + offsetX);
+  const y=Math.floor((targetHeight-drawHeight)/2 + offsetY);
+  ctx.drawImage(bmp,0,0,ST.size,ST.size,x,y,drawWidth,drawHeight);
+  return { x, y, width:drawWidth, height:drawHeight };
+}
+
 function exportMinecraftSkin() {
   // Export current frame as 64x64 PNG for Minecraft.net
   captureFrame();
   const targetSize = 64;
-  const cvs = document.createElement('canvas');
-  cvs.width = targetSize;
-  cvs.height = targetSize;
-  const ctx = cvs.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
+  const {cvs,ctx}=createStandardExportCanvas(targetSize,targetSize);
   // If the sprite is smaller, upscale to 64x64
   if (ST.frames[ST.currentFrame]) {
     createCompositeFrameBitmap().then(bmp => {
-      ctx.clearRect(0, 0, targetSize, targetSize);
-      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, 0, 0, targetSize, targetSize);
+      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize});
       const a = document.createElement('a');
       a.href = cvs.toDataURL('image/png');
       a.download = 'minecraft-skin.png';
@@ -2644,15 +2666,10 @@ function exportMinecraftTexturePack() {
   // Export zipped Minecraft resource pack with current frame as 64x64 PNG
   captureFrame();
   const targetSize = 64;
-  const cvs = document.createElement('canvas');
-  cvs.width = targetSize;
-  cvs.height = targetSize;
-  const ctx = cvs.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
+  const {cvs,ctx}=createStandardExportCanvas(targetSize,targetSize);
   if (ST.frames[ST.currentFrame]) {
     createCompositeFrameBitmap().then(bmp => {
-      ctx.clearRect(0, 0, targetSize, targetSize);
-      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, 0, 0, targetSize, targetSize);
+      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize});
       cvs.toBlob(blob => {
         // Minimal zip: [pack.mcmeta, assets/minecraft/textures/entity/skin.png]
         const files = [];
@@ -2746,19 +2763,15 @@ function exportRobloxShirt() {
   // Export current frame as 585x559 PNG for Roblox shirts
   captureFrame();
   const targetW = 585, targetH = 559;
-  const cvs = document.createElement('canvas');
-  cvs.width = targetW;
-  cvs.height = targetH;
-  const ctx = cvs.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
-  // Center the sprite in the Roblox shirt template
-  const spriteSize = 64; // Standard Roblox shirt region size
-  const offsetX = Math.floor((targetW - spriteSize) / 2);
-  const offsetY = Math.floor((targetH - spriteSize) / 2);
+  const {cvs,ctx}=createStandardExportCanvas(targetW,targetH);
   if (ST.frames[ST.currentFrame]) {
     createCompositeFrameBitmap().then(bmp => {
-      ctx.clearRect(0, 0, targetW, targetH);
-      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, offsetX, offsetY, spriteSize, spriteSize);
+      drawBitmapIntoStandardExport(ctx,bmp,{
+        targetWidth:targetW,
+        targetHeight:targetH,
+        maxWidth:Math.floor(targetW*0.76),
+        maxHeight:Math.floor(targetH*0.76),
+      });
       const a = document.createElement('a');
       a.href = cvs.toDataURL('image/png');
       a.download = 'roblox-shirt.png';
@@ -2774,19 +2787,15 @@ function exportRobloxPants() {
   // Export current frame as 585x559 PNG for Roblox pants
   captureFrame();
   const targetW = 585, targetH = 559;
-  const cvs = document.createElement('canvas');
-  cvs.width = targetW;
-  cvs.height = targetH;
-  const ctx = cvs.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
-  // Center the sprite in the Roblox pants template
-  const spriteSize = 64; // Standard Roblox pants region size
-  const offsetX = Math.floor((targetW - spriteSize) / 2);
-  const offsetY = Math.floor((targetH - spriteSize) / 2);
+  const {cvs,ctx}=createStandardExportCanvas(targetW,targetH);
   if (ST.frames[ST.currentFrame]) {
     createCompositeFrameBitmap().then(bmp => {
-      ctx.clearRect(0, 0, targetW, targetH);
-      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, offsetX, offsetY, spriteSize, spriteSize);
+      drawBitmapIntoStandardExport(ctx,bmp,{
+        targetWidth:targetW,
+        targetHeight:targetH,
+        maxWidth:Math.floor(targetW*0.76),
+        maxHeight:Math.floor(targetH*0.76),
+      });
       const a = document.createElement('a');
       a.href = cvs.toDataURL('image/png');
       a.download = 'roblox-pants.png';
@@ -2802,15 +2811,10 @@ function exportRobloxDecal() {
   // Export current frame as square PNG for Roblox decals (512x512)
   captureFrame();
   const targetSize = 512;
-  const cvs = document.createElement('canvas');
-  cvs.width = targetSize;
-  cvs.height = targetSize;
-  const ctx = cvs.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
+  const {cvs,ctx}=createStandardExportCanvas(targetSize,targetSize);
   if (ST.frames[ST.currentFrame]) {
     createCompositeFrameBitmap().then(bmp => {
-      ctx.clearRect(0, 0, targetSize, targetSize);
-      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, 0, 0, targetSize, targetSize);
+      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize,maxWidth:448,maxHeight:448});
       const a = document.createElement('a');
       a.href = cvs.toDataURL('image/png');
       a.download = 'roblox-decal.png';
@@ -2855,15 +2859,10 @@ function exportSticker() {
   // Export current frame as high-res PNG (1024x1024) for stickers
   captureFrame();
   const targetSize = 1024;
-  const cvs = document.createElement('canvas');
-  cvs.width = targetSize;
-  cvs.height = targetSize;
-  const ctx = cvs.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
+  const {cvs,ctx}=createStandardExportCanvas(targetSize,targetSize);
   if (ST.frames[ST.currentFrame]) {
     createCompositeFrameBitmap().then(bmp => {
-      ctx.clearRect(0, 0, targetSize, targetSize);
-      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, 0, 0, targetSize, targetSize);
+      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize,maxWidth:860,maxHeight:860});
       const a = document.createElement('a');
       a.href = cvs.toDataURL('image/png');
       a.download = 'sticker.png';
@@ -2879,21 +2878,16 @@ function exportWallpaper() {
   // Export current frame as 1080x1920 PNG for phone wallpaper
   captureFrame();
   const targetW = 1080, targetH = 1920;
-  const cvs = document.createElement('canvas');
-  cvs.width = targetW;
-  cvs.height = targetH;
-  const ctx = cvs.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
-  // Center the sprite
-  const spriteSize = Math.min(targetW, targetH) * 0.7; // 70% of width/height
-  const offsetX = Math.floor((targetW - spriteSize) / 2);
-  const offsetY = Math.floor((targetH - spriteSize) / 2);
+  const {cvs,ctx}=createStandardExportCanvas(targetW,targetH,{background:'#ffffff'});
   if (ST.frames[ST.currentFrame]) {
     createCompositeFrameBitmap().then(bmp => {
-      ctx.clearRect(0, 0, targetW, targetH);
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, targetW, targetH);
-      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, offsetX, offsetY, spriteSize, spriteSize);
+      drawBitmapIntoStandardExport(ctx,bmp,{
+        targetWidth:targetW,
+        targetHeight:targetH,
+        maxWidth:756,
+        maxHeight:756,
+        offsetY:-120,
+      });
       const a = document.createElement('a');
       a.href = cvs.toDataURL('image/png');
       a.download = 'phone-wallpaper.png';
@@ -2909,15 +2903,10 @@ function exportPlannerSticker() {
   // Export current frame as 512x512 PNG with transparency for digital planners
   captureFrame();
   const targetSize = 512;
-  const cvs = document.createElement('canvas');
-  cvs.width = targetSize;
-  cvs.height = targetSize;
-  const ctx = cvs.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
+  const {cvs,ctx}=createStandardExportCanvas(targetSize,targetSize);
   if (ST.frames[ST.currentFrame]) {
     createCompositeFrameBitmap().then(bmp => {
-      ctx.clearRect(0, 0, targetSize, targetSize);
-      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, 0, 0, targetSize, targetSize);
+      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize,maxWidth:420,maxHeight:420});
       const a = document.createElement('a');
       a.href = cvs.toDataURL('image/png');
       a.download = 'planner-sticker.png';
@@ -2933,15 +2922,10 @@ function export3DTexture() {
   // Export current frame as 1024x1024 PNG for 3D model base texture
   captureFrame();
   const targetSize = 1024;
-  const cvs = document.createElement('canvas');
-  cvs.width = targetSize;
-  cvs.height = targetSize;
-  const ctx = cvs.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
+  const {cvs,ctx}=createStandardExportCanvas(targetSize,targetSize);
   if (ST.frames[ST.currentFrame]) {
     createCompositeFrameBitmap().then(bmp => {
-      ctx.clearRect(0, 0, targetSize, targetSize);
-      ctx.drawImage(bmp, 0, 0, ST.size, ST.size, 0, 0, targetSize, targetSize);
+      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize,maxWidth:896,maxHeight:896});
       const a = document.createElement('a');
       a.href = cvs.toDataURL('image/png');
       a.download = '3d-base-texture.png';
