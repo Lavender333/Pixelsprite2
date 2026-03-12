@@ -332,8 +332,57 @@ const ToolEngine = (() => {
     }
   }
 
+  class LineTool extends BaseTool {
+    constructor() { super('line'); }
+    onStart(ctx, x, y, state) {
+      startCanvasToolOverlay('line', x, y);
+    }
+    onMove(ctx, x, y, state) {
+      updateCanvasToolOverlay(x, y);
+    }
+    onEnd(ctx, state) {
+      const overlay = getCanvasToolOverlay();
+      if (!overlay?.active) return false;
+      plotLine(overlay.startX, overlay.startY, overlay.endX, overlay.endY);
+      resetCanvasToolOverlay();
+      Economy.track('pixel:paint');
+      EventBus.emit('tool:line', {
+        from: [overlay.startX, overlay.startY],
+        to: [overlay.endX, overlay.endY],
+        color: state.color,
+      });
+      return true;
+    }
+  }
+
+  class MeasureTool extends BaseTool {
+    constructor() { super('measure'); }
+    onStart(ctx, x, y, state) {
+      startCanvasToolOverlay('measure', x, y);
+    }
+    onMove(ctx, x, y, state) {
+      updateCanvasToolOverlay(x, y);
+    }
+    onEnd(ctx, state) {
+      const overlay = getCanvasToolOverlay();
+      if (!overlay?.active) return false;
+      const metrics = overlay.metrics || getCanvasLineMetrics(overlay.startX, overlay.startY, overlay.endX, overlay.endY);
+      toast(`📏 ${formatCanvasMeasure(metrics)}`);
+      resetCanvasToolOverlay();
+      EventBus.emit('tool:measure', metrics);
+      return false;
+    }
+  }
+
   // Register built-in tools
-  const tools = { pencil: new PencilTool(), eraser: new EraserTool(), fill: new FillTool(), eyedrop: new EyedropTool() };
+  const tools = {
+    pencil: new PencilTool(),
+    line: new LineTool(),
+    eraser: new EraserTool(),
+    fill: new FillTool(),
+    eyedrop: new EyedropTool(),
+    measure: new MeasureTool(),
+  };
   Object.values(tools).forEach(t => registry[t.id] = t);
 
   return {
@@ -4627,6 +4676,7 @@ function setupEvents(mc){
     if(ST.tool==='text'){ handleTextDown(p[0],p[1]); return; }
     if(ST.tool==='select'){ handleSelectDown(p[0],p[1]); return; }
     ST.isDown=true; ST.lastPt=p; handleDraw(p,true);
+    if(ST.tool==='fill' || ST.tool==='eyedrop'){ ST.isDown=false; ST.lastPt=null; }
   };
   mc.onpointermove=e=>{
     e.preventDefault();
@@ -4635,16 +4685,39 @@ function setupEvents(mc){
     if(ST.tool==='text'){ handleTextMove(p[0],p[1]); return; }
     if(ST.tool==='select'){ handleSelectMove(p[0],p[1]); return; }
     if(!ST.isDown) return;
-    if(ST.lastPt){ plotLine(ST.lastPt[0],ST.lastPt[1],p[0],p[1]); }
-    ST.lastPt=p; captureFrame();
+    if(ST.tool==='line' || ST.tool==='measure') handleDraw(p,false);
+    else {
+      if(ST.lastPt){ plotLine(ST.lastPt[0],ST.lastPt[1],p[0],p[1]); }
+      captureFrame();
+    }
+    ST.lastPt=p;
   };
   mc.onpointerup=e=>{
     if(ST.tool==='text'){ handleTextUp(); return; }
     if(ST.tool==='select'){ handleSelectUp(); return; }
-    if(ST.isDown) pushHistory(); ST.isDown=false;
+    if(ST.isDown){
+      const didCommit=finishCanvasToolAction();
+      if(didCommit){ captureFrame(); pushHistory(); }
+    }
+    ST.isDown=false;
   };
-  mc.onpointerleave=e=>{ if(ST.tool==='text'){ handleTextUp(); } else if(ST.isDown&&ST.tool!=='select'){pushHistory();ST.isDown=false;} document.getElementById('coords').textContent=''; };
-  mc.onpointercancel=()=>{ if(ST.tool==='text') handleTextUp(); else ST.isDown=false; };
+  mc.onpointerleave=e=>{
+    if(ST.tool==='text'){
+      handleTextUp();
+    } else if(ST.tool!=='select' && ST.isDown){
+      const didCommit=finishCanvasToolAction();
+      if(didCommit){ captureFrame(); pushHistory(); }
+      ST.isDown=false;
+    } else {
+      resetCanvasToolOverlay();
+    }
+    document.getElementById('coords').textContent='';
+  };
+  mc.onpointercancel=()=>{
+    if(ST.tool==='text') handleTextUp();
+    resetCanvasToolOverlay();
+    ST.isDown=false;
+  };
 
   // Pinch-to-zoom
   const wrap=document.getElementById('cvs-wrap');
@@ -4673,19 +4746,116 @@ function cpos(e){
 }
 function updateCoords(x,y){ document.getElementById('coords').textContent=x+','+y; }
 
+const CANVAS_TOOL_OVERLAY={active:false,kind:null,startX:0,startY:0,endX:0,endY:0,metrics:null};
+
+function getCanvasToolOverlay(){
+  return CANVAS_TOOL_OVERLAY;
+}
+
+function getCanvasLineMetrics(x0,y0,x1,y1){
+  const dx=x1-x0, dy=y1-y0;
+  return {
+    dx,
+    dy,
+    width:Math.abs(dx)+1,
+    height:Math.abs(dy)+1,
+    steps:Math.max(Math.abs(dx),Math.abs(dy))+1,
+    distance:Math.hypot(dx,dy),
+  };
+}
+
+function formatCanvasMeasure(metrics){
+  if(!metrics) return 'Tap and drag';
+  return `${metrics.width}w × ${metrics.height}h · ${metrics.steps} px path · ${metrics.distance.toFixed(2)} px`;
+}
+
+function updateMeasureChip(){
+  const chip=document.getElementById('measure-chip');
+  if(!chip) return;
+  if(ST.tool!=='measure'){
+    chip.style.display='none';
+    chip.textContent='Measure: Tap and drag';
+    return;
+  }
+  chip.style.display='inline-flex';
+  chip.textContent='Measure: '+(CANVAS_TOOL_OVERLAY.active ? formatCanvasMeasure(CANVAS_TOOL_OVERLAY.metrics) : 'Tap and drag');
+}
+
+function startCanvasToolOverlay(kind,x,y){
+  CANVAS_TOOL_OVERLAY.active=true;
+  CANVAS_TOOL_OVERLAY.kind=kind;
+  CANVAS_TOOL_OVERLAY.startX=x;
+  CANVAS_TOOL_OVERLAY.startY=y;
+  CANVAS_TOOL_OVERLAY.endX=x;
+  CANVAS_TOOL_OVERLAY.endY=y;
+  CANVAS_TOOL_OVERLAY.metrics=getCanvasLineMetrics(x,y,x,y);
+  updateMeasureChip();
+  drawSelOverlay();
+}
+
+function updateCanvasToolOverlay(x,y){
+  if(!CANVAS_TOOL_OVERLAY.active) return;
+  CANVAS_TOOL_OVERLAY.endX=x;
+  CANVAS_TOOL_OVERLAY.endY=y;
+  CANVAS_TOOL_OVERLAY.metrics=getCanvasLineMetrics(CANVAS_TOOL_OVERLAY.startX,CANVAS_TOOL_OVERLAY.startY,x,y);
+  updateMeasureChip();
+  drawSelOverlay();
+}
+
+function resetCanvasToolOverlay(){
+  CANVAS_TOOL_OVERLAY.active=false;
+  CANVAS_TOOL_OVERLAY.kind=null;
+  CANVAS_TOOL_OVERLAY.metrics=null;
+  updateMeasureChip();
+  drawSelOverlay();
+}
+
+function finishCanvasToolAction(){
+  const tool=ToolEngine.getActive();
+  if(!tool) return false;
+  if(ST.tool==='line'||ST.tool==='measure'){
+    return !!tool.onEnd(document.getElementById('mc').getContext('2d'),ST);
+  }
+  if(ST.tool==='fill'||ST.tool==='eyedrop') return false;
+  return true;
+}
+
 // ── LINE INTERPOLATION (Bresenham) ────────────────────
-function plotLine(x0,y0,x1,y1){
-  const ctx=document.getElementById('mc').getContext('2d');
+function forEachLinePoint(x0,y0,x1,y1,visit){
   const dx=Math.abs(x1-x0), dy=Math.abs(y1-y0);
   const sx=x0<x1?1:-1, sy=y0<y1?1:-1;
   let err=dx-dy, x=x0, y=y0;
   while(true){
-    paintPixel(ctx,x,y);
+    visit(x,y);
     if(x===x1&&y===y1) break;
     const e2=2*err;
     if(e2>-dy){err-=dy;x+=sx;}
     if(e2<dx){err+=dx;y+=sy;}
   }
+}
+
+function plotLine(x0,y0,x1,y1){
+  const ctx=document.getElementById('mc').getContext('2d');
+  forEachLinePoint(x0,y0,x1,y1,(x,y)=>paintPixel(ctx,x,y));
+}
+
+function drawCanvasToolLineOverlay(ctx){
+  if(!CANVAS_TOOL_OVERLAY.active) return;
+  const brushSize=ST.tool==='eraser' ? eraserSize : ST.brushSize;
+  const isMeasure=CANVAS_TOOL_OVERLAY.kind==='measure';
+  let index=0;
+  ctx.save();
+  ctx.fillStyle=isMeasure ? 'rgba(255,209,102,.9)' : 'rgba(108,99,255,.85)';
+  forEachLinePoint(CANVAS_TOOL_OVERLAY.startX,CANVAS_TOOL_OVERLAY.startY,CANVAS_TOOL_OVERLAY.endX,CANVAS_TOOL_OVERLAY.endY,(x,y)=>{
+    if(!isMeasure || index%2===0) ctx.fillRect(x,y,brushSize,brushSize);
+    index++;
+  });
+  ctx.strokeStyle=isMeasure ? 'rgba(255,209,102,.95)' : '#ffffff';
+  ctx.lineWidth=1/ST.zoom;
+  ctx.setLineDash([]);
+  ctx.strokeRect(CANVAS_TOOL_OVERLAY.startX-.5,CANVAS_TOOL_OVERLAY.startY-.5,2,2);
+  ctx.strokeRect(CANVAS_TOOL_OVERLAY.endX-.5,CANVAS_TOOL_OVERLAY.endY-.5,2,2);
+  ctx.restore();
 }
 
 function paintPixel(ctx,x,y){
@@ -4698,6 +4868,13 @@ function paintPixel(ctx,x,y){
 function handleDraw([x,y], isDown){
   const ctx=document.getElementById('mc').getContext('2d');
   const tool = ToolEngine.getActive();
+  if(ST.tool==='line' || ST.tool==='measure'){
+    if(tool){
+      if(isDown) tool.onStart(ctx,x,y,ST);
+      else tool.onMove(ctx,x,y,ST);
+    }
+    return;
+  }
   if(ST.tool==='fill'){
     if(tool) tool.apply(ctx,x,y,ST);
     else floodFill(ctx,x,y,ST.color);
@@ -5053,7 +5230,7 @@ function addFrame(){ST.frames.push(new ImageData(ST.size,ST.size));ST.textFrames
 function updateToolChip(){
   const chip=document.getElementById('tool-chip');
   if(!chip) return;
-  const names={pencil:'Pencil',fill:'Fill',eraser:'Eraser',eyedrop:'Eyedropper',select:'Select',text:'Pixel Text'};
+  const names={pencil:'Pencil',line:'Straight Line',fill:'Fill',eraser:'Eraser',eyedrop:'Eyedropper',select:'Select',measure:'Measure',text:'Pixel Text'};
   chip.textContent='Tool: '+(names[ST.tool]||'Pencil');
 }
 function getTextOccurrences(id){
@@ -5264,10 +5441,12 @@ function setEraserSize(n){
 function setTool(t){
   if(t==='select'&&!requireUnlock('teen-mode')) return;
   if(ST.tool==='select'&&t!=='select') clearSel();
+  if(ST.tool!==t) resetCanvasToolOverlay();
   ST.tool=t;
   Store.dispatch({ type:'tool:set', tool:t });
   document.querySelectorAll('.rb[data-t]').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   updateToolChip();
+  updateMeasureChip();
   updateTextUI();
   const esizes=document.getElementById('eraser-sizes');
   if(esizes) esizes.style.display=(t==='eraser')?'flex':'none';
@@ -5422,6 +5601,7 @@ function drawSelOverlay(){
   const sc=document.getElementById('sel-canvas'); if(!sc) return;
   const ctx=sc.getContext('2d'); ctx.clearRect(0,0,sc.width,sc.height);
   ctx.lineWidth=1/ST.zoom;
+  drawCanvasToolLineOverlay(ctx);
   if(SEL.active){
     const{x,y,w,h}=selRect();
     ctx.strokeStyle='#fff'; ctx.setLineDash([2/ST.zoom,2/ST.zoom]); ctx.strokeRect(x-.5,y-.5,w+1,h+1);
@@ -7990,6 +8170,8 @@ function onKey(e){
   else if(e.ctrlKey&&k==='y'){e.preventDefault();redo();}
   else if(e.ctrlKey&&k==='s'){e.preventDefault();saveProject();}
   else if(k==='b') setTool('pencil');
+  else if(k==='l') setTool('line');
+  else if(k==='m') setTool('measure');
   else if(k==='e') setTool('eraser');
   else if(k==='f') setTool('fill');
   else if(k==='s'&&!e.ctrlKey) setTool('select');

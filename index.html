@@ -178,6 +178,7 @@
   </div>
   <div class="canvas-status-row">
     <div class="tool-chip" id="tool-chip">Tool: Pencil</div>
+    <div class="frame-chip" id="measure-chip" style="display:none">Measure: Tap and drag</div>
     <div class="frame-chip">Use Duplicate, then Play to preview animation</div>
   </div>
   <div class="text-edit-row" id="text-edit-row" style="display:none">
@@ -248,6 +249,9 @@
       <button class="rb on" id="t-pencil" data-t="pencil" onclick="setTool('pencil')" title="Pencil B" aria-label="Pencil tool">
         <span class="rb-icon">✏️</span><span class="rb-text">Draw</span>
       </button>
+      <button class="rb" id="t-line" data-t="line" onclick="setTool('line')" title="Line L" aria-label="Straight line tool">
+        <span class="rb-icon">／</span><span class="rb-text">Line</span>
+      </button>
       <button class="rb" id="t-fill" data-t="fill" onclick="setTool('fill')" title="Fill F" aria-label="Fill tool">
         <span class="rb-icon">🪣</span><span class="rb-text">Fill</span>
       </button>
@@ -259,6 +263,9 @@
       </button>
       <button class="rb" id="t-select" data-t="select" onclick="setTool('select')" title="Select S" aria-label="Select tool">
         <span class="rb-icon">⬚</span><span class="rb-text">Select</span>
+      </button>
+      <button class="rb" id="t-measure" data-t="measure" onclick="setTool('measure')" title="Measure M" aria-label="Measure tool">
+        <span class="rb-icon">📏</span><span class="rb-text">Measure</span>
       </button>
       <button class="rb" id="t-text" data-t="text" onclick="setTool('text')" title="Text T" aria-label="Text tool">
         <span class="rb-icon">🔤</span><span class="rb-text">Text</span>
