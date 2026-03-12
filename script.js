@@ -355,6 +355,52 @@ const ToolEngine = (() => {
     }
   }
 
+  class SquareTool extends BaseTool {
+    constructor() { super('square'); }
+    onStart(ctx, x, y, state) {
+      startCanvasToolOverlay('square', x, y);
+    }
+    onMove(ctx, x, y, state) {
+      updateCanvasToolOverlay(x, y);
+    }
+    onEnd(ctx, state) {
+      const overlay = getCanvasToolOverlay();
+      if (!overlay?.active) return false;
+      drawSquareShape(overlay.startX, overlay.startY, overlay.endX, overlay.endY);
+      resetCanvasToolOverlay();
+      Economy.track('pixel:paint');
+      EventBus.emit('tool:square', {
+        from: [overlay.startX, overlay.startY],
+        to: [overlay.endX, overlay.endY],
+        color: state.color,
+      });
+      return true;
+    }
+  }
+
+  class CircleTool extends BaseTool {
+    constructor() { super('circle'); }
+    onStart(ctx, x, y, state) {
+      startCanvasToolOverlay('circle', x, y);
+    }
+    onMove(ctx, x, y, state) {
+      updateCanvasToolOverlay(x, y);
+    }
+    onEnd(ctx, state) {
+      const overlay = getCanvasToolOverlay();
+      if (!overlay?.active) return false;
+      drawCircleShape(overlay.startX, overlay.startY, overlay.endX, overlay.endY);
+      resetCanvasToolOverlay();
+      Economy.track('pixel:paint');
+      EventBus.emit('tool:circle', {
+        from: [overlay.startX, overlay.startY],
+        to: [overlay.endX, overlay.endY],
+        color: state.color,
+      });
+      return true;
+    }
+  }
+
   class MeasureTool extends BaseTool {
     constructor() { super('measure'); }
     onStart(ctx, x, y, state) {
@@ -378,6 +424,8 @@ const ToolEngine = (() => {
   const tools = {
     pencil: new PencilTool(),
     line: new LineTool(),
+    square: new SquareTool(),
+    circle: new CircleTool(),
     eraser: new EraserTool(),
     fill: new FillTool(),
     eyedrop: new EyedropTool(),
@@ -4672,6 +4720,9 @@ function drawGridOverlay(){
 function setupEvents(mc){
   mc.onpointerdown=e=>{
     e.preventDefault();
+    if(typeof mc.setPointerCapture==='function'){
+      try{ mc.setPointerCapture(e.pointerId); }catch(err){}
+    }
     const p=cpos(e);
     if(ST.tool==='text'){ handleTextDown(p[0],p[1]); return; }
     if(ST.tool==='select'){ handleSelectDown(p[0],p[1]); return; }
@@ -4685,7 +4736,7 @@ function setupEvents(mc){
     if(ST.tool==='text'){ handleTextMove(p[0],p[1]); return; }
     if(ST.tool==='select'){ handleSelectMove(p[0],p[1]); return; }
     if(!ST.isDown) return;
-    if(ST.tool==='line' || ST.tool==='measure') handleDraw(p,false);
+    if(ST.tool==='line' || ST.tool==='square' || ST.tool==='circle' || ST.tool==='measure') handleDraw(p,false);
     else {
       if(ST.lastPt){ plotLine(ST.lastPt[0],ST.lastPt[1],p[0],p[1]); }
       captureFrame();
@@ -4693,30 +4744,43 @@ function setupEvents(mc){
     ST.lastPt=p;
   };
   mc.onpointerup=e=>{
+    const p=cpos(e);
     if(ST.tool==='text'){ handleTextUp(); return; }
     if(ST.tool==='select'){ handleSelectUp(); return; }
     if(ST.isDown){
+      if(ST.tool==='line' || ST.tool==='square' || ST.tool==='circle' || ST.tool==='measure') updateCanvasToolOverlay(p[0],p[1]);
       const didCommit=finishCanvasToolAction();
       if(didCommit){ captureFrame(); pushHistory(); }
     }
     ST.isDown=false;
+    ST.lastPt=null;
+    if(typeof mc.releasePointerCapture==='function'){
+      try{ if(mc.hasPointerCapture?.(e.pointerId)) mc.releasePointerCapture(e.pointerId); }catch(err){}
+    }
   };
   mc.onpointerleave=e=>{
     if(ST.tool==='text'){
       handleTextUp();
     } else if(ST.tool!=='select' && ST.isDown){
+      const p=cpos(e);
+      if(ST.tool==='line' || ST.tool==='square' || ST.tool==='circle' || ST.tool==='measure') updateCanvasToolOverlay(p[0],p[1]);
       const didCommit=finishCanvasToolAction();
       if(didCommit){ captureFrame(); pushHistory(); }
       ST.isDown=false;
     } else {
       resetCanvasToolOverlay();
     }
+    ST.lastPt=null;
     document.getElementById('coords').textContent='';
   };
-  mc.onpointercancel=()=>{
+  mc.onpointercancel=e=>{
     if(ST.tool==='text') handleTextUp();
     resetCanvasToolOverlay();
     ST.isDown=false;
+    ST.lastPt=null;
+    if(typeof mc.releasePointerCapture==='function'){
+      try{ if(mc.hasPointerCapture?.(e.pointerId)) mc.releasePointerCapture(e.pointerId); }catch(err){}
+    }
   };
 
   // Pinch-to-zoom
@@ -4813,11 +4877,32 @@ function resetCanvasToolOverlay(){
 function finishCanvasToolAction(){
   const tool=ToolEngine.getActive();
   if(!tool) return false;
-  if(ST.tool==='line'||ST.tool==='measure'){
+  if(ST.tool==='line'||ST.tool==='square'||ST.tool==='circle'||ST.tool==='measure'){
     return !!tool.onEnd(document.getElementById('mc').getContext('2d'),ST);
   }
   if(ST.tool==='fill'||ST.tool==='eyedrop') return false;
   return true;
+}
+
+function getOverlayDirection(delta, fallback=1){
+  if(delta===0) return fallback;
+  return delta>0 ? 1 : -1;
+}
+
+function getSquareBounds(x0,y0,x1,y1){
+  const dx=x1-x0, dy=y1-y0;
+  const signX=getOverlayDirection(dx, getOverlayDirection(dy, 1));
+  const signY=getOverlayDirection(dy, getOverlayDirection(dx, 1));
+  const side=Math.max(Math.abs(dx),Math.abs(dy))+1;
+  const endX=x0 + signX*(side-1);
+  const endY=y0 + signY*(side-1);
+  return {
+    x:Math.min(x0,endX),
+    y:Math.min(y0,endY),
+    size:side,
+    endX,
+    endY,
+  };
 }
 
 // ── LINE INTERPOLATION (Bresenham) ────────────────────
@@ -4839,6 +4924,57 @@ function plotLine(x0,y0,x1,y1){
   forEachLinePoint(x0,y0,x1,y1,(x,y)=>paintPixel(ctx,x,y));
 }
 
+function forEachSquarePoint(x0,y0,x1,y1,visit){
+  const {x,y,size}=getSquareBounds(x0,y0,x1,y1);
+  const max=x+size-1, may=y+size-1;
+  for(let px=x; px<=max; px++){
+    visit(px,y);
+    if(may!==y) visit(px,may);
+  }
+  for(let py=y+1; py<may; py++){
+    visit(x,py);
+    if(max!==x) visit(max,py);
+  }
+}
+
+function drawSquareShape(x0,y0,x1,y1){
+  const ctx=document.getElementById('mc').getContext('2d');
+  forEachSquarePoint(x0,y0,x1,y1,(x,y)=>paintPixel(ctx,x,y));
+}
+
+function forEachCirclePoint(x0,y0,x1,y1,visit){
+  const {x,y,size}=getSquareBounds(x0,y0,x1,y1);
+  const centerX=x+(size-1)/2;
+  const centerY=y+(size-1)/2;
+  const radius=(size-1)/2;
+  if(size<=1){
+    visit(x,y);
+    return;
+  }
+  const points=new Set();
+  const steps=Math.max(16,Math.ceil(2*Math.PI*Math.max(radius,1)*8));
+  for(let i=0;i<steps;i++){
+    const angle=(i/steps)*Math.PI*2;
+    const px=Math.round(centerX+Math.cos(angle)*radius);
+    const py=Math.round(centerY+Math.sin(angle)*radius);
+    const key=`${px},${py}`;
+    if(points.has(key)) continue;
+    points.add(key);
+    visit(px,py);
+  }
+}
+
+function drawCircleShape(x0,y0,x1,y1){
+  const ctx=document.getElementById('mc').getContext('2d');
+  forEachCirclePoint(x0,y0,x1,y1,(x,y)=>paintPixel(ctx,x,y));
+}
+
+function forEachOverlayToolPoint(kind,x0,y0,x1,y1,visit){
+  if(kind==='line' || kind==='measure') return forEachLinePoint(x0,y0,x1,y1,visit);
+  if(kind==='square') return forEachSquarePoint(x0,y0,x1,y1,visit);
+  if(kind==='circle') return forEachCirclePoint(x0,y0,x1,y1,visit);
+}
+
 function drawCanvasToolLineOverlay(ctx){
   if(!CANVAS_TOOL_OVERLAY.active) return;
   const brushSize=ST.tool==='eraser' ? eraserSize : ST.brushSize;
@@ -4846,7 +4982,7 @@ function drawCanvasToolLineOverlay(ctx){
   let index=0;
   ctx.save();
   ctx.fillStyle=isMeasure ? 'rgba(255,209,102,.9)' : 'rgba(108,99,255,.85)';
-  forEachLinePoint(CANVAS_TOOL_OVERLAY.startX,CANVAS_TOOL_OVERLAY.startY,CANVAS_TOOL_OVERLAY.endX,CANVAS_TOOL_OVERLAY.endY,(x,y)=>{
+  forEachOverlayToolPoint(CANVAS_TOOL_OVERLAY.kind,CANVAS_TOOL_OVERLAY.startX,CANVAS_TOOL_OVERLAY.startY,CANVAS_TOOL_OVERLAY.endX,CANVAS_TOOL_OVERLAY.endY,(x,y)=>{
     if(!isMeasure || index%2===0) ctx.fillRect(x,y,brushSize,brushSize);
     index++;
   });
@@ -4868,7 +5004,7 @@ function paintPixel(ctx,x,y){
 function handleDraw([x,y], isDown){
   const ctx=document.getElementById('mc').getContext('2d');
   const tool = ToolEngine.getActive();
-  if(ST.tool==='line' || ST.tool==='measure'){
+  if(ST.tool==='line' || ST.tool==='square' || ST.tool==='circle' || ST.tool==='measure'){
     if(tool){
       if(isDown) tool.onStart(ctx,x,y,ST);
       else tool.onMove(ctx,x,y,ST);
@@ -5230,7 +5366,7 @@ function addFrame(){ST.frames.push(new ImageData(ST.size,ST.size));ST.textFrames
 function updateToolChip(){
   const chip=document.getElementById('tool-chip');
   if(!chip) return;
-  const names={pencil:'Pencil',line:'Straight Line',fill:'Fill',eraser:'Eraser',eyedrop:'Eyedropper',select:'Select',measure:'Measure',text:'Pixel Text'};
+  const names={pencil:'Pencil',line:'Straight Line',square:'Square',circle:'Circle',fill:'Fill',eraser:'Eraser',eyedrop:'Eyedropper',select:'Select',measure:'Measure',text:'Pixel Text'};
   chip.textContent='Tool: '+(names[ST.tool]||'Pencil');
 }
 function getTextOccurrences(id){
@@ -8171,6 +8307,8 @@ function onKey(e){
   else if(e.ctrlKey&&k==='s'){e.preventDefault();saveProject();}
   else if(k==='b') setTool('pencil');
   else if(k==='l') setTool('line');
+  else if(k==='q') setTool('square');
+  else if(k==='c') setTool('circle');
   else if(k==='m') setTool('measure');
   else if(k==='e') setTool('eraser');
   else if(k==='f') setTool('fill');
