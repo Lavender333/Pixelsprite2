@@ -694,6 +694,7 @@ const AUTH_STATE = {
   projectsLoaded: false,
   submissionsLoaded: false,
   syncingProjects: false,
+  syncingProjectsPromise: null,
   syncingSubmissions: false,
 };
 
@@ -7445,39 +7446,44 @@ async function loadCloudProjects(){
 async function syncCloudProjects(){
   const client=getSupabaseClient();
   const userId=AUTH_STATE.session?.user?.id;
-  if(!client||!userId||AUTH_STATE.syncingProjects) return {ok:false,skipped:true};
+  if(!client||!userId) return {ok:false,skipped:true};
+  if(AUTH_STATE.syncingProjectsPromise) return AUTH_STATE.syncingProjectsPromise;
   AUTH_STATE.syncingProjects=true;
-  try{
-    const {data:existing,error:existingError}=await client.from('projects')
-      .select('id,slug')
-      .eq('owner_id', userId);
-    if(existingError) throw existingError;
+  AUTH_STATE.syncingProjectsPromise=(async()=>{
+    try{
+      const {data:existing,error:existingError}=await client.from('projects')
+        .select('id,slug')
+        .eq('owner_id', userId);
+      if(existingError) throw existingError;
 
-    const keepIds=[];
-    for(const proj of ST.projects){
-      const saved=await upsertSingleProjectToCloud(proj);
-      if(!saved) continue;
-      proj.cloudId=saved.id;
-      proj.slug=saved.slug;
-      proj.updatedAt=saved.updated_at||null;
-      keepIds.push(saved.id);
+      const keepIds=[];
+      for(const proj of ST.projects){
+        const saved=await upsertSingleProjectToCloud(proj);
+        if(!saved) continue;
+        proj.cloudId=saved.id;
+        proj.slug=saved.slug;
+        proj.updatedAt=saved.updated_at||null;
+        keepIds.push(saved.id);
+      }
+
+      const staleIds=(existing||[]).map(item=>item.id).filter(id=>!keepIds.includes(id));
+      if(staleIds.length){
+        const {error:deleteError}=await client.from('projects').delete().in('id', staleIds);
+        if(deleteError) throw deleteError;
+      }
+
+      persistProjectsWithLimits();
+      AUTH_STATE.projectsLoaded=true;
+      return {ok:true};
+    }catch(err){
+      console.warn('[Supabase projects sync]', err.message||err);
+      return {ok:false,error:err};
+    }finally{
+      AUTH_STATE.syncingProjects=false;
+      AUTH_STATE.syncingProjectsPromise=null;
     }
-
-    const staleIds=(existing||[]).map(item=>item.id).filter(id=>!keepIds.includes(id));
-    if(staleIds.length){
-      const {error:deleteError}=await client.from('projects').delete().in('id', staleIds);
-      if(deleteError) throw deleteError;
-    }
-
-    persistProjectsWithLimits();
-    AUTH_STATE.projectsLoaded=true;
-    return {ok:true};
-  }catch(err){
-    console.warn('[Supabase projects sync]', err.message||err);
-    return {ok:false,error:err};
-  }finally{
-    AUTH_STATE.syncingProjects=false;
-  }
+  })();
+  return AUTH_STATE.syncingProjectsPromise;
 }
 
 async function migrateLocalProjectsToCloud(){
