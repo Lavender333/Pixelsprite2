@@ -552,8 +552,10 @@
       </select>
       <div class="text-color-note">You can filter saved creations by this section later.</div>
     </div>
+    <div class="text-color-note" id="save-project-note">Saved creations stay in My Gallery. Sign in to sync them and publish publicly.</div>
     <div class="name-modal-actions">
       <button class="name-modal-skip" onclick="closeSaveProjectModal()">Cancel</button>
+      <button class="name-modal-skip" onclick="confirmSaveProject(true)">Save & Open Gallery</button>
       <button class="name-modal-save" onclick="confirmSaveProject()">Save</button>
     </div>
   </div>

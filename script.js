@@ -1197,6 +1197,11 @@ async function sendPasswordResetEmail(){
 async function signOutCloudAccount(){
   const client=getSupabaseClient();
   if(!client) return;
+  try{
+    await flushCloudProjectSync();
+  }catch(err){
+    console.warn('[Supabase projects flush before signout]', err);
+  }
   const {error}=await client.auth.signOut();
   if(error){
     toast(error.message || 'Could not sign out.');
@@ -6185,11 +6190,17 @@ function openSaveProjectModal(){
   const modal=document.getElementById('save-project-modal');
   const nameInput=document.getElementById('save-project-name');
   const categorySelect=document.getElementById('save-project-category');
+  const note=document.getElementById('save-project-note');
   if(!modal||!nameInput||!categorySelect) return;
   const currentName=currentProjectName();
   const existing=findProjectByName(currentName);
   nameInput.value=currentName;
   categorySelect.value=normalizeProjectCategory(existing?.category, existing?.starterKey||ST.challengeStarterKey, currentName);
+  if(note){
+    note.textContent=hasCloudAccount()
+      ? 'Saved creations sync to your account. Open My Gallery to preview them again and toggle Public or Private.'
+      : 'Saved creations stay on this device until you sign in. Sign in to sync them and publish publicly.';
+  }
   modal.style.display='flex';
   setTimeout(()=>{nameInput.focus();nameInput.select();},20);
 }
@@ -6199,7 +6210,7 @@ function closeSaveProjectModal(){
   if(modal) modal.style.display='none';
 }
 
-function confirmSaveProject(){
+async function confirmSaveProject(openGallery=false){
   const nameInput=document.getElementById('save-project-name');
   const categorySelect=document.getElementById('save-project-category');
   if(!nameInput||!categorySelect) return;
@@ -6209,8 +6220,22 @@ function confirmSaveProject(){
   document.getElementById('pname').textContent=finalName;
   const saved=upsertProject(makeProjectSnapshot(finalName,{category}),{reward:true});
   if(saved){
+    let cloudSaveOk=!hasCloudAccount();
+    if(hasCloudAccount()){
+      const syncResult=await syncCloudProjects();
+      cloudSaveOk=!!syncResult?.ok;
+      if(cloudSaveOk){
+        await loadCloudProjects();
+      }else{
+        toast('Saved on this device, but cloud sync did not finish. Keep this device open and try saving again.');
+      }
+    }
     closeSaveProjectModal();
     updateChallengeSubmitUI();
+    if(openGallery) showTab('closet');
+    if(hasCloudAccount() && cloudSaveOk){
+      toast('Saved to your account ✦');
+    }
   }
 }
 
@@ -6419,9 +6444,18 @@ function buildHomeGallery(){
   }
   section.style.display='block';
   [...ST.projects].slice(-3).reverse().forEach((proj,idx)=>{
-    const card=document.createElement('button');
+    const projectIndex=ST.projects.indexOf(proj);
+    const card=document.createElement('div');
     card.className='gallery-item';
-    card.onclick=()=>showTab('closet');
+    card.setAttribute('role','button');
+    card.tabIndex=0;
+    card.onclick=()=>openSavedProject(projectIndex);
+    card.onkeydown=e=>{
+      if(e.key==='Enter' || e.key===' '){
+        e.preventDefault();
+        openSavedProject(projectIndex);
+      }
+    };
     const cvs=document.createElement('canvas');
     cvs.width=proj.size||16;
     cvs.height=proj.size||16;
@@ -6429,14 +6463,21 @@ function buildHomeGallery(){
     const lbl=document.createElement('div');
     lbl.className='gallery-label';
     lbl.textContent=proj.name||`Creation ${idx+1}`;
-    if(isProjectPublic(proj)){
-      const chip=document.createElement('div');
-      chip.className='gallery-chip';
-      chip.textContent='Public';
-      card.appendChild(chip);
-    }
+    const sub=document.createElement('div');
+    sub.className='gallery-sub';
+    sub.textContent='Tap to preview, edit, save, or export';
+    const chip=document.createElement('button');
+    chip.type='button';
+    chip.className='gallery-chip gallery-chip-toggle'+(isProjectPublic(proj)?'':' private');
+    chip.textContent=isProjectPublic(proj)?'Public':'Private';
+    chip.onclick=async(e)=>{
+      e.stopPropagation();
+      await toggleProjectPublishing(projectIndex);
+    };
+    card.appendChild(chip);
     card.appendChild(cvs);
     card.appendChild(lbl);
+    card.appendChild(sub);
     wrap.appendChild(card);
   });
 }
@@ -6644,6 +6685,15 @@ function renderCloset(){
   filtered.forEach((proj)=>{
     const idx=ST.projects.indexOf(proj);
     const card=document.createElement('div');card.className='cc';
+    card.setAttribute('role','button');
+    card.tabIndex=0;
+    card.onclick=()=>openSavedProject(idx,{toastMessage:''});
+    card.onkeydown=e=>{
+      if(e.key==='Enter' || e.key===' '){
+        e.preventDefault();
+        openSavedProject(idx,{toastMessage:''});
+      }
+    };
     const cvs=document.createElement('canvas');cvs.className='cc-cvs';cvs.width=proj.size||16;cvs.height=proj.size||16;
     renderStoredFramePreview(cvs.getContext('2d'),proj,0,0,0,proj.size||16,proj.size||16);
     card.appendChild(cvs);
@@ -6658,6 +6708,16 @@ function renderCloset(){
     const visibility=document.createElement('span');
     visibility.className='cc-visibility'+(isProjectPublic(proj)?' public':'');
     visibility.textContent=projectVisibilityLabel(proj);
+    visibility.setAttribute('role','button');
+    visibility.tabIndex=0;
+    visibility.onclick=async(e)=>{e.stopPropagation();await toggleProjectPublishing(idx);};
+    visibility.onkeydown=async e=>{
+      if(e.key==='Enter' || e.key===' '){
+        e.preventDefault();
+        e.stopPropagation();
+        await toggleProjectPublishing(idx);
+      }
+    };
     const publishBtn=document.createElement('button');
     publishBtn.className='cc-publish';
     publishBtn.textContent=isProjectPublic(proj)?'Make Private':'Publish';
@@ -6693,7 +6753,10 @@ function renderCloset(){
     g.appendChild(card);
   });
 }
-function loadProject(idx){
+function openSavedProject(idx,{toastMessage='Loaded from My Gallery. Edit, save, or export again.'}={}){
+  loadProject(idx,{toastMessage});
+}
+function loadProject(idx,{toastMessage=''}={}){
   const p=ST.projects[idx];if(!p)return;
   ST.size=p.size||16;
   ST.frames=p.frames.map(f=>{const id=new ImageData(ST.size,ST.size);id.data.set(f.data);return id;});
@@ -6703,7 +6766,11 @@ function loadProject(idx){
   // sync size buttons
   ['sz-16','sz-32','sz-64'].forEach(id=>document.getElementById(id).classList.remove('on'));
   document.getElementById('sz-'+ST.size)?.classList.add('on');
-  showTab('create');setTimeout(initCanvas,50);
+  showTab('create');
+  setTimeout(()=>{
+    initCanvas();
+    if(toastMessage) toast(toastMessage);
+  },50);
 }
 function deleteProject(idx){
   if(!confirm(`Delete "${ST.projects[idx].name}"?`)) return;
@@ -7411,6 +7478,12 @@ function scheduleCloudProjectsSync(delay=800){
   },delay);
 }
 
+async function flushCloudProjectSync(){
+  if(!hasCloudAccount()) return {ok:false,skipped:true};
+  clearTimeout(cloudProjectsSyncTimer);
+  return syncCloudProjects();
+}
+
 async function loadCloudChallengeSubmissions(){
   const client=getSupabaseClient();
   const userId=AUTH_STATE.session?.user?.id;
@@ -7835,7 +7908,12 @@ function upsertProject(proj,{reward=true,silent=false}={}){
   buildHomeGallery();
   renderCloset();
   if(reward){
-    confetti();addXP(20);toast(saved.removed>0?`✦ Saved! Replaced ${saved.removed} older save${saved.removed===1?'':'s'} to stay within device storage.`:'✦ Saved to Gallery!');SFX.save();Economy.track('project:save');
+    const savedMessage=saved.removed>0
+      ? `✦ Saved! Replaced ${saved.removed} older save${saved.removed===1?'':'s'} to stay within device storage.`
+      : hasCloudAccount()
+        ? '✦ Saved to My Gallery. Open it to preview, export, or set Public.'
+        : '✦ Saved on this device. Sign in to sync and publish from My Gallery.';
+    confetti();addXP(20);toast(savedMessage);SFX.save();Economy.track('project:save');
   } else if(!silent){
     toast('Updated in Gallery ✦');
   }
