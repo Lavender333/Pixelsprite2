@@ -829,6 +829,9 @@ function syncAuthUI(){
   const homePrimary=document.getElementById('home-auth-primary');
   const homeSecondary=document.getElementById('home-auth-secondary');
   const homeWrap=document.getElementById('home-auth-cta');
+  const splashPrimary=document.getElementById('splash-auth-primary');
+  const splashSecondary=document.getElementById('splash-auth-secondary');
+  const splashWrap=document.getElementById('splash-auth-cta');
   const storageNote=document.getElementById('profile-storage-note');
   const signedIn=hasCloudAccount();
   const userEmail=AUTH_STATE.session?.user?.email||'';
@@ -850,6 +853,12 @@ function syncAuthUI(){
     homeSecondary.hidden=false;
   }
   if(homeWrap) homeWrap.hidden=false;
+  if(splashPrimary) splashPrimary.textContent=signedIn?'Manage account':'Create account';
+  if(splashSecondary){
+    splashSecondary.textContent=signedIn?'Open gallery':'Sign in';
+    splashSecondary.hidden=false;
+  }
+  if(splashWrap) splashWrap.hidden=false;
   if(storageNote) storageNote.textContent=signedIn
     ? 'Cloud account connected. Email, password, and recovery are handled securely by Supabase Auth.'
     : 'Profile and streak save on this device until you sign in with email.';
@@ -866,6 +875,24 @@ function handleHomeAuthPrimary(){
 function handleHomeAuthSecondary(){
   if(hasCloudAccount()){
     showTab('profile');
+    return;
+  }
+  openAuthModal('signin');
+}
+
+function handleSplashAuthPrimary(){
+  startCreating();
+  if(hasCloudAccount()){
+    showTab('profile');
+    return;
+  }
+  openAuthModal('signup');
+}
+
+function handleSplashAuthSecondary(){
+  startCreating();
+  if(hasCloudAccount()){
+    showTab('closet');
     return;
   }
   openAuthModal('signin');
@@ -6450,18 +6477,25 @@ function buildHomeGallery(){
     const sub=document.createElement('div');
     sub.className='gallery-sub';
     sub.textContent='Tap to preview, edit, save, or export';
-    const chip=document.createElement('button');
-    chip.type='button';
-    chip.className='gallery-chip gallery-chip-toggle'+(isProjectPublic(proj)?'':' private');
-    chip.textContent=isProjectPublic(proj)?'Public':'Private';
-    chip.onclick=async(e)=>{
+    const status=document.createElement('div');
+    status.className='gallery-chip gallery-chip-toggle'+(isProjectPublic(proj)?'':' private');
+    status.textContent=isProjectPublic(proj)?'Public':'Private';
+    const toggle=document.createElement('button');
+    toggle.type='button';
+    toggle.className='gallery-publish-btn';
+    toggle.textContent=isProjectPublic(proj)?'Make Private':'Make Public';
+    toggle.onclick=async(e)=>{
       e.stopPropagation();
       await toggleProjectPublishing(projectIndex);
     };
-    card.appendChild(chip);
+    const actions=document.createElement('div');
+    actions.className='gallery-actions';
+    actions.appendChild(status);
+    actions.appendChild(toggle);
     card.appendChild(cvs);
     card.appendChild(lbl);
     card.appendChild(sub);
+    card.appendChild(actions);
     wrap.appendChild(card);
   });
 }
@@ -6704,7 +6738,7 @@ function renderCloset(){
     };
     const publishBtn=document.createElement('button');
     publishBtn.className='cc-publish';
-    publishBtn.textContent=isProjectPublic(proj)?'Make Private':'Publish';
+    publishBtn.textContent=isProjectPublic(proj)?'Make Private':'Make Public';
     publishBtn.onclick=async(e)=>{e.stopPropagation();await toggleProjectPublishing(idx);};
     publishRow.appendChild(visibility);
     publishRow.appendChild(publishBtn);
