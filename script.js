@@ -6478,8 +6478,10 @@ function buildHomeGallery(){
     sub.className='gallery-sub';
     sub.textContent='Tap to preview, edit, save, or export';
     const status=document.createElement('div');
-    status.className='gallery-chip gallery-chip-toggle'+(isProjectPublic(proj)?'':' private');
-    status.textContent=isProjectPublic(proj)?'Public':'Private';
+    status.className='gallery-visibility-card'+(isProjectPublic(proj)?' public':' private');
+    status.innerHTML=isProjectPublic(proj)
+      ? '<div class="gallery-visibility-label">Public</div><div class="gallery-visibility-copy">Shown in the community gallery.</div>'
+      : '<div class="gallery-visibility-label">Private</div><div class="gallery-visibility-copy">Only visible in your gallery.</div>';
     const toggle=document.createElement('button');
     toggle.type='button';
     toggle.className='gallery-publish-btn';
@@ -6723,9 +6725,11 @@ function renderCloset(){
 
     const publishRow=document.createElement('div');
     publishRow.className='cc-publish-row';
-    const visibility=document.createElement('span');
-    visibility.className='cc-visibility'+(isProjectPublic(proj)?' public':'');
-    visibility.textContent=projectVisibilityLabel(proj);
+    const visibility=document.createElement('div');
+    visibility.className='cc-visibility-card'+(isProjectPublic(proj)?' public':' private');
+    visibility.innerHTML=isProjectPublic(proj)
+      ? '<span class="cc-visibility-label">Public</span><span class="cc-visibility-copy">Visible in the community gallery</span>'
+      : '<span class="cc-visibility-label">Private</span><span class="cc-visibility-copy">Only visible in your gallery</span>';
     visibility.setAttribute('role','button');
     visibility.tabIndex=0;
     visibility.onclick=async(e)=>{e.stopPropagation();await toggleProjectPublishing(idx);};
