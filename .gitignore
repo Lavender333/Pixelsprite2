@@ -3,5 +3,7 @@ dist/
 ios/App/App/public/
 ios/App/Pods/
 ios/App/DerivedData/
+build/
+app-store-screenshots/debug/
 .DS_Store
 npm-debug.log*

@@ -1,6 +1,6 @@
 {
-  "appId": "com.pixelcreator.app",
-  "appName": "Pixel Creator",
+  "appId": "com.truelavender.pixelspritevibe",
+  "appName": "Pixel Sprite Vibe",
   "webDir": "dist",
   "bundledWebRuntime": false,
   "server": {

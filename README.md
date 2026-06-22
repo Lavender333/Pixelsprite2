@@ -1,9 +1,9 @@
-# Pixel Creator — Deployment Guide
+# Pixel Sprite Vibe — Deployment Guide
 
 ## What's in this package
 
 ```
-pixel-creator/
+pixel-sprite-vibe/
 ├── index.html          ← The entire app (228KB, self-contained)
 ├── manifest.json       ← PWA manifest (installable as app)
 ├── sw.js               ← Service worker (offline support)
@@ -29,7 +29,7 @@ pixel-creator/
 
 1. Go to [netlify.com](https://netlify.com) → Sign up free
 2. Click **"Add new site"** → **"Deploy manually"**
-3. Drag the entire `pixel-creator/` folder onto the deploy zone
+3. Drag the entire `pixel-sprite-vibe/` folder onto the deploy zone
 4. Done — you get a live URL like `https://your-name.netlify.app`
 
 **Custom domain:**
@@ -50,11 +50,11 @@ pixel-creator/
 # Install Vercel CLI
 npm i -g vercel
 
-# From inside the pixel-creator folder:
+# From inside the pixel-sprite-vibe folder:
 vercel
 
 # Follow prompts — it detects the vercel.json automatically
-# You get a URL like https://pixel-creator.vercel.app
+# You get a URL like https://pixel-sprite-vibe.vercel.app
 ```
 
 Or drag-and-drop at [vercel.com/new](https://vercel.com/new) — same as Netlify.
@@ -69,7 +69,7 @@ Or drag-and-drop at [vercel.com/new](https://vercel.com/new) — same as Netlify
 4. The `.github/workflows/deploy.yml` handles everything automatically
 5. Your site goes live at `https://yourusername.github.io/repo-name`
 
-**Important for GitHub Pages:** If deploying to a sub-path (not root domain), update `manifest.json` and `sw.js` start_url/scope to match. e.g. `"start_url": "/pixel-creator/"`.
+**Important for GitHub Pages:** If deploying to a sub-path (not root domain), update `manifest.json` and `sw.js` start_url/scope to match. e.g. `"start_url": "/pixel-sprite-vibe/"`.
 
 ---
 

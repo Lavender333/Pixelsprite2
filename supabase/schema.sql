@@ -85,6 +85,9 @@ create table if not exists public.profiles (
   creator_level integer not null default 1 check (creator_level >= 1),
   xp integer not null default 0 check (xp >= 0),
   xp_max integer not null default 600 check (xp_max > 0),
+  account_tier text not null default 'free' check (account_tier in ('free', 'pro')),
+  is_pro boolean not null default false,
+  pro_since timestamptz,
   day_streak integer not null default 0 check (day_streak >= 0),
   last_streak_claim_on date,
   creation_count integer not null default 0 check (creation_count >= 0),
@@ -99,6 +102,22 @@ create trigger profiles_touch_updated_at
 before update on public.profiles
 for each row
 execute function public.touch_updated_at();
+
+alter table public.profiles
+add column if not exists account_tier text not null default 'free';
+
+alter table public.profiles
+add column if not exists is_pro boolean not null default false;
+
+alter table public.profiles
+add column if not exists pro_since timestamptz;
+
+alter table public.profiles
+drop constraint if exists profiles_account_tier_check;
+
+alter table public.profiles
+add constraint profiles_account_tier_check
+check (account_tier in ('free', 'pro'));
 
 alter table public.profiles
 drop constraint if exists profiles_gamename_moderation_check;
@@ -282,8 +301,13 @@ begin
   raw_name := coalesce(new.raw_user_meta_data ->> 'gamename', new.raw_user_meta_data ->> 'name', split_part(new.email, '@', 1), 'PixelCreator');
   clean_name := public.make_unique_gamename(raw_name)::text;
 
-  insert into public.profiles (id, gamename)
-  values (new.id, clean_name)
+  insert into public.profiles (id, gamename, account_tier, is_pro)
+  values (
+    new.id,
+    clean_name,
+    case when new.raw_user_meta_data ->> 'account_tier' = 'pro' then 'pro' else 'free' end,
+    (new.raw_user_meta_data ->> 'account_tier' = 'pro') or coalesce((new.raw_user_meta_data ->> 'is_pro')::boolean, false)
+  )
   on conflict (id) do nothing;
 
   insert into public.app_settings (profile_id)

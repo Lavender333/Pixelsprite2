@@ -34,7 +34,7 @@
    - enable automatic signing
    - confirm your Apple Developer team is selected
 5. In General:
-   - verify `Pixel Creator` display name
+   - verify `Pixel Sprite Vibe` display name
    - verify portrait/landscape support matches what you want to ship
    - add your App Store icon if you want to replace the generated one
 6. On a real iPhone, run one smoke test for:

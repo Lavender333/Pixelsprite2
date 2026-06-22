@@ -1,9 +1,9 @@
 Analytics & Data Collection
-PixelSprite (“PixelSprite,” “we,” “our,” or “us”), operated by True Lavander LLC, uses analytics technologies to understand how users interact with the Site and to improve performance, usability, and product features.
+Pixel Sprite Vibe (“Pixel Sprite Vibe,” “we,” “our,” or “us”), operated by True Lavender LLC, uses analytics technologies to understand how users interact with the Site and to improve performance, usability, and product features.
 We are committed to collecting only the minimum data necessary for legitimate business purposes and to complying with applicable privacy laws, including the General Data Protection Regulation (GDPR) and the California Consumer Privacy Act (CCPA/CPRA).
 
 1. Analytics Provider
-PixelSprite uses Google Analytics 4 (GA4) to collect and analyze usage data.
+Pixel Sprite Vibe uses Google Analytics 4 (GA4) to collect and analyze usage data.
 Google Analytics may collect information such as:
 
 • Pages visited
@@ -14,7 +14,7 @@ Google Analytics may collect information such as:
 • Approximate geographic location (country, region, or city level)
 • Interaction events (such as canvas interaction, save, export, or share actions)
 
-Google Analytics does not provide PixelSprite with precise location data.
+Google Analytics does not provide Pixel Sprite Vibe with precise location data.
 
 We have enabled IP anonymization where applicable.
 
@@ -29,7 +29,7 @@ Where consent is required by law, you may manage your preferences through your b
 
 3. CCPA / CPRA Disclosure (California Residents)
 Under California law, analytics data may constitute “personal information” if it can reasonably be associated with a consumer or household.
-PixelSprite:
+Pixel Sprite Vibe:
 
 • Does not sell personal information
 • Does not knowingly share personal information for cross-context behavioral advertising
@@ -47,7 +47,7 @@ https://antoinettewillliams.com
 We will not discriminate against you for exercising your privacy rights.
 
 4. Data Association Acknowledgment
-True Lavander LLC acknowledges that it has implemented appropriate privacy disclosures and, where required, obtained necessary permissions or consent from its end users for the collection and processing of their data, including the association of such data with visitation information Google Analytics collects from PixelSprite.
+True Lavender LLC acknowledges that it has implemented appropriate privacy disclosures and, where required, obtained necessary permissions or consent from its end users for the collection and processing of their data, including the association of such data with visitation information Google Analytics collects from Pixel Sprite Vibe.
 5. Cookies and Tracking Technologies
 Google Analytics uses cookies and similar technologies to:
 • Distinguish users
@@ -70,7 +70,7 @@ Analytics data is retained only as long as necessary for reporting and product i
 We periodically review data retention practices to ensure compliance with applicable law.
 
 7. Children’s Data
-PixelSprite is not directed to children under the age of 13.
+Pixel Sprite Vibe is not directed to children under the age of 13.
 We do not knowingly collect personal information from children under 13 through analytics tools.
 
 If we become aware that such data has been collected inadvertently, we will take reasonable steps to delete it.
@@ -91,7 +91,6 @@ Depending on your location, you may have the right to:
 
 To exercise these rights, contact:
 https://antoinettewillliams.com
-
 
 
 

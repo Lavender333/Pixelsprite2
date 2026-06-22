@@ -1,30 +1,30 @@
 async function exportTransparentPNG() {
-  // Export current frame as transparent PNG (8x upscaled)
-  captureFrame();
+  if(!requireClubFeature('transparent specialty exports')) return;
+  const source=captureExportSource();
   const scale = 8;
+  const size=exportSourceSize(source);
   const cvs = document.createElement('canvas');
-  cvs.width = ST.size * scale;
-  cvs.height = ST.size * scale;
+  cvs.width = size * scale;
+  cvs.height = size * scale;
   const ctx = cvs.getContext('2d');
   ctx.imageSmoothingEnabled = false;
-  if (ST.frames[ST.currentFrame]) {
-    const bmp = await createCompositeFrameBitmap();
+  if (exportSourceFrameCount(source)) {
+    const bmp = await createExportSourceBitmap(source);
     ctx.clearRect(0, 0, cvs.width, cvs.height);
-    ctx.drawImage(bmp, 0, 0, ST.size, ST.size, 0, 0, cvs.width, cvs.height);
+    ctx.drawImage(bmp, 0, 0, size, size, 0, 0, cvs.width, cvs.height);
     const blob = await canvasToBlob(cvs,'image/png');
-    downloadBlobFile(blob,'transparent.png');
-    const upload=await uploadExportedBlobForCurrentProject({
+    const fileName=`${exportSourceName(source)}-transparent.png`;
+    downloadBlobFile(blob,fileName);
+    const upload=await uploadExportForSource(source,{
       blob,
       assetType:'transparent-png',
-      fileName:'transparent.png',
+      fileName,
       mimeType:'image/png',
       width:cvs.width,
       height:cvs.height,
     }).catch(err=>({ok:false,error:err}));
-    SFX.share();
-    toast(upload?.ok?'Transparent PNG exported and backed up ☁️':'Transparent PNG exported! 🟪');
-    addXP(6);
-    Economy.track('project:export', { format: 'transparent-png' });
+    toast(upload?.ok?'Your cutout art is ready and backed up. Ideas: stickers, videos, creative projects.':'Your cutout art is ready. Ideas: stickers, videos, creative projects.');
+    trackExport('transparent-png',6);
   }
 }
 
@@ -666,7 +666,12 @@ const ST = {
   activeChallenge: null,
   challengeSubmissions: [],
   profileName: '',
+  accountTier: 'free',
+  proSince: null,
+  activeDailyVibeKey: '',
   publicGallery: [],
+  pixelVerseReactions: {},
+  pixelVerseFollows: {},
 };
 
 const APP_SETTINGS = {
@@ -677,6 +682,27 @@ const APP_SETTINGS = {
 };
 
 const GALLERY_CATEGORIES = ['Avatar','Items','Rooms','Closet'];
+
+const PIXELVERSE_THEMES=[
+  'Pixel Pets','Space Adventure','Food Friends','Fantasy Creatures','Underwater World',
+  'Cozy Rooms','Tiny Heroes','Sticker Squad','Garden Magic','Robot Friends',
+];
+
+const PIXELVERSE_REACTIONS=[
+  ['love','❤️','Love It'],
+  ['awesome','⭐','Awesome'],
+  ['creative','🎨','Creative'],
+  ['cute','✨','Cute'],
+];
+
+const DAILY_PIXEL_SURPRISES=[
+  {type:'Palette',label:'Cotton Candy Colors',colors:['#FFB7D5','#AEEBFF','#FFE69B']},
+  {type:'Palette',label:'Galaxy Glow',colors:['#6C63FF','#4FC3F7','#FF6FA5']},
+  {type:'Brush',label:'Glow Brush Trial'},
+  {type:'Animation',label:'Sparkle Motion'},
+  {type:'Sticker',label:'Star Sticker Idea'},
+  {type:'Template',label:'Tiny Pet Starter'},
+];
 
 const SUPABASE_CONFIG = {
   url: 'https://xqltgcxqlzchrnulomkv.supabase.co',
@@ -835,18 +861,17 @@ function syncAuthUI(){
   const splashWrap=document.getElementById('splash-auth-cta');
   const storageNote=document.getElementById('profile-storage-note');
   const signedIn=hasCloudAccount();
-  const userEmail=AUTH_STATE.session?.user?.email||'';
 
-  if(title) title.textContent=signedIn?'Cloud account connected':'Save with email';
+  if(title) title.textContent=signedIn?'PixelVerse saved':'Save Your PixelVerse';
   if(copy) copy.textContent=signedIn
-    ? 'Your email account is connected. Supabase manages sign-in, password hashing, sessions, and recovery.'
-    : 'Create an account to sync your gamename, streak, and settings across devices.';
+    ? 'Your account stays signed in so your username, streaks, badges, and creations can sync across devices.'
+    : 'Create an account to sync your username, streaks, badges, and creations across devices.';
   if(email){
     email.hidden=!signedIn;
-    email.textContent=userEmail;
+    email.textContent=userEmail?'Email connected':'';
   }
-  if(primary) primary.textContent=signedIn?'Sign out':'Sign up';
-  if(secondary) secondary.textContent=signedIn?'Change email':'Sign in';
+  if(primary) primary.textContent=signedIn?'Sign out':'Continue with Apple';
+  if(secondary) secondary.textContent=signedIn?'Account settings':'Sign in';
   if(reset) reset.hidden=!signedIn;
   if(homePrimary) homePrimary.textContent=signedIn?'Manage account':'Create account';
   if(homeSecondary){
@@ -861,8 +886,9 @@ function syncAuthUI(){
   }
   if(splashWrap) splashWrap.hidden=false;
   if(storageNote) storageNote.textContent=signedIn
-    ? 'Cloud account connected. Email, password, and recovery are handled securely by Supabase Auth.'
-    : 'Profile and streak save on this device until you sign in with email.';
+    ? 'PixelVerse account connected. You stay signed in unless you sign out.'
+    : 'Play now. Create an account later when you want to sync or share to PixelVerse.';
+  refreshPlanUI();
 }
 
 function handleHomeAuthPrimary(){
@@ -910,19 +936,114 @@ function syncAuthModal(){
   const gamenameWrap=document.getElementById('auth-gamename-wrap');
   const password=document.getElementById('auth-password-input');
   const gamenameInput=document.getElementById('auth-gamename-input');
-  if(badge) badge.textContent=isSignup?'Create Account':'Welcome Back';
-  if(title) title.textContent=isSignup?'Create your cloud account':'Sign in to Pixel Creator';
+  if(badge) badge.textContent='Save Your PixelVerse';
+  if(title) title.textContent='Save Your PixelVerse';
   if(copy) copy.textContent=isSignup
-    ? 'Use your email and password to create a secure account. Your password is hashed by Supabase Auth.'
-    : 'Sign in with your email and password to reconnect your Pixel Creator account.';
+    ? 'Create an account to sync your username, streaks, badges, and creations across devices.'
+    : 'Welcome back. Continue with Apple, Google, or email to reconnect your PixelVerse.';
   if(help) help.textContent=isSignup
-    ? 'Passwords are securely handled by Supabase Auth. This app never stores raw passwords.'
+    ? 'Email is available as a backup. Apple is recommended on iPhone and iPad.'
     : 'Need a new password? Use the reset link below and Supabase will email you a recovery link.';
   if(submit) submit.textContent=isSignup?'Create account':'Sign in';
   if(switchBtn) switchBtn.textContent=isSignup?'Already have an account? Sign in':'Need an account? Sign up';
   if(gamenameWrap) gamenameWrap.hidden=!isSignup;
   if(password) password.setAttribute('autocomplete', isSignup?'new-password':'current-password');
   if(isSignup && gamenameInput && !gamenameInput.value) gamenameInput.value=getSavedProfileName();
+}
+
+function showEmailAuthFields(){
+  const fields=document.getElementById('email-auth-fields');
+  if(fields) fields.hidden=false;
+  const target=AUTH_STATE.mode==='signup'
+    ? document.getElementById('auth-gamename-input')
+    : document.getElementById('auth-email-input');
+  setTimeout(()=>target?.focus(),20);
+}
+
+function normalizeAccountTier(value){
+  return String(value||'free').toLowerCase()==='pro' ? 'pro' : 'free';
+}
+
+function isProAccount(){
+  return normalizeAccountTier(ST.accountTier)==='pro';
+}
+
+function isClubAccount(){
+  return isProAccount();
+}
+
+function getMaxSavedProjects(){
+  return isClubAccount() ? Infinity : STORAGE_LIMITS.freeMaxProjects;
+}
+
+function getMaxAnimationFrames(){
+  return isClubAccount() ? Infinity : STORAGE_LIMITS.freeMaxFrames;
+}
+
+function formatLimit(value){
+  return value===Infinity ? 'Unlimited' : String(value);
+}
+
+function showClubComingSoon(plan='monthly'){
+  const labels={monthly:'Monthly Club',annual:'Annual Club',lifetime:'Lifetime Club'};
+  toast(`${labels[plan]||'Club'} will unlock after Apple In-App Purchase is connected.`);
+}
+
+function requireClubFeature(feature='this feature'){
+  if(isClubAccount()) return true;
+  openProInfo();
+  toast(`Pixel Sprite Vibes Club unlocks ${feature}.`);
+  return false;
+}
+
+function saveLocalAccountTier(tier=ST.accountTier, proSince=ST.proSince){
+  ST.accountTier=normalizeAccountTier(tier);
+  ST.proSince=ST.accountTier==='pro' ? (proSince || ST.proSince || new Date().toISOString()) : null;
+  try{
+    localStorage.setItem('pc2_account_tier', ST.accountTier);
+    if(ST.proSince) localStorage.setItem('pc2_pro_since', ST.proSince);
+    else localStorage.removeItem('pc2_pro_since');
+  }catch(e){}
+  refreshPlanUI();
+}
+
+function loadLocalAccountTier(){
+  try{
+    ST.accountTier=normalizeAccountTier(localStorage.getItem('pc2_account_tier')||'free');
+    ST.proSince=localStorage.getItem('pc2_pro_since')||null;
+  }catch(e){
+    ST.accountTier='free';
+    ST.proSince=null;
+  }
+  refreshPlanUI();
+}
+
+function refreshPlanUI(){
+  const pro=isClubAccount();
+  const label=pro?'Club Creator':'Free Creator';
+  const shortLabel=pro?'Club':'Free';
+  const badge=document.getElementById('prof-plan-badge');
+  const pill=document.getElementById('account-plan-pill');
+  const proSection=document.getElementById('profile-pro-section');
+  if(badge){
+    badge.textContent=label;
+    badge.classList.toggle('pro',pro);
+  }
+  if(pill){
+    pill.textContent=shortLabel;
+    pill.classList.toggle('pro',pro);
+  }
+  if(proSection) proSection.hidden=pro;
+}
+
+function openProInfo(){
+  const modal=document.getElementById('pro-info-modal');
+  if(modal) modal.style.display='flex';
+}
+
+function closeProInfo(){
+  const modal=document.getElementById('pro-info-modal');
+  if(modal) modal.style.display='none';
 }
 
 function setAuthBusy(busy){
@@ -932,8 +1053,42 @@ function setAuthBusy(busy){
     document.getElementById('auth-email-input'),
     document.getElementById('auth-password-input'),
     document.getElementById('auth-submit-btn'),
+    ...document.querySelectorAll('.auth-provider'),
   ];
   controls.forEach(el=>{ if(el) el.disabled=!!busy; });
+}
+
+async function continueWithOAuth(provider){
+  const client=getSupabaseClient();
+  if(!client){
+    toast('Account sign-in is still loading. Try again in a moment.');
+    return;
+  }
+  setAuthBusy(true);
+  try{
+    const gamename=sanitizeGameName(document.getElementById('auth-gamename-input')?.value||getSavedProfileName());
+    if(gamename) await saveProfileName(gamename,{silent:true,skipAvailability:true});
+    const {error}=await client.auth.signInWithOAuth({
+      provider,
+      options:{
+        redirectTo:authRedirectURL(),
+        skipBrowserRedirect:false,
+        queryParams:provider==='google' ? { access_type:'offline', prompt:'select_account' } : undefined,
+      },
+    });
+    if(error) throw error;
+  }catch(error){
+    setAuthBusy(false);
+    toast(error.message || 'Could not start sign-in.');
+  }
+}
+
+function continueWithApple(){
+  continueWithOAuth('apple');
+}
+
+function continueWithGoogle(){
+  continueWithOAuth('google');
 }
 
 function openAuthModal(mode='signin'){
@@ -950,11 +1105,9 @@ function openAuthModal(mode='signin'){
   if(email) email.value=AUTH_STATE.session?.user?.email||'';
   if(password) password.value='';
   if(gamename && AUTH_STATE.mode==='signup') gamename.value=getSavedProfileName();
+  const emailFields=document.getElementById('email-auth-fields');
+  if(emailFields) emailFields.hidden=true;
   if(modal) modal.style.display='flex';
-  setTimeout(()=>{
-    const target=AUTH_STATE.mode==='signup' ? gamename : email;
-    target?.focus();
-  },30);
 }
 
 function closeAuthModal(){
@@ -985,6 +1138,7 @@ function applyRemoteProfile(profile){
   if(Number.isFinite(profile.creator_level) && profile.creator_level>0) ST.level=profile.creator_level;
   if(Number.isFinite(profile.xp) && profile.xp>=0) ST.xp=profile.xp;
   if(Number.isFinite(profile.xp_max) && profile.xp_max>0) ST.xpMax=profile.xp_max;
+  saveLocalAccountTier(profile.account_tier || (profile.is_pro ? 'pro' : 'free'), profile.pro_since || null);
   updateProfileIdentity();
   refreshProfileStats();
   refreshHomeStatusBadge();
@@ -1010,7 +1164,7 @@ async function syncCloudProfile(){
   const client=getSupabaseClient();
   const userId=AUTH_STATE.session?.user?.id;
   if(!client || !userId) return {ok:false};
-  const payload={
+  const basePayload={
     id:userId,
     gamename:getProfileName(),
     creator_level:Math.max(1, ST.level||1),
@@ -1018,8 +1172,23 @@ async function syncCloudProfile(){
     xp_max:Math.max(1, ST.xpMax||600),
     day_streak:Math.max(0, ST.streak||0),
   };
+  const payload={
+    ...basePayload,
+    account_tier:normalizeAccountTier(ST.accountTier),
+    is_pro:isProAccount(),
+    pro_since:isProAccount() ? (ST.proSince || new Date().toISOString()) : null,
+  };
   const {error}=await client.from('profiles').upsert(payload);
   if(error){
+    const message=String(error.message||'').toLowerCase();
+    if(message.includes('account_tier') || message.includes('is_pro') || message.includes('pro_since') || message.includes('column')){
+      const retry=await client.from('profiles').upsert(basePayload);
+      if(!retry.error){
+        console.warn('[Supabase profile sync] Pro columns are not installed yet.');
+        await loadCloudProfile();
+        return {ok:true,proColumnsMissing:true};
+      }
+    }
     console.warn('[Supabase profile sync]', error.message||error);
     return {ok:false,error};
   }
@@ -1061,43 +1230,51 @@ function scheduleCloudSettingsSync(delay=450){
 
 async function handleAuthSession(session){
   AUTH_STATE.session=session||null;
-  if(AUTH_STATE.session?.user){
-    const localProjects=[...ST.projects];
-    const localSubmissions=[...ST.challengeSubmissions];
-    const profile=await loadCloudProfile();
-    if(!profile && getSavedProfileName()) await syncCloudProfile();
-    await autoClaimDailyStreakOnOpen();
-    await syncCloudSettings();
-    await loadCloudProjects();
-    if(localProjects.length){
-      ST.projects=mergeProjectLists(ST.projects, localProjects);
-      persistProjectsWithLimits();
-      await syncCloudProjects();
-      await loadCloudProjects();
+  try{
+    if(AUTH_STATE.session?.user){
+      syncAuthUI();
+      buildProfile();
+      const localProjects=[...ST.projects];
+      const localSubmissions=[...ST.challengeSubmissions];
+      const profile=await loadCloudProfile().catch(err=>{console.warn('[Supabase profile load]', err); return null;});
+      if(!profile && getSavedProfileName()) await syncCloudProfile().catch(err=>console.warn('[Supabase profile sync]', err));
+      await autoClaimDailyStreakOnOpen().catch(err=>console.warn('[Auto streak claim]', err));
+      await syncCloudSettings().catch(err=>console.warn('[Supabase settings sync]', err));
+      await loadCloudProjects().catch(err=>console.warn('[Supabase projects load]', err));
+      if(localProjects.length){
+        ST.projects=mergeProjectLists(ST.projects, localProjects);
+        persistProjectsWithLimits();
+        await syncCloudProjects().catch(err=>console.warn('[Supabase projects sync]', err));
+        await loadCloudProjects().catch(err=>console.warn('[Supabase projects reload]', err));
+      }
+      await loadCloudChallengeSubmissions().catch(err=>console.warn('[Supabase challenge load]', err));
+      if(localSubmissions.length){
+        const seen=new Set(ST.challengeSubmissions.map(item=>`${item.challenge}::${item.projectName}`));
+        ST.challengeSubmissions=[
+          ...ST.challengeSubmissions,
+          ...localSubmissions.filter(item=>!seen.has(`${item.challenge}::${item.projectName}`)),
+        ].slice(0,STORAGE_LIMITS.maxSubmissions);
+        persistSubmissionsWithLimits();
+        await syncCloudChallengeSubmissions().catch(err=>console.warn('[Supabase challenge sync]', err));
+        await loadCloudChallengeSubmissions().catch(err=>console.warn('[Supabase challenge reload]', err));
+      }
+      buildChallenges();
+      buildHomeGallery();
+      renderCloset();
+      await loadPublicGalleryProjects().catch(err=>console.warn('[Supabase public gallery]', err));
+    }else{
+      AUTH_STATE.profile=null;
+      AUTH_STATE.projectsLoaded=false;
+      AUTH_STATE.submissionsLoaded=false;
+      await autoClaimDailyStreakOnOpen().catch(err=>console.warn('[Auto streak claim]', err));
+      loadPublicGalleryProjects().catch(err=>console.warn('[Supabase public gallery]', err));
     }
-    await loadCloudChallengeSubmissions();
-    if(localSubmissions.length){
-      const seen=new Set(ST.challengeSubmissions.map(item=>`${item.challenge}::${item.projectName}`));
-      ST.challengeSubmissions=[
-        ...ST.challengeSubmissions,
-        ...localSubmissions.filter(item=>!seen.has(`${item.challenge}::${item.projectName}`)),
-      ].slice(0,STORAGE_LIMITS.maxSubmissions);
-      persistSubmissionsWithLimits();
-      await syncCloudChallengeSubmissions();
-      await loadCloudChallengeSubmissions();
-    }
-    buildChallenges();
-    buildHomeGallery();
-    renderCloset();
-    await loadPublicGalleryProjects();
-  }else{
-    AUTH_STATE.profile=null;
-    AUTH_STATE.projectsLoaded=false;
-    AUTH_STATE.submissionsLoaded=false;
-    await autoClaimDailyStreakOnOpen();
+  }finally{
     syncAuthUI();
     buildProfile();
-    loadPublicGalleryProjects().catch(err=>console.warn('[Supabase public gallery]', err));
+    refreshProfileStats();
+    buildHomeGallery();
+    renderCloset();
   }
 }
 
@@ -1176,7 +1353,7 @@ async function submitAuthForm(){
         password,
         options:{
           emailRedirectTo:authRedirectURL(),
-          data:{ gamename },
+          data:{ gamename, account_tier:'free', is_pro:false },
         },
       });
       if(error) throw error;
@@ -1191,12 +1368,20 @@ async function submitAuthForm(){
       return;
     }
 
-    const {error}=await client.auth.signInWithPassword({ email, password });
+    const {data,error}=await client.auth.signInWithPassword({ email, password });
     if(error) throw error;
+    if(data?.session) await handleAuthSession(data.session);
     closeAuthModal();
     toast('Signed in successfully.');
   }catch(err){
-    toast(err?.message || 'Could not complete sign-in right now.');
+    if(AUTH_STATE.session?.user){
+      closeAuthModal();
+      syncAuthUI();
+      buildProfile();
+      toast('Signed in. Some cloud items may finish loading later.');
+    }else{
+      toast(err?.message || 'Could not complete sign-in right now.');
+    }
   }finally{
     setAuthBusy(false);
   }
@@ -1266,6 +1451,7 @@ function handlePrimaryAuthAction(){
     return;
   }
   openAuthModal('signup');
+  continueWithApple();
 }
 
 function handleSecondaryAuthAction(){
@@ -1291,7 +1477,8 @@ async function claimDailyStreakRemote(){
 }
 
 const STORAGE_LIMITS = {
-  maxProjects: 24,
+  freeMaxProjects: 10,
+  freeMaxFrames: 3,
   maxSubmissions: 12,
   warnBytes: 3.6 * 1024 * 1024,
   dangerBytes: 4.5 * 1024 * 1024,
@@ -1299,7 +1486,7 @@ const STORAGE_LIMITS = {
 
 const RELEASE_FLAGS = {
   challenges: false,
-  progression: false,
+  progression: true,
   socialProof: false,
   templateColoring: false,
   templateChallenges: false,
@@ -1533,15 +1720,22 @@ window.TEMPLATES = {
     {id:'hoodie',     ico:'🧥',  name:'Hoodie Drop',   tag:'new',    cat:'challenge'},
   ],
   items: [
+    {id:'heart',      ico:'💗',  name:'Heart',          tag:'new'},
+    {id:'star',       ico:'⭐',  name:'Lucky Star',     tag:'new'},
+    {id:'flower',     ico:'🌸',  name:'Flower',         tag:'new'},
     {id:'sneaker_b',  ico:'👟',  name:'Sneaker Base',  tag:'new'},
     {id:'bag',        ico:'👜',  name:'Bag',            tag:''},
     {id:'cap',        ico:'🧢',  name:'Cap',            tag:''},
-    {id:'sword',      ico:'⚔️',  name:'Sword',          tag:'pro'},
+    {id:'sword',      ico:'⚔️',  name:'Sword',          tag:'new'},
     {id:'shield',     ico:'🛡️',  name:'Shield',         tag:'pro'},
     {id:'badge',      ico:'🏅',  name:'Badge',          tag:'new'},
   ],
   chars: [
     {id:'kawaii_bunny', ico:'🐰', name:'Kawaii Bunny', tag:'new'},
+    {id:'game_avatar',ico:'🧑',  name:'Game Avatar',   tag:'new'},
+    {id:'frog',       ico:'🐸',  name:'Frog Friend',   tag:'new'},
+    {id:'butterfly',  ico:'🦋',  name:'Butterfly',     tag:'new'},
+    {id:'emoji_face', ico:'😊',  name:'Emoji Face',    tag:'new'},
     {id:'bw_fox',     ico:'🦊',  name:'Black & White Fox', tag:'new'},
     {id:'cat',        ico:'🐱',  name:'Pixel Cat',     tag:''},
     {id:'dog',        ico:'🐶',  name:'Pixel Dog',     tag:''},
@@ -1552,6 +1746,9 @@ window.TEMPLATES = {
   ],
   scenes: [
     {id:'room',       ico:'🛋️',  name:'Cozy Room',     tag:'new'},
+    {id:'dream_room', ico:'🌙',  name:'Dream Bedroom', tag:'new'},
+    {id:'creator_desk', ico:'💻', name:'Creator Desk', tag:'hot'},
+    {id:'mini_cafe',  ico:'☕',  name:'Mini Cafe',      tag:'new'},
     {id:'space',      ico:'🚀',  name:'Space Scene',   tag:''},
     {id:'forest',     ico:'🌳',  name:'Mini Forest',   tag:'new'},
     {id:'city',       ico:'🌆',  name:'City Night',    tag:'pro'},
@@ -1566,6 +1763,8 @@ window.TEMPLATES = {
     {id:'premium_bunny', ico:'🐰', name:'Kawaii Bunny Premium', tag:'pro'},
   ],
 };
+
+const HOME_STARTER_TEMPLATE_IDS = ['kawaii_bunny','alien','heart','star','frog','butterfly','game_avatar','flower','emoji_face','sword'];
 
 // ── Kawaii Bunny sprite (full-color draw helper) ─────────────────────
 function getTemplatePixels(id, size) {
@@ -2188,6 +2387,65 @@ window.COLORING_TEMPLATES = [
 
 // Animated multi-frame templates — each entry has frameDrawers array
 window.ANIM_TEMPLATES = [
+{id:'blank_anim', ico:'⬚', name:'Blank Animation', tag:'new', frames:2,
+ draw(ctx,sz,f){
+  const s=Math.max(4,Math.floor(sz/8));
+  ctx.fillStyle='rgba(108,99,255,.28)';
+  for(let y=0;y<sz;y+=s) for(let x=0;x<sz;x+=s) if((x/s+y/s+f)%2===0) ctx.fillRect(x,y,s,s);
+  ctx.clearRect(Math.floor(sz*.25),Math.floor(sz*.25),Math.floor(sz*.5),Math.floor(sz*.5));
+ }},
+{id:'bunny_hop', ico:'🐰', name:'Bunny Hop', tag:'new', frames:4,
+ draw(ctx,sz,f){
+  const tmp=document.createElement('canvas'); tmp.width=sz; tmp.height=sz;
+  const tctx=tmp.getContext('2d');
+  DRAWERS.kawaii_bunny(tctx,sz);
+  const y=[1,-1,-2,0][f%4];
+  const squash=[0,0,1,0][f%4];
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(tmp,0,squash,sz,sz-squash*2,0,y,sz,sz-squash*2);
+  ctx.fillStyle='rgba(10,16,44,.35)';
+  ctx.fillRect(Math.floor(sz*.28),Math.floor(sz*.88),Math.floor(sz*.44),1);
+ }},
+{id:'alien_blink', ico:'👽', name:'Alien Blink', tag:'new', frames:4,
+ draw(ctx,sz,f){
+  DRAWERS.alien(ctx,sz);
+  if(f===1||f===2){
+    const scale=sz/20;
+    ctx.fillStyle='#1a7a50';
+    [[3,4],[11,4]].forEach(([x,y])=>{
+      ctx.fillRect(Math.round(x*scale),Math.round((y+1.4)*scale),Math.round(4*scale),Math.max(1,Math.round(scale)));
+    });
+  }
+  if(f===3){
+    ctx.fillStyle='#ffd166';
+    ctx.fillRect(Math.floor(sz*.2),Math.floor(sz*.08),2,2);
+    ctx.fillRect(Math.floor(sz*.72),Math.floor(sz*.12),2,2);
+  }
+ }},
+{id:'butterfly_flutter', ico:'🦋', name:'Butterfly Flutter', tag:'new', frames:4,
+ draw(ctx,sz,f){
+  const tmp=document.createElement('canvas'); tmp.width=sz; tmp.height=sz;
+  const tctx=tmp.getContext('2d');
+  DRAWERS.butterfly(tctx,sz);
+  const sx=[1,.86,1,1.12][f%4], sy=[1,1.1,1,.92][f%4];
+  const dw=sz*sx, dh=sz*sy;
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(tmp,(sz-dw)/2,(sz-dh)/2,dw,dh);
+  ctx.fillStyle='rgba(255,209,102,.8)';
+  ctx.fillRect(2+f,3,1,1);
+  ctx.fillRect(sz-4-f,sz-5,1,1);
+ }},
+{id:'room_twinkle', ico:'🌙', name:'Room Twinkle', tag:'new', frames:4,
+ draw(ctx,sz,f){
+  DRAWERS.dream_room(ctx,sz);
+  const stars=[[6,10],[14,12],[18,5],[27,16]];
+  stars.forEach(([x,y],i)=>{
+    if((i+f)%2===0){
+      ctx.fillStyle='#ffffff';
+      ctx.fillRect(Math.round(x*sz/32),Math.round(y*sz/32),Math.max(1,Math.round(sz/32)),Math.max(1,Math.round(sz/32)));
+    }
+  });
+ }},
 // ── WALKING CAT ── detailed 4-frame walk with proper legs, head bob, tail sway
 {id:'walk_cat', ico:'🐱', name:'Walking Cat', tag:'new', frames:4,
  draw(ctx,sz,f){
@@ -2658,208 +2916,241 @@ function createStandardExportCanvas(width,height,{background=null}={}){
   return { cvs, ctx };
 }
 
-function drawBitmapIntoStandardExport(ctx,bmp,{targetWidth,targetHeight,maxWidth=targetWidth,maxHeight=targetHeight,offsetX=0,offsetY=0}={}){
+function drawBitmapIntoStandardExport(ctx,bmp,{targetWidth,targetHeight,maxWidth=targetWidth,maxHeight=targetHeight,offsetX=0,offsetY=0,nativeSize=ST.size}={}){
   const safeMaxWidth=Math.max(1,Math.floor(maxWidth));
   const safeMaxHeight=Math.max(1,Math.floor(maxHeight));
-  const scale=Math.min(safeMaxWidth/ST.size,safeMaxHeight/ST.size);
-  const drawWidth=Math.max(1,Math.floor(ST.size*scale));
-  const drawHeight=Math.max(1,Math.floor(ST.size*scale));
+  const sourceSize=Math.max(1,Number(nativeSize)||ST.size||16);
+  const scale=Math.min(safeMaxWidth/sourceSize,safeMaxHeight/sourceSize);
+  const drawWidth=Math.max(1,Math.floor(sourceSize*scale));
+  const drawHeight=Math.max(1,Math.floor(sourceSize*scale));
   const x=Math.floor((targetWidth-drawWidth)/2 + offsetX);
   const y=Math.floor((targetHeight-drawHeight)/2 + offsetY);
-  ctx.drawImage(bmp,0,0,ST.size,ST.size,x,y,drawWidth,drawHeight);
+  ctx.drawImage(bmp,0,0,sourceSize,sourceSize,x,y,drawWidth,drawHeight);
   return { x, y, width:drawWidth, height:drawHeight };
 }
 
-function exportMinecraftSkin() {
-  // Export current frame as 64x64 PNG for Minecraft.net
-  captureFrame();
+let EXPORT_SOURCE = { type:'current' };
+
+function getExportSource(){
+  if(EXPORT_SOURCE?.type==='project'){
+    const project=ST.projects[EXPORT_SOURCE.index];
+    if(project) return { type:'project', project, index:EXPORT_SOURCE.index };
+  }
+  return { type:'current', project:getActiveProjectState(), index:null };
+}
+
+function exportSourceName(source=getExportSource()){
+  const raw=source?.type==='project'
+    ? source.project?.name
+    : document.getElementById('pname')?.textContent;
+  return slugifyProjectName(projectBaseName(raw||'pixel-sprite-vibe'))||'pixel-sprite-vibe';
+}
+
+function exportSourceSize(source=getExportSource()){
+  return source?.project?.size || ST.size || 16;
+}
+
+function exportSourceFrameCount(source=getExportSource()){
+  return (source?.project?.frames||[]).length || 0;
+}
+
+function exportSourceCurrentFrame(source=getExportSource()){
+  if(source?.type==='project') return getProjectPreviewFrameIndex(source.project);
+  return ST.currentFrame || 0;
+}
+
+function captureExportSource(source=getExportSource()){
+  if(source?.type!=='project') captureFrame();
+  return source;
+}
+
+async function createExportSourceBitmap(source=getExportSource(),frameIndex=exportSourceCurrentFrame(source)){
+  return createCompositeFrameBitmap(frameIndex, source.project);
+}
+
+function createExportSourceCanvas(source=getExportSource(),frameIndex=exportSourceCurrentFrame(source)){
+  return createCompositeFrameCanvas(frameIndex, source.project);
+}
+
+function trackExport(format,xp=5){
+  SFX.share();
+  if(xp) addXP(xp);
+  Economy.track('project:export', { format });
+}
+
+function uploadExportForSource(source, options){
+  return source?.type==='project'
+    ? uploadExportedBlobForProject(source.project, options)
+    : uploadExportedBlobForCurrentProject(options);
+}
+
+async function createStoredZip(files){
+  let offset = 0;
+  const out = [];
+  const central = [];
+  const enc = new TextEncoder();
+  const crcTable = createStoredZip.crcTable || (createStoredZip.crcTable = (() => {
+    const table = new Uint32Array(256);
+    for(let n=0;n<256;n++){
+      let c=n;
+      for(let k=0;k<8;k++) c=(c&1) ? (0xedb88320 ^ (c>>>1)) : (c>>>1);
+      table[n]=c>>>0;
+    }
+    return table;
+  })());
+  const u16=v=>[v&0xff,(v>>>8)&0xff];
+  const u32=v=>[v&0xff,(v>>>8)&0xff,(v>>>16)&0xff,(v>>>24)&0xff];
+  const crc32=bytes=>{
+    let c=0xffffffff;
+    for(let i=0;i<bytes.length;i++) c=crcTable[(c^bytes[i])&0xff] ^ (c>>>8);
+    return (c^0xffffffff)>>>0;
+  };
+  const dosDateTime=()=>{
+    const d=new Date();
+    return {
+      time:((d.getHours()&31)<<11)|((d.getMinutes()&63)<<5)|((Math.floor(d.getSeconds()/2))&31),
+      date:(((d.getFullYear()-1980)&127)<<9)|(((d.getMonth()+1)&15)<<5)|(d.getDate()&31),
+    };
+  };
+  for(const file of files){
+    const nameBytes=enc.encode(file.name);
+    const bytes=file.data instanceof Blob
+      ? new Uint8Array(await file.data.arrayBuffer())
+      : file.data instanceof Uint8Array
+        ? file.data
+        : new Uint8Array(file.data);
+    const {time,date}=dosDateTime();
+    const crc=crc32(bytes);
+    const size=bytes.length;
+    const local=new Uint8Array([
+      0x50,0x4b,0x03,0x04,
+      ...u16(20), ...u16(0), ...u16(0), ...u16(time), ...u16(date),
+      ...u32(crc), ...u32(size), ...u32(size), ...u16(nameBytes.length), ...u16(0),
+    ]);
+    out.push(local,nameBytes,bytes);
+    central.push({nameBytes,crc,size,offset,time,date});
+    offset += local.length + nameBytes.length + bytes.length;
+  }
+  const centralStart=offset;
+  for(const file of central){
+    const header=new Uint8Array([
+      0x50,0x4b,0x01,0x02,
+      ...u16(20), ...u16(20), ...u16(0), ...u16(0), ...u16(file.time), ...u16(file.date),
+      ...u32(file.crc), ...u32(file.size), ...u32(file.size), ...u16(file.nameBytes.length),
+      ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(file.offset),
+    ]);
+    out.push(header,file.nameBytes);
+    offset += header.length + file.nameBytes.length;
+  }
+  const centralSize=offset-centralStart;
+  out.push(new Uint8Array([
+    0x50,0x4b,0x05,0x06,
+    ...u16(0), ...u16(0), ...u16(central.length), ...u16(central.length),
+    ...u32(centralSize), ...u32(centralStart), ...u16(0),
+  ]));
+  return new Blob(out,{type:'application/zip'});
+}
+
+function exportBlockCharacterSkin() {
+  const source=captureExportSource();
   const targetSize = 64;
   const {cvs,ctx}=createStandardExportCanvas(targetSize,targetSize);
-  // If the sprite is smaller, upscale to 64x64
-  if (ST.frames[ST.currentFrame]) {
-    createCompositeFrameBitmap().then(bmp => {
-      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize});
-      const a = document.createElement('a');
-      a.href = cvs.toDataURL('image/png');
-      a.download = 'minecraft-skin.png';
-      a.click();
-      SFX.share();
-      toast('Minecraft Skin exported! 🟩');
-      addXP(7);
-      Economy.track('project:export', { format: 'minecraft-skin' });
+  if (exportSourceFrameCount(source)) {
+    createExportSourceBitmap(source).then(bmp => {
+      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize,nativeSize:exportSourceSize(source)});
+      downloadBlobFile(dataURLToBlob(cvs.toDataURL('image/png')), `${exportSourceName(source)}-block-character-skin.png`);
+      toast('Your block-building character idea is ready.');
+      trackExport('block-character-skin',7);
     });
   }
 }
-function exportMinecraftTexturePack() {
-  // Export zipped Minecraft resource pack with current frame as 64x64 PNG
-  captureFrame();
+function exportBlockTexturePack() {
+  const source=captureExportSource();
   const targetSize = 64;
   const {cvs,ctx}=createStandardExportCanvas(targetSize,targetSize);
-  if (ST.frames[ST.currentFrame]) {
-    createCompositeFrameBitmap().then(bmp => {
-      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize});
-      cvs.toBlob(blob => {
-        // Minimal zip: [pack.mcmeta, assets/minecraft/textures/entity/skin.png]
+  if (exportSourceFrameCount(source)) {
+    createExportSourceBitmap(source).then(bmp => {
+      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize,nativeSize:exportSourceSize(source)});
+      cvs.toBlob(async blob => {
         const files = [];
-        // pack.mcmeta
         files.push({
           name: 'pack.mcmeta',
-          data: new TextEncoder().encode('{"pack":{"pack_format":15,"description":"PixelSprite Export"}}')
+          data: new TextEncoder().encode('{"pack":{"pack_format":15,"description":"Pixel Sprite Vibe Block Builder Idea"}}')
         });
-        // PNG skin
         files.push({
-          name: 'assets/minecraft/textures/entity/skin.png',
+          name: 'assets/block-builder/textures/entity/skin.png',
           data: blob
         });
-        // Simple zip (no compression, just store)
-        function zip(files) {
-          let offset = 0, central = [], out = [];
-          function dateBytes() {
-            const d = new Date();
-            const dosTime = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() / 2);
-            const dosDate = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
-            return [dosTime, dosDate];
-          }
-          files.forEach((f, i) => {
-            const [dosTime, dosDate] = dateBytes();
-            const nameBytes = new TextEncoder().encode(f.name);
-            const localHeader = [
-              0x50,0x4b,3,4, // Local file header signature
-              20,0,0,0,0,0, // Version, flags, compression (0=store)
-              dosTime&0xFF, (dosTime>>8)&0xFF, dosDate&0xFF, (dosDate>>8)&0xFF,
-              0,0,0,0, // CRC32 (0 for now)
-              f.data.size||f.data.length,0,0,0, // Compressed size
-              f.data.size||f.data.length,0,0,0, // Uncompressed size
-              nameBytes.length,0,0,0 // File name length
-            ];
-            out.push(new Uint8Array(localHeader));
-            out.push(nameBytes);
-            out.push(f.data instanceof Blob ? f.data : new Uint8Array(f.data));
-            central.push({
-              offset,
-              nameBytes,
-              size: f.data.size||f.data.length
-            });
-            offset += localHeader.length + nameBytes.length + (f.data.size||f.data.length);
-          });
-          // Central directory
-          let centralStart = offset;
-          central.forEach((c, i) => {
-            const header = [
-              0x50,0x4b,1,2, // Central file header signature
-              20,0,0,0,0,0, // Version, flags, compression
-              0,0,0,0, // File time/date
-              0,0,0,0, // CRC32
-              c.size,0,0,0, // Compressed size
-              c.size,0,0,0, // Uncompressed size
-              c.nameBytes.length,0,0,0, // File name length
-              0,0,0,0,0,0,0,0,0,0, // Extra fields, comment, disk, etc.
-              c.offset&0xFF, (c.offset>>8)&0xFF, (c.offset>>16)&0xFF, (c.offset>>24)&0xFF
-            ];
-            out.push(new Uint8Array(header));
-            out.push(c.nameBytes);
-          });
-          // End of central directory
-          const end = [
-            0x50,0x4b,5,6, // End of central dir signature
-            0,0, // Disk numbers
-            files.length,0,files.length,0, // Entry count
-            (offset-centralStart)&0xFF, ((offset-centralStart)>>8)&0xFF, // Central dir size
-            centralStart&0xFF, (centralStart>>8)&0xFF, // Central dir offset
-            0,0 // Comment length
-          ];
-          out.push(new Uint8Array(end));
-          // Flatten
-          return new Blob(out, { type: 'application/zip' });
-        }
-        const zipBlob = zip(files);
+        const zipBlob = await createStoredZip(files);
         const url = URL.createObjectURL(zipBlob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'minecraft-resource-pack.zip';
+        a.download = `${exportSourceName(source)}-block-texture-pack.zip`;
         a.click();
-        SFX.share();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
-        toast('Minecraft Texture Pack exported! 📦');
-        addXP(10);
-        Economy.track('project:export', { format: 'minecraft-texture-pack' });
+        toast('Your block texture idea is ready.');
+        trackExport('block-texture-pack',10);
       });
     });
   }
 }
-function exportRobloxShirt() {
-  // Export current frame as 585x559 PNG for Roblox shirts
-  captureFrame();
+function exportAvatarShirtPreview() {
+  const source=captureExportSource();
   const targetW = 585, targetH = 559;
   const {cvs,ctx}=createStandardExportCanvas(targetW,targetH);
-  if (ST.frames[ST.currentFrame]) {
-    createCompositeFrameBitmap().then(bmp => {
+  if (exportSourceFrameCount(source)) {
+    createExportSourceBitmap(source).then(bmp => {
       drawBitmapIntoStandardExport(ctx,bmp,{
         targetWidth:targetW,
         targetHeight:targetH,
         maxWidth:Math.floor(targetW*0.76),
         maxHeight:Math.floor(targetH*0.76),
+        nativeSize:exportSourceSize(source),
       });
-      const a = document.createElement('a');
-      a.href = cvs.toDataURL('image/png');
-      a.download = 'roblox-shirt.png';
-      a.click();
-      SFX.share();
-      toast('Roblox Shirt exported! 👕');
-      addXP(7);
-      Economy.track('project:export', { format: 'roblox-shirt' });
+      downloadBlobFile(dataURLToBlob(cvs.toDataURL('image/png')), `${exportSourceName(source)}-avatar-shirt-preview.png`);
+      toast('Your avatar outfit idea is ready.');
+      trackExport('avatar-shirt-preview',7);
     });
   }
 }
-function exportRobloxPants() {
-  // Export current frame as 585x559 PNG for Roblox pants
-  captureFrame();
+function exportAvatarPantsPreview() {
+  const source=captureExportSource();
   const targetW = 585, targetH = 559;
   const {cvs,ctx}=createStandardExportCanvas(targetW,targetH);
-  if (ST.frames[ST.currentFrame]) {
-    createCompositeFrameBitmap().then(bmp => {
+  if (exportSourceFrameCount(source)) {
+    createExportSourceBitmap(source).then(bmp => {
       drawBitmapIntoStandardExport(ctx,bmp,{
         targetWidth:targetW,
         targetHeight:targetH,
         maxWidth:Math.floor(targetW*0.76),
         maxHeight:Math.floor(targetH*0.76),
+        nativeSize:exportSourceSize(source),
       });
-      const a = document.createElement('a');
-      a.href = cvs.toDataURL('image/png');
-      a.download = 'roblox-pants.png';
-      a.click();
-      SFX.share();
-      toast('Roblox Pants exported! 👖');
-      addXP(7);
-      Economy.track('project:export', { format: 'roblox-pants' });
+      downloadBlobFile(dataURLToBlob(cvs.toDataURL('image/png')), `${exportSourceName(source)}-avatar-pants-preview.png`);
+      toast('Your avatar pants idea is ready.');
+      trackExport('avatar-pants-preview',7);
     });
   }
 }
-function exportRobloxDecal() {
-  // Export current frame as square PNG for Roblox decals (512x512)
-  captureFrame();
+function exportGameIcon() {
+  const source=captureExportSource();
   const targetSize = 512;
   const {cvs,ctx}=createStandardExportCanvas(targetSize,targetSize);
-  if (ST.frames[ST.currentFrame]) {
-    createCompositeFrameBitmap().then(bmp => {
-      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize,maxWidth:448,maxHeight:448});
-      const a = document.createElement('a');
-      a.href = cvs.toDataURL('image/png');
-      a.download = 'roblox-decal.png';
-      a.click();
-      SFX.share();
-      toast('Roblox Decal exported! 🟦');
-      addXP(6);
-      Economy.track('project:export', { format: 'roblox-decal' });
+  if (exportSourceFrameCount(source)) {
+    createExportSourceBitmap(source).then(bmp => {
+      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize,maxWidth:448,maxHeight:448,nativeSize:exportSourceSize(source)});
+      downloadBlobFile(dataURLToBlob(cvs.toDataURL('image/png')), `${exportSourceName(source)}-game-icon.png`);
+      toast('Your game icon is ready. Ideas: indie games, coding projects, character concepts.');
+      trackExport('game-icon',6);
     });
   }
 }
 function exportSpriteSheet() {
-  // Export all frames as a horizontal PNG sprite sheet (8x upscaled)
-  captureFrame();
+  if(!requireClubFeature('sprite sheet exports')) return;
+  const source=captureExportSource();
   const scale = 8;
-  const frameCount = ST.frames.length;
-  const sz = ST.size;
+  const frameCount = exportSourceFrameCount(source);
+  const sz = exportSourceSize(source);
   const cvs = document.createElement('canvas');
   cvs.width = sz * scale * frameCount;
   cvs.height = sz * scale;
@@ -2867,101 +3158,76 @@ function exportSpriteSheet() {
   ctx.imageSmoothingEnabled = false;
   if (frameCount > 0) {
     let x = 0;
-    Promise.all(ST.frames.map((_,i) => createCompositeFrameBitmap(i))).then(bitmaps => {
+    Promise.all(source.project.frames.map((_,i) => createExportSourceBitmap(source,i))).then(bitmaps => {
       bitmaps.forEach(bmp => {
         ctx.drawImage(bmp, 0, 0, sz, sz, x, 0, sz * scale, sz * scale);
         x += sz * scale;
       });
-      const a = document.createElement('a');
-      a.href = cvs.toDataURL('image/png');
-      a.download = 'sprite-sheet.png';
-      a.click();
-      SFX.share();
-      toast('Sprite Sheet exported! 🗂️');
-      addXP(10);
-      Economy.track('project:export', { format: 'sprite-sheet' });
+      downloadBlobFile(dataURLToBlob(cvs.toDataURL('image/png')), `${exportSourceName(source)}-sprite-sheet.png`);
+      toast('Your game assets are ready. Ideas: indie games, coding projects, animation practice.');
+      trackExport('sprite-sheet',10);
     });
   }
 }
 function exportSticker() {
-  // Export current frame as high-res PNG (1024x1024) for stickers
-  captureFrame();
+  if(!requireClubFeature('sticker exports')) return;
+  const source=captureExportSource();
   const targetSize = 1024;
   const {cvs,ctx}=createStandardExportCanvas(targetSize,targetSize);
-  if (ST.frames[ST.currentFrame]) {
-    createCompositeFrameBitmap().then(bmp => {
-      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize,maxWidth:860,maxHeight:860});
-      const a = document.createElement('a');
-      a.href = cvs.toDataURL('image/png');
-      a.download = 'sticker.png';
-      a.click();
-      SFX.share();
-      toast('Sticker exported! 🖨️');
-      addXP(8);
-      Economy.track('project:export', { format: 'sticker' });
+  if (exportSourceFrameCount(source)) {
+    createExportSourceBitmap(source).then(bmp => {
+      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize,maxWidth:860,maxHeight:860,nativeSize:exportSourceSize(source)});
+      downloadBlobFile(dataURLToBlob(cvs.toDataURL('image/png')), `${exportSourceName(source)}-sticker.png`);
+      toast('Your printable sticker is ready. Ideas: journals, notebooks, crafts.');
+      trackExport('sticker',8);
     });
   }
 }
 function exportWallpaper() {
-  // Export current frame as 1080x1920 PNG for phone wallpaper
-  captureFrame();
+  const source=captureExportSource();
   const targetW = 1080, targetH = 1920;
   const {cvs,ctx}=createStandardExportCanvas(targetW,targetH,{background:'#ffffff'});
-  if (ST.frames[ST.currentFrame]) {
-    createCompositeFrameBitmap().then(bmp => {
+  if (exportSourceFrameCount(source)) {
+    createExportSourceBitmap(source).then(bmp => {
       drawBitmapIntoStandardExport(ctx,bmp,{
         targetWidth:targetW,
         targetHeight:targetH,
         maxWidth:756,
         maxHeight:756,
         offsetY:-120,
+        nativeSize:exportSourceSize(source),
       });
-      const a = document.createElement('a');
-      a.href = cvs.toDataURL('image/png');
-      a.download = 'phone-wallpaper.png';
-      a.click();
-      SFX.share();
-      toast('Phone Wallpaper exported! 📱');
-      addXP(8);
-      Economy.track('project:export', { format: 'phone-wallpaper' });
+      downloadBlobFile(dataURLToBlob(cvs.toDataURL('image/png')), `${exportSourceName(source)}-phone-wallpaper.png`);
+      toast('Your wallpaper is ready. Use it as a colorful phone background.');
+      trackExport('phone-wallpaper',8);
     });
   }
 }
 function exportPlannerSticker() {
-  // Export current frame as 512x512 PNG with transparency for digital planners
-  captureFrame();
+  if(!requireClubFeature('transparent planner sticker exports')) return;
+  const source=captureExportSource();
   const targetSize = 512;
   const {cvs,ctx}=createStandardExportCanvas(targetSize,targetSize);
-  if (ST.frames[ST.currentFrame]) {
-    createCompositeFrameBitmap().then(bmp => {
-      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize,maxWidth:420,maxHeight:420});
-      const a = document.createElement('a');
-      a.href = cvs.toDataURL('image/png');
-      a.download = 'planner-sticker.png';
-      a.click();
-      SFX.share();
-      toast('Planner Sticker exported! 📒');
-      addXP(7);
-      Economy.track('project:export', { format: 'planner-sticker' });
+  if (exportSourceFrameCount(source)) {
+    createExportSourceBitmap(source).then(bmp => {
+      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize,maxWidth:420,maxHeight:420,nativeSize:exportSourceSize(source)});
+      downloadBlobFile(dataURLToBlob(cvs.toDataURL('image/png')), `${exportSourceName(source)}-planner-sticker.png`);
+      toast('Your planner sticker is ready. Add it to journals, planners, and notes.');
+      trackExport('planner-sticker',7);
     });
   }
 }
 function export3DTexture() {
-  // Export current frame as 1024x1024 PNG for 3D model base texture
-  captureFrame();
+  if(!requireClubFeature('3D texture exports')) return;
+  const source=captureExportSource();
   const targetSize = 1024;
   const {cvs,ctx}=createStandardExportCanvas(targetSize,targetSize);
-  if (ST.frames[ST.currentFrame]) {
-    createCompositeFrameBitmap().then(bmp => {
-      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize,maxWidth:896,maxHeight:896});
-      const a = document.createElement('a');
-      a.href = cvs.toDataURL('image/png');
-      a.download = '3d-base-texture.png';
-      a.click();
-      SFX.share();
-      toast('3D Model Texture exported! 🧊');
-      addXP(9);
-      Economy.track('project:export', { format: '3d-base-texture' });
+  if (exportSourceFrameCount(source)) {
+    createExportSourceBitmap(source).then(bmp => {
+      drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize,maxWidth:896,maxHeight:896,nativeSize:exportSourceSize(source)});
+      downloadBlobFile(dataURLToBlob(cvs.toDataURL('image/png')), `${exportSourceName(source)}-3d-base-texture.png`);
+      toast('Your 3D texture idea is ready for creative editor projects.');
+      trackExport('3d-base-texture',9);
     });
   }
 }
@@ -2984,6 +3250,13 @@ const SFX = (() => {
     }
     if(ctx && ctx.state==='suspended') ctx.resume().catch(()=>{});
     return ctx;
+  }
+
+  function unlockAudio(){
+    const c = getCtx();
+    if(!c) return false;
+    if(c.state==='suspended') c.resume().catch(()=>{});
+    return c.state!=='closed';
   }
 
   function canPlay(key, cooldownMs){
@@ -3077,6 +3350,8 @@ const SFX = (() => {
     erase(){ solfeggioTone(SOLFEGGIO.reset, { dur:0.2, vol:0.04, popFreq:860, popDur:0.03, popVol:0.009, cooldown:90, key:'erase' }); },
     setEnabled(value){ enabled = !!value; },
     isEnabled(){ return enabled; },
+    prime(){ return unlockAudio(); },
+    test(){ solfeggioTone(SOLFEGGIO.create, { dur:0.22, vol:0.13, popFreq:1560, popDur:0.05, popVol:0.035, cooldown:0, key:'sound-test' }); },
   };
 })();
 
@@ -4039,6 +4314,82 @@ for(let y=Math.floor(sz*0.15);y<Math.floor(sz*0.45);y++) for(let x=0;x<sz;x++) i
 for(let y=sz-8;y<sz;y++) for(let x=0;x<sz;x++) if((x+y)%2===0) $(x,y,'rgba(0,0,0,0.15)');
 },
 
+dream_room(ctx,sz){
+this._scaled(ctx,sz,32,32,(_c)=>{
+const $=(x,y,c)=>{_c.fillStyle=c;_c.fillRect(x,y,1,1);};
+for(let y=0;y<32;y++) for(let x=0;x<32;x++) $(x,y,y<19?'#17162c':'#211b35');
+for(let x=0;x<32;x++){ $(x,19,'#39305d'); $(x,20,'#151226'); }
+for(let y=21;y<32;y++) for(let x=0;x<32;x++) if((Math.floor(x/4)+Math.floor(y/3))%2===0) $(x,y,'#2a2344');
+// moon window
+for(let y=3;y<=13;y++) for(let x=20;x<=29;x++) $(x,y,(x===20||x===29||y===3||y===13)?'#5b4f86':'#15264d');
+for(let y=4;y<=12;y++) $(25,y,'#5b4f86');
+for(let x=21;x<=28;x++) $(x,8,'#5b4f86');
+[[22,5],[28,5],[23,11],[27,10]].forEach(([x,y])=>$(x,y,'#fff7a8'));
+[[24,5,'#fff2b8'],[25,5,'#fff2b8'],[24,6,'#fff2b8'],[25,6,'#e2d88d']].forEach(([x,y,c])=>$(x,y,c));
+// bed
+for(let y=17;y<=25;y++) for(let x=2;x<=20;x++) $(x,y,(x===2||x===20||y===25)?'#3b2752':'#7556a8');
+for(let y=15;y<=19;y++) for(let x=3;x<=11;x++) $(x,y,(x===3||y===15)?'#f5d6e8':'#f0bdd8');
+for(let y=19;y<=24;y++) for(let x=8;x<=21;x++) $(x,y,(x+y)%3===0?'#7bdff2':'#6c63ff');
+for(let x=4;x<=20;x++) $(x,24,'#514088');
+// shelf and cute decor
+for(let x=3;x<=14;x++) $(x,7,'#8a623f');
+[[4,5,'#ffd166'],[5,5,'#ffd166'],[8,5,'#ff6fa5'],[9,5,'#ff9cb6'],[12,5,'#3ddc97'],[13,5,'#2ea86d']].forEach(([x,y,c])=>$(x,y,c));
+// rug and sparkle floor
+for(let y=26;y<=29;y++) for(let x=10;x<=28;x++) $(x,y,(x===10||x===28||y===26||y===29)?'#4b3a78':'#2f7bc1');
+[[6,10],[14,12],[18,5],[27,16]].forEach(([x,y])=>{$(x,y,'#fff7a8'); if(x+1<32)$(x+1,y,'#ffd166');});
+});
+},
+
+creator_desk(ctx,sz){
+this._scaled(ctx,sz,32,32,(_c)=>{
+const $=(x,y,c)=>{_c.fillStyle=c;_c.fillRect(x,y,1,1);};
+for(let y=0;y<32;y++) for(let x=0;x<32;x++) $(x,y,y<18?'#101724':'#1b2033');
+for(let x=0;x<32;x++){ $(x,18,'#2c3350'); $(x,19,'#14192a'); }
+// desk
+for(let y=21;y<=24;y++) for(let x=2;x<=29;x++) $(x,y,y===21?'#9a6a42':y===24?'#4c2e1f':'#744a2e');
+for(let y=25;y<=31;y++){ $(4,y,'#3a2419'); $(26,y,'#3a2419'); }
+// monitor
+for(let y=7;y<=18;y++) for(let x=5;x<=20;x++) $(x,y,(x===5||x===20||y===7||y===18)?'#2b2f40':'#050916');
+for(let y=9;y<=16;y++) for(let x=7;x<=18;x++) $(x,y,'#0d1830');
+[[8,10,'#6c63ff'],[9,10,'#6c63ff'],[10,10,'#6c63ff'],[12,11,'#3ddc97'],[13,11,'#3ddc97'],[8,13,'#ffd166'],[9,13,'#ffd166'],[14,14,'#ff6b6b'],[15,14,'#ff6b6b'],[17,16,'#ffffff']].forEach(([x,y,c])=>$(x,y,c));
+$(12,19,'#2b2f40');$(13,19,'#2b2f40');$(11,20,'#2b2f40');$(14,20,'#2b2f40');
+// tablet + stylus
+for(let y=23;y<=27;y++) for(let x=15;x<=25;x++) $(x,y,(x===15||x===25||y===23||y===27)?'#3a415c':'#151c32');
+for(let x=17;x<=23;x++) $(x,25,'#6c63ff');
+for(let i=0;i<5;i++) $(24-i,22+i,'#e8e0f0');
+// lamp
+for(let y=11;y<=21;y++) $(25,y,'#65543a');
+for(let y=8;y<=12;y++) for(let x=23;x<=29;x++) if(Math.abs(x-26)+Math.abs(y-10)<5) $(x,y,'#ffd166');
+for(let y=12;y<=18;y++) for(let x=22;x<=30;x++) if((x+y)%3===0) $(x,y,'rgba(255,209,102,.18)');
+// plants and stickers
+for(let y=17;y<=21;y++) for(let x=2;x<=4;x++) $(x,y,y>19?'#6a3010':'#3ddc97');
+$(3,15,'#3ddc97');$(2,16,'#2ea86d');$(4,16,'#69f0ae');
+[[23,4,'#ff6fa5'],[24,4,'#ff6fa5'],[27,5,'#4fc3f7'],[28,5,'#4fc3f7'],[23,6,'#ffd166']].forEach(([x,y,c])=>$(x,y,c));
+});
+},
+
+mini_cafe(ctx,sz){
+this._scaled(ctx,sz,32,32,(_c)=>{
+const $=(x,y,c)=>{_c.fillStyle=c;_c.fillRect(x,y,1,1);};
+for(let y=0;y<32;y++) for(let x=0;x<32;x++) $(x,y,y<20?'#20172b':'#2b2137');
+for(let x=0;x<32;x++) $(x,20,'#5c3d4e');
+// striped awning
+for(let y=3;y<=7;y++) for(let x=2;x<=29;x++) $(x,y,Math.floor((x-2)/3)%2===0?'#ff6fa5':'#fff8f6');
+for(let x=2;x<=29;x++) $(x,8,'#8b3a5a');
+// window/counter
+for(let y=10;y<=19;y++) for(let x=4;x<=27;x++) $(x,y,(x===4||x===27||y===10||y===19)?'#8b6f47':'#101724');
+for(let y=11;y<=18;y++) for(let x=5;x<=26;x++) if((x+y)%2===0) $(x,y,'#16213e');
+for(let y=18;y<=23;y++) for(let x=2;x<=29;x++) $(x,y,y===18?'#c9a96e':y===23?'#6a4a2e':'#8b6f47');
+// mugs, pastry, sign
+[[7,15,'#ffd166'],[8,15,'#ffd166'],[7,16,'#f5a623'],[8,16,'#f5a623'],[12,15,'#e8e0f0'],[13,15,'#e8e0f0'],[12,16,'#c8c0d8'],[13,16,'#c8c0d8'],[18,15,'#d4730b'],[19,15,'#f5a623'],[20,15,'#d4730b']].forEach(([x,y,c])=>$(x,y,c));
+for(let y=11;y<=14;y++) for(let x=10;x<=21;x++) $(x,y,(x===10||x===21||y===11||y===14)?'#ffd166':'#3a2060');
+[[13,12,'#ff6fa5'],[14,12,'#ff6fa5'],[15,12,'#fff8f6'],[16,12,'#3ddc97'],[17,12,'#3ddc97']].forEach(([x,y,c])=>$(x,y,c));
+// stools and floor pattern
+for(let x of [7,23]){ for(let dx=0;dx<4;dx++) $(x+dx,25,'#ff6b6b'); $(x+1,26,'#4a2e2e');$(x+2,26,'#4a2e2e');$(x+1,27,'#4a2e2e');$(x+2,27,'#4a2e2e'); }
+for(let y=25;y<32;y++) for(let x=0;x<32;x++) if((Math.floor(x/4)+Math.floor(y/3))%2===0) $(x,y,'#382845');
+});
+},
+
 bag(ctx,sz){
 this._scaled(ctx,sz,20,20,(_c)=>{
 // Structured tote bag – 20×22 hand-authored
@@ -4534,6 +4885,73 @@ for(let y=5;y<=16;y++) $(15,y,'#8D6200');
         [15,1,'#fff'],[15,26,'#fff']]);
   },
 
+heart(ctx,sz){
+  this._scaled(ctx,sz,16,16,(_c)=>{
+    const $=(x,y,c)=>{_c.fillStyle=c;_c.fillRect(x,y,1,1);};
+    [
+      [4,2,'#FF6FA5'],[5,2,'#FF6FA5'],[10,2,'#FF6FA5'],[11,2,'#FF6FA5'],
+      [3,3,'#FF2D8B'],[4,3,'#FFD6E8'],[5,3,'#FF6FA5'],[6,3,'#FF2D8B'],[9,3,'#FF2D8B'],[10,3,'#FFD6E8'],[11,3,'#FF6FA5'],[12,3,'#FF2D8B'],
+      [2,4,'#CC0066'],[3,4,'#FF2D8B'],[4,4,'#FF9CB6'],[5,4,'#FF6FA5'],[6,4,'#FF2D8B'],[7,4,'#FF2D8B'],[8,4,'#FF2D8B'],[9,4,'#FF2D8B'],[10,4,'#FF9CB6'],[11,4,'#FF6FA5'],[12,4,'#FF2D8B'],[13,4,'#CC0066'],
+      [2,5,'#CC0066'],[3,5,'#FF2D8B'],[4,5,'#FF6FA5'],[5,5,'#FF6FA5'],[6,5,'#FF2D8B'],[7,5,'#FF2D8B'],[8,5,'#FF2D8B'],[9,5,'#FF2D8B'],[10,5,'#FF6FA5'],[11,5,'#FF6FA5'],[12,5,'#FF2D8B'],[13,5,'#CC0066'],
+      [3,6,'#CC0066'],[4,6,'#FF2D8B'],[5,6,'#FF2D8B'],[6,6,'#FF6FA5'],[7,6,'#FF2D8B'],[8,6,'#FF2D8B'],[9,6,'#FF6FA5'],[10,6,'#FF2D8B'],[11,6,'#FF2D8B'],[12,6,'#CC0066'],
+      [4,7,'#CC0066'],[5,7,'#FF2D8B'],[6,7,'#FF2D8B'],[7,7,'#FF6FA5'],[8,7,'#FF6FA5'],[9,7,'#FF2D8B'],[10,7,'#FF2D8B'],[11,7,'#CC0066'],
+      [5,8,'#CC0066'],[6,8,'#FF2D8B'],[7,8,'#FF6FA5'],[8,8,'#FF6FA5'],[9,8,'#FF2D8B'],[10,8,'#CC0066'],
+      [6,9,'#CC0066'],[7,9,'#FF2D8B'],[8,9,'#FF2D8B'],[9,9,'#CC0066'],
+      [7,10,'#CC0066'],[8,10,'#CC0066']
+    ].forEach(([x,y,c])=>$(x,y,c));
+  });
+},
+star(ctx,sz){
+  this._scaled(ctx,sz,16,16,(_c)=>{
+    const $=(x,y,c)=>{_c.fillStyle=c;_c.fillRect(x,y,1,1);};
+    [
+      [7,1,'#FFF4B2'],[8,1,'#FFF4B2'],[7,2,'#FFD700'],[8,2,'#FFD700'],
+      [6,3,'#FFD700'],[7,3,'#FFEC6E'],[8,3,'#FFEC6E'],[9,3,'#FFD700'],
+      [1,5,'#FFA500'],[2,5,'#FFD700'],[3,5,'#FFD700'],[4,5,'#FFD700'],[5,5,'#FFEC6E'],[6,5,'#FFEC6E'],[7,5,'#FFF4B2'],[8,5,'#FFF4B2'],[9,5,'#FFEC6E'],[10,5,'#FFEC6E'],[11,5,'#FFD700'],[12,5,'#FFD700'],[13,5,'#FFD700'],[14,5,'#FFA500'],
+      [3,6,'#FFA500'],[4,6,'#FFD700'],[5,6,'#FFEC6E'],[6,6,'#FFEC6E'],[7,6,'#FFD700'],[8,6,'#FFD700'],[9,6,'#FFEC6E'],[10,6,'#FFEC6E'],[11,6,'#FFD700'],[12,6,'#FFA500'],
+      [5,7,'#CC8800'],[6,7,'#FFD700'],[7,7,'#FFEC6E'],[8,7,'#FFEC6E'],[9,7,'#FFD700'],[10,7,'#CC8800'],
+      [5,8,'#FFA500'],[6,8,'#FFD700'],[7,8,'#FFEC6E'],[8,8,'#FFEC6E'],[9,8,'#FFD700'],[10,8,'#FFA500'],
+      [4,9,'#FFA500'],[5,9,'#FFD700'],[6,9,'#FFD700'],[9,9,'#FFD700'],[10,9,'#FFD700'],[11,9,'#FFA500'],
+      [3,10,'#CC8800'],[4,10,'#FFA500'],[5,10,'#FFD700'],[10,10,'#FFD700'],[11,10,'#FFA500'],[12,10,'#CC8800'],
+      [2,11,'#CC8800'],[3,11,'#FFA500'],[12,11,'#FFA500'],[13,11,'#CC8800'],
+    ].forEach(([x,y,c])=>$(x,y,c));
+  });
+},
+flower(ctx,sz){
+  this._scaled(ctx,sz,16,16,(_c)=>{
+    const $=(x,y,c)=>{_c.fillStyle=c;_c.fillRect(x,y,1,1);};
+    [[7,3,'#FF9CB6'],[8,3,'#FF9CB6'],[5,5,'#FF6FA5'],[6,5,'#FF9CB6'],[9,5,'#FF9CB6'],[10,5,'#FF6FA5'],[4,6,'#FF6FA5'],[5,6,'#FF9CB6'],[10,6,'#FF9CB6'],[11,6,'#FF6FA5'],[6,7,'#FF9CB6'],[7,7,'#FFD166'],[8,7,'#FFD166'],[9,7,'#FF9CB6'],[6,8,'#FF9CB6'],[7,8,'#FFD166'],[8,8,'#FFD166'],[9,8,'#FF9CB6'],[4,9,'#FF6FA5'],[5,9,'#FF9CB6'],[10,9,'#FF9CB6'],[11,9,'#FF6FA5'],[5,10,'#FF6FA5'],[6,10,'#FF9CB6'],[9,10,'#FF9CB6'],[10,10,'#FF6FA5'],[7,11,'#3DDC97'],[8,11,'#3DDC97'],[7,12,'#2EAD75'],[8,12,'#3DDC97'],[6,13,'#3DDC97'],[7,13,'#2EAD75'],[8,13,'#2EAD75'],[9,13,'#3DDC97'],[5,14,'#2EAD75'],[10,14,'#2EAD75']].forEach(([x,y,c])=>$(x,y,c));
+  });
+},
+frog(ctx,sz){
+  this._scaled(ctx,sz,16,16,(_c)=>{
+    const $=(x,y,c)=>{_c.fillStyle=c;_c.fillRect(x,y,1,1);};
+    for(let y=4;y<=12;y++) for(let x=3;x<=12;x++){
+      if((x<4&&y<6)||(x>11&&y<6)||(x<3&&y>10)||(x>12&&y>10)) continue;
+      $(x,y,y>9?'#2EA86D':'#3DDC97');
+    }
+    [[4,2,'#3DDC97'],[5,2,'#3DDC97'],[10,2,'#3DDC97'],[11,2,'#3DDC97'],[4,3,'#DFFFF0'],[5,3,'#111118'],[10,3,'#111118'],[11,3,'#DFFFF0'],[4,4,'#3DDC97'],[5,4,'#3DDC97'],[10,4,'#3DDC97'],[11,4,'#3DDC97'],[6,8,'#111118'],[9,8,'#111118'],[6,10,'#2A8F60'],[7,11,'#2A8F60'],[8,11,'#2A8F60'],[9,10,'#2A8F60'],[4,12,'#2EA86D'],[5,13,'#2EA86D'],[10,13,'#2EA86D'],[11,12,'#2EA86D'],[2,10,'#3DDC97'],[13,10,'#3DDC97']].forEach(([x,y,c])=>$(x,y,c));
+  });
+},
+butterfly(ctx,sz){
+  this._scaled(ctx,sz,16,16,(_c)=>{
+    const $=(x,y,c)=>{_c.fillStyle=c;_c.fillRect(x,y,1,1);};
+    [[3,3,'#6C63FF'],[4,3,'#9B94FF'],[11,3,'#FF6FA5'],[12,3,'#FF9CB6'],[2,4,'#6C63FF'],[3,4,'#4FC3F7'],[4,4,'#9B94FF'],[5,4,'#6C63FF'],[10,4,'#FF2D8B'],[11,4,'#FF6FA5'],[12,4,'#FF9CB6'],[13,4,'#FF2D8B'],[2,5,'#4FC3F7'],[3,5,'#6C63FF'],[4,5,'#9B94FF'],[5,5,'#6C63FF'],[10,5,'#FF2D8B'],[11,5,'#FF9CB6'],[12,5,'#FF6FA5'],[13,5,'#FF2D8B'],[4,7,'#6C63FF'],[5,7,'#4FC3F7'],[10,7,'#FF6FA5'],[11,7,'#FF9CB6'],[3,8,'#6C63FF'],[4,8,'#4FC3F7'],[5,8,'#9B94FF'],[10,8,'#FF9CB6'],[11,8,'#FF6FA5'],[12,8,'#FF2D8B'],[4,9,'#4FC3F7'],[5,9,'#6C63FF'],[10,9,'#FF6FA5'],[11,9,'#FF2D8B'],[7,4,'#111118'],[8,4,'#111118'],[7,5,'#2A2A36'],[8,5,'#2A2A36'],[7,6,'#111118'],[8,6,'#111118'],[7,7,'#2A2A36'],[8,7,'#2A2A36'],[7,8,'#111118'],[8,8,'#111118'],[6,2,'#FFD166'],[9,2,'#FFD166'],[6,3,'#FFD166'],[9,3,'#FFD166']].forEach(([x,y,c])=>$(x,y,c));
+  });
+},
+emoji_face(ctx,sz){
+  this._scaled(ctx,sz,16,16,(_c)=>{
+    const $=(x,y,c)=>{_c.fillStyle=c;_c.fillRect(x,y,1,1);};
+    for(let y=2;y<=13;y++) for(let x=2;x<=13;x++){
+      const d=Math.hypot(x-7.5,y-7.5);
+      if(d<=6.1) $(x,y,d>5.2?'#E8A800':y<6?'#FFF07A':'#FFD166');
+    }
+    [[5,6,'#111118'],[6,6,'#111118'],[10,6,'#111118'],[11,6,'#111118'],[5,5,'#FFFFFF'],[10,5,'#FFFFFF'],[5,10,'#111118'],[6,11,'#111118'],[7,11,'#111118'],[8,11,'#111118'],[9,11,'#111118'],[10,10,'#111118'],[6,10,'#FF6B6B'],[7,10,'#FF6B6B'],[8,10,'#FF6B6B'],[9,10,'#FF6B6B']].forEach(([x,y,c])=>$(x,y,c));
+  });
+},
+game_avatar(ctx,sz){
+  DRAWERS.character(ctx,sz);
+},
 sneaker_b(ctx,sz){ DRAWERS.sneaker(ctx,sz); },
 kawaii_bunny(ctx,sz){
   this._scaled(ctx,sz,32,32,(_c)=>{ bunnySprite.draw(_c); });
@@ -5379,7 +5797,15 @@ function startBlank(size){
   },50);
 }
 function updateThumb(i){const t=document.getElementById('ft-'+i);if(!t||!ST.frames[i])return;const ctx=t.getContext('2d');renderStoredFramePreview(ctx,{size:ST.size,frames:ST.frames,textFrames:ST.textFrames},i,0,0,ST.size,ST.size);}
-function addFrame(){ST.frames.push(new ImageData(ST.size,ST.size));ST.textFrames.push([]);ST.undoStacks.push([new ImageData(ST.size,ST.size)]);ST.undoTextStacks.push([[]]);ST.undoIdx.push(0);switchFrame(ST.frames.length-1);buildFramesUI();Economy.track('frame:add');addXP(3);SFX.click();}
+function addFrame(){
+  const maxFrames=getMaxAnimationFrames();
+  if(maxFrames!==Infinity && ST.frames.length>=maxFrames){
+    openProInfo();
+    toast(`Free animations include ${maxFrames} frames. Club unlocks unlimited frames.`);
+    return;
+  }
+  ST.frames.push(new ImageData(ST.size,ST.size));ST.textFrames.push([]);ST.undoStacks.push([new ImageData(ST.size,ST.size)]);ST.undoTextStacks.push([[]]);ST.undoIdx.push(0);switchFrame(ST.frames.length-1);buildFramesUI();Economy.track('frame:add');addXP(3);SFX.click();
+}
 function updateToolChip(){
   const chip=document.getElementById('tool-chip');
   if(!chip) return;
@@ -5446,7 +5872,15 @@ function updatePlayButton(){
     dup.title=ST.playing?'Pause preview before duplicating':'Duplicate current frame';
   }
 }
-function dupFrame(){if(ST.playing)stopPlay();captureFrame();const src=ST.frames[ST.currentFrame];const copy=cloneImageData(src);const textCopy=cloneTextObjectArray(getFrameTextObjects(ST.currentFrame));const at=ST.currentFrame+1;ST.frames.splice(at,0,copy);ST.textFrames.splice(at,0,textCopy);ST.undoStacks.splice(at,0,[cloneImageData(copy)]);ST.undoTextStacks.splice(at,0,[cloneTextObjectArray(textCopy)]);ST.undoIdx.splice(at,0,0);buildFramesUI();switchFrame(at);toast('⧉ Frame duplicated!');SFX.click();}
+function dupFrame(){
+  const maxFrames=getMaxAnimationFrames();
+  if(maxFrames!==Infinity && ST.frames.length>=maxFrames){
+    openProInfo();
+    toast(`Free animations include ${maxFrames} frames. Club unlocks unlimited frames.`);
+    return;
+  }
+  if(ST.playing)stopPlay();captureFrame();const src=ST.frames[ST.currentFrame];const copy=cloneImageData(src);const textCopy=cloneTextObjectArray(getFrameTextObjects(ST.currentFrame));const at=ST.currentFrame+1;ST.frames.splice(at,0,copy);ST.textFrames.splice(at,0,textCopy);ST.undoStacks.splice(at,0,[cloneImageData(copy)]);ST.undoTextStacks.splice(at,0,[cloneTextObjectArray(textCopy)]);ST.undoIdx.splice(at,0,0);buildFramesUI();switchFrame(at);toast('⧉ Frame duplicated!');SFX.click();
+}
 function deleteFrame(i){if(ST.frames.length<=1){toast('Need at least 1 frame');return;}ST.frames.splice(i,1);ST.textFrames.splice(i,1);ST.undoStacks.splice(i,1);ST.undoTextStacks.splice(i,1);ST.undoIdx.splice(i,1);clearTextSelection();const ni=Math.min(i,ST.frames.length-1);ST.currentFrame=ni;buildFramesUI();drawFrame(ni);toast('Frame deleted');}
 function switchFrame(i){
   captureFrame();ST.currentFrame=i;
@@ -5500,16 +5934,18 @@ function saveTextFromModal(applyAllFrames=false){
   const scale=document.getElementById('text-scale');
   const colorInput=document.getElementById('text-color');
   if(!input||!scale||!colorInput||!ST.pendingTextPoint) return;
+  const pending={...ST.pendingTextPoint};
   const text=normalizeTextValue(input.value);
   if(!text){toast('Type text first.');input.focus();return;}
-  const frameIndex=ST.pendingTextPoint.frame??ST.currentFrame;
+  const frameIndex=pending.frame??ST.currentFrame;
   const items=getFrameTextObjects(frameIndex);
   const pickedColor=colorInput.value||ST.color||'#6C63FF';
-  const draft={id:ST.pendingTextPoint.editId||`txt-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,text,x:ST.pendingTextPoint.x,y:ST.pendingTextPoint.y,scale:+scale.value||1,color:pickedColor};
+  const draft={id:pending.editId||`txt-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,text,x:pending.x,y:pending.y,scale:+scale.value||1,color:pickedColor};
   const next=clampTextObjectToCanvas(draft);
   const idx=items.findIndex(item=>item.id===next.id);
-  if(applyAllFrames && ST.pendingTextPoint.editId){
-    getTextOccurrences(ST.pendingTextPoint.editId).forEach(({frameIndex:fi,item})=>{
+  const editedAllFrames=!!(applyAllFrames && pending.editId);
+  if(editedAllFrames){
+    getTextOccurrences(pending.editId).forEach(({frameIndex:fi,item})=>{
       item.text=next.text;
       item.scale=next.scale;
       item.color=next.color;
@@ -5521,7 +5957,7 @@ function saveTextFromModal(applyAllFrames=false){
   ST.textSelection={id:next.id,frame:frameIndex};
   closeTextModal();
   if(frameIndex===ST.currentFrame){renderTextOverlay(frameIndex);drawSelOverlay();updateTextUI();updateThumb(frameIndex);} 
-  if(applyAllFrames && ST.pendingTextPoint.editId){
+  if(editedAllFrames){
     ST.textFrames.forEach((_,fi)=>{ if(fi!==frameIndex && getTextOccurrences(next.id).some(hit=>hit.frameIndex===fi)) updateThumb(fi); });
     pushHistory();
     toast('Text updated on all frames ✦');
@@ -5859,6 +6295,14 @@ function syncColorInputs(){
 function setActiveColor(color,{switchToPencil=false}={}){
   if(!/^#[0-9a-fA-F]{6}$/.test(String(color||''))) return;
   ST.color=color;
+  const selectedText=getSelectedTextObject();
+  if(selectedText){
+    selectedText.color=color;
+    renderTextOverlay(ST.currentFrame);
+    drawSelOverlay();
+    updateThumb(ST.currentFrame);
+    pushHistory();
+  }
   syncColorInputs();
   trackRecent(color);
   if(switchToPencil) setTool('pencil');
@@ -5909,61 +6353,146 @@ function trackRecent(c){RECENT_COLORS=RECENT_COLORS.filter(x=>x!==c);RECENT_COLO
 function addColorToPal(){PALETTE.push(ST.color);buildPalRow();pickSwatch(PALETTE.length-1,ST.color);closeColorModal();toast('Color added ✦');}
 
 // ── EXPORT: PNG ───────────────────────────────────────
-function openExportModal(){
+function openExportModal(source={type:'current'}){
+  EXPORT_SOURCE=source||{type:'current'};
   document.getElementById('export-modal').style.display='flex';
   document.querySelectorAll('#export-options-grid .exp-card').forEach(card=>{
     // Ensure no stale inline style hides an export option.
     card.style.display='flex';
   });
-  const sz = ST.size || 16;
+  const activeSource=getExportSource();
+  const sz = exportSourceSize(activeSource);
   const scale = 8;
   const dim = sz * scale;
-  const fc = (ST.frames || []).length;
+  const fc = exportSourceFrameCount(activeSource);
   const fps = ST.fps || 8;
   const infoEl = document.getElementById('exp-info');
-  if(infoEl) infoEl.textContent = `Current frame · ${sz}×${sz} px`;
+  if(infoEl) infoEl.textContent = activeSource.type==='project'
+    ? `${activeSource.project.name || 'Saved creation'} is ready to use.`
+    : `Your ${sz}×${sz} artwork is ready to use.`;
   const pngDim = document.getElementById('exp-png-dim');
-  if(pngDim) pngDim.textContent = `${dim}×${dim} px (8× scaled)`;
+  if(pngDim) pngDim.textContent = `${dim}×${dim} px`;
   const jpgDim = document.getElementById('exp-jpg-dim');
-  if(jpgDim) jpgDim.textContent = `${dim}×${dim} px (8× scaled, white bg)`;
+  if(jpgDim) jpgDim.textContent = `${dim}×${dim} px`;
   const gifDim = document.getElementById('exp-gif-dim');
-  if(gifDim) gifDim.textContent = `${dim}×${dim} px · ${fc} frame${fc!==1?'s':''} · ${fps} FPS`;
+  if(gifDim) gifDim.textContent = `${fc} frame${fc!==1?'s':''} · ${fps} FPS`;
 }
 function closeExportModal(){document.getElementById('export-modal').style.display='none';}
 
+function toggleUseIdeas(){
+  const panel=document.getElementById('use-ideas-panel');
+  if(panel) panel.hidden=!panel.hidden;
+}
+
+function currentPXVProjectPayload(){
+  captureFrame();
+  const name=currentProjectName();
+  return {
+    format:'Pixel Sprite Vibes Project',
+    version:1,
+    savedAt:new Date().toISOString(),
+    project:{
+      name,
+      size:ST.size,
+      frames:serializeFrames(ST.frames),
+      textFrames:serializeTextFrames(ST.textFrames),
+      palette:[...PALETTE],
+      currentColor:ST.color,
+      fps:ST.fps,
+      layers:(ST.layers||[]).map(layer=>({...layer})),
+      effects:{glow:!!ST.glow},
+      undoHistory:{
+        frames:(ST.undoStacks||[]).map(stack=>serializeFrames(stack)),
+        text:(ST.undoTextStacks||[]).map(stack=>serializeTextFrames(stack)),
+        index:[...(ST.undoIdx||[])],
+      },
+    },
+  };
+}
+
+function exportPXVProject(){
+  const payload=currentPXVProjectPayload();
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  downloadBlobFile(blob,`${slugifyProjectName(projectBaseName(payload.project.name)||'pixel-sprite-vibes')}.pxv`);
+  toast('Your project copy is ready. Reopen it anytime in Pixel Sprite Vibes.');
+}
+
+function importPXVProject(input){
+  const file=input?.files?.[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const payload=JSON.parse(String(reader.result||'{}'));
+      const project=payload.project||payload;
+      const size=Number(project.size)||16;
+      const frames=deserializeFrames(size,project.frames||project.fd||[]);
+      if(!frames.length) throw new Error('No artwork found');
+      ST.size=size;
+      ST.frames=frames;
+      ST.textFrames=deserializeTextFrames(project.textFrames||project.tf||frames.map(()=>[]));
+      ST.fps=Number(project.fps)||ST.fps||8;
+      if(Array.isArray(project.palette)&&project.palette.length) PALETTE=project.palette.slice(0,48);
+      if(project.currentColor) ST.color=project.currentColor;
+      ST.undoStacks=frames.map(f=>[cloneImageData(f)]);
+      ST.undoTextStacks=ST.textFrames.map(list=>[cloneTextObjectArray(list)]);
+      ST.undoIdx=frames.map(()=>0);
+      ST.currentFrame=0;
+      clearTextSelection();
+      document.getElementById('pname').textContent=project.name||file.name.replace(/\.pxv$/i,'.px');
+      closeExportModal();
+      showTab('create');
+      setTimeout(()=>{
+        applyAutoZoom(ST.size);
+        initCanvas();
+        buildPalRow();
+        toast('Project reopened. Keep creating.');
+      },50);
+    }catch(e){
+      toast('This project copy could not be opened.');
+    }finally{
+      input.value='';
+    }
+  };
+  reader.readAsText(file);
+}
+
 async function exportCanvas(){
-  captureFrame();const scale=8;const cvs=document.createElement('canvas');
-  cvs.width=ST.size*scale;cvs.height=ST.size*scale;
+  const source=captureExportSource();
+  const size=exportSourceSize(source);
+  const scale=8;const cvs=document.createElement('canvas');
+  cvs.width=size*scale;cvs.height=size*scale;
   const ctx=cvs.getContext('2d');ctx.imageSmoothingEnabled=false;
-  if(ST.frames[ST.currentFrame]){
-    const bmp=await createCompositeFrameBitmap();
-    ctx.drawImage(bmp,0,0,ST.size*scale,ST.size*scale);
+  if(exportSourceFrameCount(source)){
+    const bmp=await createExportSourceBitmap(source);
+    ctx.drawImage(bmp,0,0,size*scale,size*scale);
     const blob=await canvasToBlob(cvs,'image/png');
-    downloadBlobFile(blob,'pixel-creator.png');
-    const upload=await uploadExportedBlobForCurrentProject({
+    const fileName=`${exportSourceName(source)}.png`;
+    downloadBlobFile(blob,fileName);
+    const upload=await uploadExportForSource(source,{
       blob,
       assetType:'png',
-      fileName:'pixel-creator.png',
+      fileName,
       mimeType:'image/png',
       width:cvs.width,
       height:cvs.height,
     }).catch(err=>({ok:false,error:err}));
-    SFX.share();
-    toast(upload?.ok?'PNG exported and backed up ☁️':'PNG exported! 🎉');addXP(5);Economy.track('project:export',{format:'png'});
+    toast(upload?.ok?'Your artwork is ready and backed up. Ideas: school projects, wallpapers, character concepts.':'Your artwork is ready. Ideas: school projects, wallpapers, character concepts.');trackExport('png',5);
   }
 }
 function exportJPEG(){
-  captureFrame();const scale=8;const cvs=document.createElement('canvas');
-  cvs.width=ST.size*scale;cvs.height=ST.size*scale;
+  const source=captureExportSource();
+  const size=exportSourceSize(source);
+  const scale=8;const cvs=document.createElement('canvas');
+  cvs.width=size*scale;cvs.height=size*scale;
   const ctx=cvs.getContext('2d');ctx.imageSmoothingEnabled=false;
   // JPEG needs opaque bg — fill white first
   ctx.fillStyle='#ffffff';ctx.fillRect(0,0,cvs.width,cvs.height);
-  if(ST.frames[ST.currentFrame]){
-    createCompositeFrameBitmap().then(bmp=>{
-      ctx.drawImage(bmp,0,0,ST.size*scale,ST.size*scale);
-      const a=document.createElement('a');a.href=cvs.toDataURL('image/jpeg',0.95);a.download='pixel-creator.jpg';a.click();
-      SFX.share();
-      toast('JPEG exported! 🖼');addXP(5);Economy.track('project:export',{format:'jpeg'});
+  if(exportSourceFrameCount(source)){
+    createExportSourceBitmap(source).then(bmp=>{
+      ctx.drawImage(bmp,0,0,size*scale,size*scale);
+      downloadBlobFile(dataURLToBlob(cvs.toDataURL('image/jpeg',0.95)),`${exportSourceName(source)}.jpg`);
+      toast('Your school picture is ready. Add it to slides, docs, or creative assignments.');trackExport('jpeg',5);
     });
   }
 }
@@ -5993,18 +6522,28 @@ function downloadBlobFile(blob, filename){
   }
 }
 
-function exportGIF(){
-  captureFrame();
-  if(!ST.frames.length){ toast('Add at least 1 frame to export a GIF!'); return; }
-  const prog=document.getElementById('gif-progress');
-  if(prog) prog.classList.add('show');
-  setTimeout(()=>_buildGIF(),50);
+function dataURLToBlob(dataURL){
+  const [meta,data]=String(dataURL).split(',');
+  const mime=(meta.match(/data:([^;]+)/)||[])[1]||'application/octet-stream';
+  const bin=atob(data||'');
+  const bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  return new Blob([bytes],{type:mime});
 }
 
-function _buildGIF(){
-  const sz=ST.size;
-  const frameCanvases=ST.frames.map((_,idx)=>createCompositeFrameCanvas(idx));
+function exportGIF(){
+  const source=captureExportSource();
+  if(!exportSourceFrameCount(source)){ toast('Add at least 1 frame to export a GIF!'); return; }
+  const prog=document.getElementById('gif-progress');
+  if(prog) prog.classList.add('show');
+  setTimeout(()=>_buildGIF(source),50);
+}
+
+function _buildGIF(source=getExportSource()){
+  const sz=exportSourceSize(source);
+  const frameCanvases=source.project.frames.map((_,idx)=>createExportSourceCanvas(source,idx));
   const frames=frameCanvases.map(canvas=>canvas.getContext('2d').getImageData(0,0,sz,sz));
+  if(!isClubAccount()) frames.forEach(frame=>drawFreeGifWatermark(frame,sz));
   const fps=Math.max(1, ST.fps||8);
   const delay=Math.max(2, Math.round(100/fps));
   const prog=document.getElementById('gif-progress');
@@ -6110,22 +6649,22 @@ function _buildGIF(){
     if(fi>=frames.length){
       wr(0x3B); // GIF trailer
       const blob=new Blob([new Uint8Array(bytes)],{type:'image/gif'});
-      downloadBlobFile(blob,'pixel-creator.gif');
-      uploadExportedBlobForCurrentProject({
+      const fileName=`${exportSourceName(source)}.gif`;
+      downloadBlobFile(blob,fileName);
+      uploadExportForSource(source,{
         blob,
         assetType:'gif',
-        fileName:'pixel-creator.gif',
+        fileName,
         mimeType:'image/gif',
         width:sz,
         height:sz,
       }).then(upload=>{
         if(upload?.ok){
-          toast('🎞 GIF exported and backed up ☁️');
+          toast('Your animation is ready and backed up.');
         }
       }).catch(err=>console.warn('[Supabase GIF upload]', err));
-      SFX.share();
       if(prog) prog.classList.remove('show');
-      toast('🎞 GIF exported!');addXP(15);confetti();Economy.track('project:export',{format:'gif'});
+      toast(isClubAccount()?'Your animation is ready. Ideas: digital stickers, creative videos, sharing with friends.':'Your animation is ready with a Pixel Sprite Vibes mark. Club removes the mark.');trackExport('gif',15);confetti();
       return;
     }
     try {
@@ -6140,6 +6679,34 @@ function _buildGIF(){
     setTimeout(next,0);
   }
   next();
+}
+
+function drawFreeGifWatermark(imgData,sz){
+  if(!imgData?.data || sz<16) return;
+  const pattern=[
+    '11101110101',
+    '10101010101',
+    '11101100101',
+    '10000110101',
+    '10001110110',
+  ];
+  const w=pattern[0].length+2;
+  const h=pattern.length+2;
+  const ox=Math.max(0,sz-w);
+  const oy=Math.max(0,sz-h);
+  const set=(x,y,r,g,b,a=255)=>{
+    if(x<0||y<0||x>=sz||y>=sz) return;
+    const i=(y*sz+x)*4;
+    imgData.data[i]=r;imgData.data[i+1]=g;imgData.data[i+2]=b;imgData.data[i+3]=a;
+  };
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++) set(ox+x,oy+y,8,9,18,210);
+  }
+  pattern.forEach((row,py)=>{
+    [...row].forEach((bit,px)=>{
+      if(bit==='1') set(ox+1+px,oy+1+py,255,209,102,255);
+    });
+  });
 }
 
 // LZW compressor for GIF
@@ -6177,7 +6744,7 @@ function loadProjects(){
     const r=localStorage.getItem('pc2_proj');
     if(r){
       const arr=JSON.parse(r);
-      ST.projects=arr.map(p=>({
+      const projects=arr.map(p=>({
         ...p,
         slug:p.slug||slugifyProjectName(p.name),
         visibility:p.visibility||'private',
@@ -6187,7 +6754,9 @@ function loadProjects(){
         frames:deserializeFrames(p.size||16,p.fd),
         textFrames:deserializeTextFrames(p.tf),
         category:normalizeProjectCategory(p.category, p.starterKey, p.name),
-      })).slice(-STORAGE_LIMITS.maxProjects);
+      }));
+      const max=getMaxSavedProjects();
+      ST.projects=max===Infinity ? projects : projects.slice(-max);
     }
   } catch(e){}
 }
@@ -6209,9 +6778,13 @@ function openSaveProjectModal(){
   nameInput.value=currentName;
   categorySelect.value=normalizeProjectCategory(existing?.category, existing?.starterKey||ST.challengeStarterKey, currentName);
   if(note){
+    const saveLimit=getMaxSavedProjects();
+    const limitText=saveLimit===Infinity
+      ? 'Club includes unlimited saved creations.'
+      : `Free includes ${saveLimit} save slots. Club unlocks unlimited saves.`;
     note.textContent=hasCloudAccount()
-      ? 'Saved creations sync to your account. Open My Gallery to preview them again and toggle Public or Private.'
-      : 'Saved creations stay on this device until you sign in. Sign in to sync them and publish publicly.';
+      ? `Saved creations sync to your account. ${limitText} Public Gallery posting is free.`
+      : `Saved creations stay on this device until you sign in. ${limitText}`;
   }
   modal.style.display='flex';
   setTimeout(()=>{nameInput.focus();nameInput.select();},20);
@@ -6277,8 +6850,16 @@ function sanitizeGameName(name=''){
 const DISALLOWED_GAMENAME_PARTS=[
   'fuck','shit','bitch','dick','cock','pussy','slut','whore',
   'nude','naked','porn','hentai','boobs','tits','cum','anal',
-  'penis','vagina','horny','sexy','xxx'
+  'penis','vagina','horny','sexy','xxx',
+  'kill','murder','blood','gore','weapon','gun','knife','hate'
 ];
+
+function containsPersonalInfo(value=''){
+  const text=String(value||'');
+  return /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(text) ||
+    /\b(?:\+?1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)\d{3}[-.\s]?\d{4}\b/.test(text) ||
+    /(?:instagram|tiktok|snap|discord|youtube|yt|@)[\s:_-]*[a-z0-9_.-]{3,}/i.test(text);
+}
 
 function normalizeGamenameForModeration(name=''){
   return sanitizeGameName(name).toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -6291,6 +6872,9 @@ function validateGamename(name=''){
   const normalized=normalizeGamenameForModeration(clean);
   if(DISALLOWED_GAMENAME_PARTS.some(part=>normalized.includes(part))){
     return 'Choose a cleaner gamename.';
+  }
+  if(containsPersonalInfo(clean)){
+    return 'Choose a fun gamename without personal info.';
   }
   return '';
 }
@@ -6326,12 +6910,113 @@ function makeProfileHandle(name=getProfileName()){
   return '@'+base;
 }
 
+function pixelVerseWeekIndex(date=new Date()){
+  const monday=new Date(date);
+  monday.setHours(0,0,0,0);
+  const day=(monday.getDay()+6)%7;
+  monday.setDate(monday.getDate()-day);
+  return Math.floor(monday.getTime()/604800000);
+}
+
+function getPixelVerseTheme(date=new Date()){
+  return PIXELVERSE_THEMES[pixelVerseWeekIndex(date)%PIXELVERSE_THEMES.length];
+}
+
+function refreshPixelVerseUI(){
+  const theme=document.getElementById('pixelverse-theme');
+  if(theme) theme.textContent=getPixelVerseTheme();
+}
+
+function loadPixelVerseState(){
+  try{
+    ST.pixelVerseReactions=JSON.parse(localStorage.getItem('pc2_pixelverse_reactions')||'{}')||{};
+    ST.pixelVerseFollows=JSON.parse(localStorage.getItem('pc2_pixelverse_follows')||'{}')||{};
+  }catch(e){
+    ST.pixelVerseReactions={};
+    ST.pixelVerseFollows={};
+  }
+  refreshPixelVerseUI();
+}
+
+function savePixelVerseState(){
+  try{
+    localStorage.setItem('pc2_pixelverse_reactions',JSON.stringify(ST.pixelVerseReactions||{}));
+    localStorage.setItem('pc2_pixelverse_follows',JSON.stringify(ST.pixelVerseFollows||{}));
+  }catch(e){}
+}
+
+function claimDailyPixelSurprise(){
+  const today=dayStamp();
+  const key='pc2_pixelverse_surprise_day';
+  if(localStorage.getItem(key)===today){
+    toast('Daily Pixel Surprise already claimed. Come back tomorrow.');
+    return;
+  }
+  const idx=Math.abs((today.split('').reduce((sum,ch)=>sum+ch.charCodeAt(0),0)))%DAILY_PIXEL_SURPRISES.length;
+  const reward=DAILY_PIXEL_SURPRISES[idx];
+  if(Array.isArray(reward.colors)){
+    reward.colors.forEach(color=>{
+      if(!PALETTE.some(existing=>String(existing).toLowerCase()===String(color).toLowerCase())) PALETTE.push(color);
+      trackRecent(color);
+    });
+    buildPalRow();
+  }
+  localStorage.setItem(key,today);
+  addXP(20);
+  toast(`Daily Pixel Surprise: ${reward.type} · ${reward.label} +20 XP`);
+}
+
+function analyzePixelVerseSafety(project){
+  const text=[project?.name, project?.category, getProfileName()].filter(Boolean).join(' ');
+  const normalized=normalizeGamenameForModeration(text);
+  if(DISALLOWED_GAMENAME_PARTS.some(part=>normalized.includes(part))) return {ok:false,reason:'unsafe words'};
+  if(containsPersonalInfo(text)) return {ok:false,reason:'personal info'};
+  const frames=project?.frames||[];
+  const pixelCount=frames.reduce((sum,frame)=>{
+    if(!frame?.data) return sum;
+    let count=0;
+    for(let i=3;i<frame.data.length;i+=4) if(frame.data[i]>24) count++;
+    return sum+count;
+  },0);
+  if(pixelCount<4) return {ok:false,reason:'too blank'};
+  return {ok:true,reason:'safe'};
+}
+
+function pixelVerseProjectKey(project,idx=0){
+  return project?.cloudId || project?.slug || slugifyProjectName(projectBaseName(project?.name||`pixelverse-${idx}`));
+}
+
+function reactToPixelVerse(projectKey,reaction){
+  if(!projectKey || !PIXELVERSE_REACTIONS.some(item=>item[0]===reaction)) return;
+  ST.pixelVerseReactions[projectKey]=ST.pixelVerseReactions[projectKey]===reaction ? '' : reaction;
+  savePixelVerseState();
+  buildPublicGallery();
+  toast(ST.pixelVerseReactions[projectKey]?'Reaction added. No comments, just kindness.':'Reaction removed.');
+}
+
+function togglePixelVerseFollow(creator='creator'){
+  const key=sanitizeGameName(creator)||'creator';
+  ST.pixelVerseFollows[key]=!ST.pixelVerseFollows[key];
+  savePixelVerseState();
+  buildPublicGallery();
+  toast(ST.pixelVerseFollows[key]?'Following for feed inspiration. No messages or friend requests.':'Creator removed from feed inspiration.');
+}
+
 function updateProfileIdentity(){
   const name=getProfileName();
   const nameEl=document.getElementById('prof-name');
   const handleEl=document.getElementById('prof-handle');
+  const joinEl=document.getElementById('prof-join-date');
   if(nameEl) nameEl.textContent=name;
   if(handleEl) handleEl.textContent=makeProfileHandle(name);
+  if(joinEl){
+    let joined=localStorage.getItem('pc2_pixelverse_joined_on');
+    if(!joined){
+      joined=new Date().toLocaleDateString(undefined,{month:'short',year:'numeric'});
+      localStorage.setItem('pc2_pixelverse_joined_on',joined);
+    }
+    joinEl.textContent=`Joined PixelVerse ${joined}`;
+  }
 }
 
 function openProfileNameModal(force=false){
@@ -6420,6 +7105,8 @@ function canClaimStreakToday(){
 function refreshProfileStats(){
   const creationsEl=document.getElementById('ps-creations');
   if(creationsEl) creationsEl.textContent=String(ST.projects.length||0);
+  const featuredEl=document.getElementById('ps-featured');
+  if(featuredEl) featuredEl.textContent=String(ST.projects.filter(isProjectPublic).length||0);
   const streakProfileEl=document.getElementById('ps-streak');
   if(streakProfileEl) streakProfileEl.textContent=String(ST.streak||0);
 }
@@ -6443,6 +7130,159 @@ function refreshStreakUI(){
   btn.textContent=ready?'Auto daily':'Claimed today';
   btn.disabled=true;
   btn.classList.toggle('off',!ready);
+}
+
+const DAILY_VIBE_PROMPTS = [
+  {title:'Draw a magical pet', template:'frog', name:'magical-pet.px'},
+  {title:'Make a glowing sword', template:'sword', name:'glowing-sword.px'},
+  {title:'Create a cute emote', template:'emoji_face', name:'cute-emote.px'},
+  {title:'Design a lucky star', template:'star', name:'lucky-star.px'},
+  {title:'Make a butterfly sticker', template:'butterfly', name:'butterfly-sticker.px'},
+  {title:'Build a game avatar', template:'game_avatar', name:'game-avatar.px'},
+  {title:'Draw a tiny flower', template:'flower', name:'tiny-flower.px'},
+  {title:'Remix a neon heart', template:'heart', name:'neon-heart.px'},
+];
+
+const PROGRESSION_UNLOCKS = [
+  {level:1, icon:'🎨', name:'Creator Kit', detail:'Blank canvas, bunny, alien'},
+  {level:2, icon:'🌈', name:'Pastel Palettes', detail:'More color moods'},
+  {level:3, icon:'🏷️', name:'Sticker Export', detail:'Save as Sticker'},
+  {level:4, icon:'🎲', name:'Remix Styles', detail:'Extra color remix vibes'},
+  {level:5, icon:'🎞️', name:'Animation Tools', detail:'GIF and sprite sheet flow'},
+  {level:7, icon:'👑', name:'Pro Packs', detail:'Premium creator packs'},
+];
+
+const VIBE_DROPS = [
+  {id:'spark', label:'Spark Bonus', xp:10, message:'Vibe Drop: Spark Bonus +10 XP'},
+  {id:'glow', label:'Glow Bonus', xp:15, message:'Vibe Drop: Glow Bonus +15 XP'},
+  {id:'palette', label:'Palette Boost', xp:5, palette:['#FFB3BA','#BAE1FF','#BAFFC9','#FFFFBA'], message:'Vibe Drop: Pastel palette added +5 XP'},
+  {id:'remix', label:'Remix Boost', xp:8, message:'Vibe Drop: Try Color Remix next +8 XP'},
+  {id:'sticker', label:'Sticker Boost', xp:12, message:'Vibe Drop: Sticker-ready bonus +12 XP'},
+];
+
+function seededDailyUnit(seedText=''){
+  let h=2166136261;
+  for(let i=0;i<seedText.length;i++){
+    h^=seedText.charCodeAt(i);
+    h=Math.imul(h,16777619);
+  }
+  return ((h>>>0)%100000)/100000;
+}
+
+function getTodayVibeDrop(){
+  const name=getSavedProfileName()||'creator';
+  const idx=Math.floor(seededDailyUnit(`${dayStamp()}-${name}`)*VIBE_DROPS.length)%VIBE_DROPS.length;
+  return VIBE_DROPS[idx];
+}
+
+function applyVibeDrop(drop){
+  if(!drop) return {xp:0,message:''};
+  if(Array.isArray(drop.palette)){
+    drop.palette.forEach(color=>{
+      if(!PALETTE.some(existing=>String(existing).toLowerCase()===String(color).toLowerCase())){
+        PALETTE.push(color);
+      }
+      trackRecent(color);
+    });
+    buildPalRow();
+  }
+  return {xp:drop.xp||0,message:drop.message||`Vibe Drop: ${drop.label}`};
+}
+
+function progressionUnlockState(){
+  return PROGRESSION_UNLOCKS.map(item=>({...item,unlocked:(ST.level||1)>=item.level}));
+}
+
+function nextProgressionUnlock(){
+  return progressionUnlockState().find(item=>!item.unlocked)||null;
+}
+
+function updateProgressionBadges(){
+  const homeBadges=document.querySelectorAll('.xp-badges .badge');
+  const profileBadges=document.querySelectorAll('.pbadges .pbadge');
+  const unlocks=progressionUnlockState();
+  [homeBadges,profileBadges].forEach(nodes=>{
+    nodes.forEach((node,idx)=>{
+      const unlock=unlocks[idx];
+      if(!unlock) return;
+      node.textContent=unlock.icon;
+      node.title=`Level ${unlock.level}: ${unlock.name}`;
+      node.classList.toggle('locked',!unlock.unlocked);
+    });
+  });
+}
+
+function getDailyVibePrompt(){
+  const d=new Date();
+  const seed=Math.floor(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/86400000);
+  return DAILY_VIBE_PROMPTS[seed%DAILY_VIBE_PROMPTS.length];
+}
+
+function refreshDailyVibe(){
+  const title=document.getElementById('daily-vibe-title');
+  const action=document.querySelector('#daily-vibe-card .daily-vibe-action');
+  const reward=document.getElementById('daily-vibe-reward');
+  const prompt=getDailyVibePrompt();
+  const done=localStorage.getItem('pc2_daily_vibe_done')===dayStamp();
+  const active=(ST.activeDailyVibeKey || localStorage.getItem('pc2_daily_vibe_active'))===dayStamp();
+  if(title) title.textContent=prompt.title;
+  if(action) action.textContent=done?'Completed today':active?'Create & save':'Start prompt';
+  if(reward) reward.textContent=done?'New vibe drops tomorrow':'Save to reveal today’s Vibe Drop';
+}
+
+function startDailyPrompt(){
+  const prompt=getDailyVibePrompt();
+  ST.activeDailyVibeKey=dayStamp();
+  try{
+    localStorage.setItem('pc2_daily_vibe_active', ST.activeDailyVibeKey);
+    localStorage.setItem('pc2_daily_vibe_template', prompt.template);
+  }catch(e){}
+  refreshDailyVibe();
+  const template=[
+    ...TEMPLATES.items,
+    ...TEMPLATES.chars,
+    ...TEMPLATES.scenes,
+  ].find(item=>item.id===prompt.template);
+  if(template){
+    loadTemplate(template.id, template.name);
+    setTimeout(()=>{
+      const pname=document.getElementById('pname');
+      if(pname) pname.textContent=prompt.name;
+    },90);
+  }else{
+    startBlank(16);
+  }
+  toast(`Today’s vibe: ${prompt.title}`);
+}
+
+function loadDailyVibeState(){
+  try{
+    ST.activeDailyVibeKey=localStorage.getItem('pc2_daily_vibe_active')||'';
+  }catch(e){
+    ST.activeDailyVibeKey='';
+  }
+}
+
+function completeDailyVibeIfEligible(){
+  const today=dayStamp();
+  let active=ST.activeDailyVibeKey;
+  let done='';
+  try{
+    active=active || localStorage.getItem('pc2_daily_vibe_active') || '';
+    done=localStorage.getItem('pc2_daily_vibe_done') || '';
+  }catch(e){}
+  if(active!==today || done===today) return null;
+  try{
+    localStorage.setItem('pc2_daily_vibe_done', today);
+    localStorage.removeItem('pc2_daily_vibe_active');
+  }catch(e){}
+  ST.activeDailyVibeKey='';
+  refreshDailyVibe();
+  const drop=applyVibeDrop(getTodayVibeDrop());
+  return {
+    xp:50+(drop.xp||0),
+    message:drop.message ? `Today’s Vibe complete +50 XP · ${drop.message}` : 'Today’s Vibe complete +50 XP',
+  };
 }
 
 function buildHomeGallery(){
@@ -6481,12 +7321,12 @@ function buildHomeGallery(){
     const status=document.createElement('div');
     status.className='gallery-visibility-card'+(isProjectPublic(proj)?' public':' private');
     status.innerHTML=isProjectPublic(proj)
-      ? '<div class="gallery-visibility-label">Public</div><div class="gallery-visibility-copy">Shown in the community gallery.</div>'
+      ? '<div class="gallery-visibility-label">PixelVerse</div><div class="gallery-visibility-copy">Shared safely. Emoji reactions only.</div>'
       : '<div class="gallery-visibility-label">Private</div><div class="gallery-visibility-copy">Only visible in your gallery.</div>';
     const toggle=document.createElement('button');
     toggle.type='button';
     toggle.className='gallery-publish-btn';
-    toggle.textContent=isProjectPublic(proj)?'Make Private':'Make Public';
+    toggle.textContent=isProjectPublic(proj)?'Make Private':'Share to PixelVerse';
     toggle.onclick=async(e)=>{
       e.stopPropagation();
       await toggleProjectPublishing(projectIndex);
@@ -6507,19 +7347,45 @@ function buildPublicGallery(){
   const wrap=document.getElementById('public-gallery-strip');
   const section=document.getElementById('public-gallery-section');
   if(!wrap||!section) return;
+  refreshPixelVerseUI();
   wrap.innerHTML='';
   if(!ST.publicGallery.length){
-    section.style.display='none';
+    section.style.display='block';
+    const empty=document.createElement('div');
+    empty.className='gallery-empty';
+    empty.textContent='PixelVerse is ready. Share a creation to start filling this safe creative universe.';
+    wrap.appendChild(empty);
     return;
   }
   section.style.display='block';
-  ST.publicGallery.forEach((proj,idx)=>{
-    const card=document.createElement('button');
+  const theme=getPixelVerseTheme();
+  const ranked=[...ST.publicGallery].sort((a,b)=>{
+    const ak=(a.pixelVerseTheme===theme?0:1)+(ST.pixelVerseFollows?.[sanitizeGameName(a.creator||'')]?-0.25:0);
+    const bk=(b.pixelVerseTheme===theme?0:1)+(ST.pixelVerseFollows?.[sanitizeGameName(b.creator||'')]?-0.25:0);
+    return ak-bk || String(a.name).localeCompare(String(b.name));
+  });
+  ranked.forEach((proj)=>{
+    const idx=ST.publicGallery.indexOf(proj);
+    if(proj.pixelVerseSafe===false) return;
+    const projectKey=pixelVerseProjectKey(proj,idx);
+    const creator=sanitizeGameName(proj.creator||'PixelCreator');
+    const card=document.createElement('div');
     card.className='gallery-item community';
+    card.setAttribute('role','button');
+    card.tabIndex=0;
     card.onclick=()=>loadPublicGalleryProject(idx);
+    card.onkeydown=e=>{
+      if(e.key==='Enter' || e.key===' '){
+        e.preventDefault();
+        loadPublicGalleryProject(idx);
+      }
+    };
     const chip=document.createElement('div');
     chip.className='gallery-chip community';
-    chip.textContent='Community';
+    chip.textContent=proj.pixelVerseTheme===theme?'Weekly Theme':'New Creation';
+    const safe=document.createElement('div');
+    safe.className='pixelverse-safe-chip';
+    safe.textContent='Safe Share';
     const cvs=document.createElement('canvas');
     const size=proj.size||16;
     cvs.width=size;
@@ -6530,11 +7396,30 @@ function buildPublicGallery(){
     lbl.textContent=proj.name||`Public creation ${idx+1}`;
     const sub=document.createElement('div');
     sub.className='gallery-sub';
-    sub.textContent='Tap to remix';
+    sub.textContent=`by ${creator} · tap to remix`;
+    const reactions=document.createElement('div');
+    reactions.className='pixelverse-reactions';
+    PIXELVERSE_REACTIONS.forEach(([key,emoji,label])=>{
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className='pixelverse-react'+(ST.pixelVerseReactions?.[projectKey]===key?' on':'');
+      btn.title=label;
+      btn.textContent=emoji;
+      btn.onclick=e=>{e.stopPropagation();reactToPixelVerse(projectKey,key);};
+      reactions.appendChild(btn);
+    });
+    const follow=document.createElement('button');
+    follow.type='button';
+    follow.className='pixelverse-follow';
+    follow.textContent=ST.pixelVerseFollows?.[creator]?'Following':'Follow Creator';
+    follow.onclick=e=>{e.stopPropagation();togglePixelVerseFollow(creator);};
     card.appendChild(chip);
+    card.appendChild(safe);
     card.appendChild(cvs);
     card.appendChild(lbl);
     card.appendChild(sub);
+    card.appendChild(reactions);
+    card.appendChild(follow);
     wrap.appendChild(card);
   });
 }
@@ -6566,6 +7451,9 @@ async function loadPublicGalleryProjects(){
     frames:deserializeFrames(row.canvas_size||16,row.frames||[]),
     textFrames:deserializeTextFrames(row.metadata?.text_frames),
     category:normalizeProjectCategory(row.metadata?.category, '', row.title),
+    creator:sanitizeGameName(row.metadata?.creator||'PixelCreator'),
+    pixelVerseTheme:row.metadata?.pixelverse_theme||getPixelVerseTheme(),
+    pixelVerseSafe:row.metadata?.pixelverse_safe!==false,
     updatedAt:row.updated_at||null,
   }));
   buildPublicGallery();
@@ -6620,7 +7508,11 @@ function syncCanvasUnlockUI(){
 function updateXPNextUnlock(){
   const out=document.getElementById('xp-next');
   if(!out) return;
-  out.textContent='All tools unlocked. Keep creating to earn XP and streak rewards.';
+  const next=nextProgressionUnlock();
+  out.textContent=next
+    ? `Level ${next.level} unlock: ${next.name}`
+    : 'All level rewards unlocked. Keep creating to grow your streak.';
+  updateProgressionBadges();
 }
 
 function applyReleaseVisibility(){
@@ -6729,7 +7621,7 @@ function renderCloset(){
     const visibility=document.createElement('div');
     visibility.className='cc-visibility-card'+(isProjectPublic(proj)?' public':' private');
     visibility.innerHTML=isProjectPublic(proj)
-      ? '<span class="cc-visibility-label">Public</span><span class="cc-visibility-copy">Visible in the community gallery</span>'
+      ? '<span class="cc-visibility-label">PixelVerse</span><span class="cc-visibility-copy">Shared safely · emoji reactions only</span>'
       : '<span class="cc-visibility-label">Private</span><span class="cc-visibility-copy">Only visible in your gallery</span>';
     visibility.setAttribute('role','button');
     visibility.tabIndex=0;
@@ -6743,7 +7635,7 @@ function renderCloset(){
     };
     const publishBtn=document.createElement('button');
     publishBtn.className='cc-publish';
-    publishBtn.textContent=isProjectPublic(proj)?'Make Private':'Make Public';
+    publishBtn.textContent=isProjectPublic(proj)?'Make Private':'Share to PixelVerse';
     publishBtn.onclick=async(e)=>{e.stopPropagation();await toggleProjectPublishing(idx);};
     publishRow.appendChild(visibility);
     publishRow.appendChild(publishBtn);
@@ -6758,7 +7650,7 @@ function renderCloset(){
 
     const exportBtn=document.createElement('button');
     exportBtn.className='cc-act cc-exp';
-    exportBtn.textContent='Export';
+    exportBtn.textContent='Use It';
     exportBtn.onclick=(e)=>{e.stopPropagation();exportProject(idx);};
 
     const deleteBtn=document.createElement('button');
@@ -6808,22 +7700,7 @@ function deleteProject(idx){
 }
 function exportProject(idx){
   const p=ST.projects[idx];if(!p||!p.frames[0])return;
-  const scale=8;const cvs=document.createElement('canvas');
-  cvs.width=(p.size||16)*scale;cvs.height=(p.size||16)*scale;
-  const ctx=cvs.getContext('2d');ctx.imageSmoothingEnabled=false;
-  renderStoredFramePreview(ctx,p,0,0,0,(p.size||16)*scale,(p.size||16)*scale);
-  canvasToBlob(cvs,'image/png').then(async blob=>{
-    downloadBlobFile(blob,p.name+'.png');
-    const upload=await uploadExportedBlobForProject(p,{
-      blob,
-      assetType:'png',
-      fileName:p.name+'.png',
-      mimeType:'image/png',
-      width:cvs.width,
-      height:cvs.height,
-    }).catch(err=>({ok:false,error:err}));
-    toast(upload?.ok?'Exported and backed up ☁️':'Exported!');
-  });
+  openExportModal({type:'project',index:idx});
 }
 
 // ── TEMPLATES ─────────────────────────────────────────
@@ -6831,8 +7708,8 @@ function inferTemplateStyleProfile(id,name=''){
   const key=String(id||name||'').toLowerCase();
   if(/room|city|forest|space|scene/.test(key)) return 'scene';
   if(/hoodie|cap|sneaker|boot|shirt|pants|bag|wear/.test(key)) return 'wearable';
-  if(/shield|badge|sword|icon/.test(key)) return 'icon';
-  if(/cat|dog|dragon|ghost|character|alien|pet|avatar|bunny|fox/.test(key)) return 'avatar';
+  if(/shield|badge|sword|icon|heart|star|flower|butterfly|emoji/.test(key)) return 'icon';
+  if(/cat|dog|dragon|ghost|character|alien|pet|avatar|bunny|fox|frog/.test(key)) return 'avatar';
   return 'default';
 }
 
@@ -7017,17 +7894,24 @@ function buildHomeTemplates(){
   blankCard.onclick=()=>startBlank(16);
   el.appendChild(blankCard);
   const subtitleMap={
-    kawaii_bunny:'Starter Character',
-    sneaker:'Customize & Design',
-    bag:'Build Your Brand',
-    bw_fox:'Starter Character',
-    pixel_cat:'Expressive Character',
+    kawaii_bunny:'kawaii-bunny.px',
+    alien:'alien.px',
+    heart:'Tap, recolor, remix',
+    star:'Fast sparkle starter',
+    frog:'Cute pet starter',
+    butterfly:'Decorate wings',
+    game_avatar:'Make a tiny profile icon',
+    flower:'Soft sticker starter',
+    emoji_face:'Make an emote',
+    sword:'Game item starter',
   };
-  const kawaiiQuick = TEMPLATES.chars.find(t => t.id === 'kawaii_bunny');
-  const quickPremium = featureEnabled('premiumY2K') ? TEMPLATES.y2k.filter(t => t.id === 'premium_bunny') : [];
-  const quickChallenges = featureEnabled('templateChallenges') ? TEMPLATES.challenge : [];
-  const quickChars = TEMPLATES.chars.filter(t => t.id !== 'kawaii_bunny').slice(0,2);
-  const quickList = [kawaiiQuick, ...quickPremium, ...quickChallenges, ...TEMPLATES.items.slice(0,2), ...quickChars]
+  const allStarterTemplates=[
+    ...TEMPLATES.chars.map(t=>({...t,cat:'chars'})),
+    ...TEMPLATES.items.map(t=>({...t,cat:'items'})),
+    ...TEMPLATES.scenes.map(t=>({...t,cat:'scenes'})),
+  ];
+  const quickList = HOME_STARTER_TEMPLATE_IDS
+    .map(id=>allStarterTemplates.find(t=>t.id===id))
     .filter(Boolean);
   quickList.forEach(t=>{
     const d=document.createElement('div');
@@ -7100,7 +7984,14 @@ function loadAnimTemplate(tmpl){
   }
   ST.frames=[];ST.undoStacks=[];ST.undoIdx=[];showTab('create');
   setTimeout(()=>{
-    initCanvas();
+    const desiredSize=tmpl.size||32;
+    if(ST.size!==desiredSize){
+      ST.size=desiredSize;
+      ['sz-16','sz-32','sz-64'].forEach(btnId=>document.getElementById(btnId)?.classList.remove('on'));
+      document.getElementById('sz-'+desiredSize)?.classList.add('on');
+    }
+    applyAutoZoom(desiredSize);
+    initCanvas(desiredSize);
     document.getElementById('pname').textContent=tmpl.name.toLowerCase().replace(/ /g,'-')+'.px';
     // Generate all frames
     for(let f=0;f<tmpl.frames;f++){
@@ -7313,8 +8204,8 @@ function normalizeProjectCategory(category='', starterKey='', name=''){
   if(GALLERY_CATEGORIES.includes(raw)) return raw;
   const key=String(starterKey||name||'').toLowerCase();
   if(/room|scene|space|forest|city/.test(key)) return 'Rooms';
-  if(/item|bag|shoe|sneaker|shirt|pants|cap|hoodie|boot|wear/.test(key)) return 'Items';
-  if(/avatar|char|bunny|cat|fox|pet|walk|premium_bunny/.test(key)) return 'Avatar';
+  if(/item|bag|shoe|sneaker|shirt|pants|cap|hoodie|boot|wear|heart|star|flower|butterfly|sword|shield|badge/.test(key)) return 'Items';
+  if(/avatar|char|bunny|cat|fox|pet|walk|premium_bunny|frog|emoji/.test(key)) return 'Avatar';
   return 'Closet';
 }
 
@@ -7334,10 +8225,13 @@ function serializeProjectForCloud(proj){
     visibility:proj.visibility||'private',
     is_gallery_item:!!proj.isGalleryItem,
     metadata:{
-      source:'pixel-creator-web',
+      source:'pixel-sprite-vibe-web',
       local_name:proj.name||'untitled.px',
       text_frames:serializeTextFrames(proj.textFrames),
       category:projectCategoryLabel(proj),
+      creator:sanitizeGameName(getProfileName()),
+      pixelverse_theme:getPixelVerseTheme(),
+      pixelverse_safe:analyzePixelVerseSafety(proj).ok,
     },
   };
 }
@@ -7355,6 +8249,9 @@ function deserializeCloudProject(row){
     isGalleryItem:!!row.is_gallery_item,
     starterKey:row.starter_key||'',
     category:normalizeProjectCategory(row.metadata?.category, row.starter_key, row.title),
+    creator:sanitizeGameName(row.metadata?.creator||'PixelCreator'),
+    pixelVerseTheme:row.metadata?.pixelverse_theme||getPixelVerseTheme(),
+    pixelVerseSafe:row.metadata?.pixelverse_safe!==false,
     updatedAt:row.updated_at||null,
   };
 }
@@ -7386,7 +8283,9 @@ function mergeProjectLists(primary=[], secondary=[]){
     const key=proj.cloudId || proj.slug || slugifyProjectName(projectBaseName(proj.name));
     if(!map.has(key)) map.set(key, proj);
   });
-  return [...map.values()].slice(-STORAGE_LIMITS.maxProjects);
+  const max=getMaxSavedProjects();
+  const merged=[...map.values()];
+  return max===Infinity ? merged : merged.slice(-max);
 }
 
 async function upsertSingleProjectToCloud(proj){
@@ -7432,7 +8331,9 @@ async function loadCloudProjects(){
     console.warn('[Supabase projects load]', error.message||error);
     return [];
   }
-  const remote=(data||[]).map(deserializeCloudProject).filter(Boolean).slice(0,STORAGE_LIMITS.maxProjects);
+  const max=getMaxSavedProjects();
+  const remoteAll=(data||[]).map(deserializeCloudProject).filter(Boolean);
+  const remote=max===Infinity ? remoteAll : remoteAll.slice(0,max);
   ST.projects=remote;
   persistProjectsWithLimits();
   AUTH_STATE.projectsLoaded=true;
@@ -7754,11 +8655,23 @@ async function toggleProjectPublishing(idx){
   const project=ST.projects[idx];
   if(!project) return;
   if(!hasCloudAccount()){
-    toast('Sign in first to publish creations to your gallery.');
+    toast('Sign in first to share safely in PixelVerse.');
     showTab('profile');
     return;
   }
   const nextPublic=!isProjectPublic(project);
+  if(nextPublic){
+    const safety=analyzePixelVerseSafety(project);
+    if(!safety.ok){
+      toast('PixelVerse kept this private for safety. Remove personal info or unsafe content.');
+      project.visibility='private';
+      project.isGalleryItem=false;
+      saveProjects();
+      renderCloset();
+      buildHomeGallery();
+      return;
+    }
+  }
   project.visibility=nextPublic?'public':'private';
   project.isGalleryItem=nextPublic;
   const saved=saveProjects();
@@ -7779,7 +8692,7 @@ async function toggleProjectPublishing(idx){
   loadPublicGalleryProjects().catch(err=>console.warn('[Supabase public gallery]', err));
   renderCloset();
   buildHomeGallery();
-  toast(nextPublic?'Published to your gallery ✨':'Moved back to private saves');
+  toast(nextPublic?'Shared to PixelVerse ✨ Emoji reactions only. No comments or chat.':'Moved back to private saves');
 }
 
 function estimateBytes(str=''){
@@ -7814,7 +8727,8 @@ function isQuotaError(err){
   );
 }
 
-function trimProjectStorage(targetMax=STORAGE_LIMITS.maxProjects){
+function trimProjectStorage(targetMax=getMaxSavedProjects()){
+  if(targetMax===Infinity) return 0;
   if(ST.projects.length<=targetMax) return 0;
   const removeCount=ST.projects.length-targetMax;
   ST.projects.splice(0,removeCount);
@@ -7832,22 +8746,23 @@ function updateStorageUI(message=''){
   const el=document.getElementById('closet-storage');
   if(!el) return;
   const snap=getStorageSnapshot();
+  const projectLimit=getMaxSavedProjects();
   const parts=[
     `${formatBytes(snap.totalBytes)} used`,
-    `${snap.projectCount}/${STORAGE_LIMITS.maxProjects} gallery saves`,
+    `${snap.projectCount}/${formatLimit(projectLimit)} gallery saves`,
     `${snap.submissionCount}/${STORAGE_LIMITS.maxSubmissions} challenge entries`,
   ];
   el.textContent=message || parts.join(' · ');
   el.classList.remove('warn','danger');
-  if(snap.totalBytes>=STORAGE_LIMITS.dangerBytes || snap.projectCount>=STORAGE_LIMITS.maxProjects){
+  if(snap.totalBytes>=STORAGE_LIMITS.dangerBytes || (projectLimit!==Infinity && snap.projectCount>=projectLimit)){
     el.classList.add('danger');
-  } else if(snap.totalBytes>=STORAGE_LIMITS.warnBytes || snap.projectCount>=Math.floor(STORAGE_LIMITS.maxProjects*0.8)){
+  } else if(snap.totalBytes>=STORAGE_LIMITS.warnBytes || (projectLimit!==Infinity && snap.projectCount>=Math.floor(projectLimit*0.8))){
     el.classList.add('warn');
   }
 }
 
 function persistProjectsWithLimits(){
-  trimProjectStorage(STORAGE_LIMITS.maxProjects);
+  trimProjectStorage(getMaxSavedProjects());
   try{
     localStorage.setItem('pc2_proj',JSON.stringify(serializeProjectsPayload()));
     updateStorageUI();
@@ -7925,8 +8840,14 @@ function makeProjectSnapshot(name=document.getElementById('pname')?.textContent?
 
 function upsertProject(proj,{reward=true,silent=false}={}){
   const idx=ST.projects.findIndex(p=>p.name===proj.name);
+  const maxProjects=getMaxSavedProjects();
+  if(idx<0 && maxProjects!==Infinity && ST.projects.length>=maxProjects){
+    openProInfo();
+    toast(`Free includes ${maxProjects} save slots. Upgrade to Club for unlimited saves.`);
+    return false;
+  }
   if(idx>=0) ST.projects[idx]={...ST.projects[idx],...proj}; else ST.projects.push(proj);
-  if(ST.projects.length>STORAGE_LIMITS.maxProjects) trimProjectStorage(STORAGE_LIMITS.maxProjects);
+  if(maxProjects!==Infinity && ST.projects.length>maxProjects) trimProjectStorage(maxProjects);
   const saved=saveProjects();
   if(!saved.ok){
     toast('Storage is full. Export or delete older saves first.');
@@ -7936,12 +8857,15 @@ function upsertProject(proj,{reward=true,silent=false}={}){
   buildHomeGallery();
   renderCloset();
   if(reward){
+    const dailyReward=completeDailyVibeIfEligible();
+    const xpReward=20+(dailyReward?.xp||0);
     const savedMessage=saved.removed>0
       ? `✦ Saved! Replaced ${saved.removed} older save${saved.removed===1?'':'s'} to stay within device storage.`
       : hasCloudAccount()
         ? '✦ Saved to My Gallery. Open it to preview, export, or set Public.'
         : '✦ Saved on this device. Sign in to sync and publish from My Gallery.';
-    confetti();addXP(20);toast(savedMessage);SFX.save();Economy.track('project:save');
+    const rewardMessage=dailyReward ? `Saved +20 XP · ${dailyReward.message}` : savedMessage;
+    confetti();addXP(xpReward);toast(rewardMessage,dailyReward?3000:2200);SFX.save();Economy.track('project:save');
   } else if(!silent){
     toast('Updated in Gallery ✦');
   }
@@ -8293,7 +9217,19 @@ function submitChallenge(){
 // ── GAMIFICATION ──────────────────────────────────────
 function addXP(n){
   ST.xp+=n;
-  if(ST.xp>=ST.xpMax){ST.level++;ST.xp-=ST.xpMax;ST.xpMax=Math.floor(ST.xpMax*1.45);toast(`⚡ Level ${ST.level} unlocked!`);confetti();SFX.levelUp();}
+  let leveled=false;
+  while(ST.xp>=ST.xpMax){
+    ST.level++;
+    ST.xp-=ST.xpMax;
+    ST.xpMax=Math.floor(ST.xpMax*1.45);
+    leveled=true;
+  }
+  if(leveled){
+    const next=nextProgressionUnlock();
+    toast(next?`Level ${ST.level}! Next unlock: ${next.name}`:`Level ${ST.level}! Keep creating ✦`);
+    confetti();
+    SFX.levelUp();
+  }
   const pct=Math.min(100,(ST.xp/ST.xpMax)*100);
   const xpf=document.getElementById('xp-fill');if(xpf)xpf.style.width=pct+'%';
   ['xp-cur','ps-xp'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=ST.xp;});
@@ -8301,6 +9237,7 @@ function addXP(n){
   const xpl=document.getElementById('xp-lvl');if(xpl)xpl.textContent=ST.level;
   refreshHomeStatusBadge();
   updateXPNextUnlock();
+  updateProgressionBadges();
   syncCanvasUnlockUI();
   scheduleCloudProfileSync();
 }
@@ -8339,6 +9276,7 @@ function autoClaimDailyStreakOnOpen(){
 function buildProfile(){
   updateProfileIdentity();
   syncAuthUI();
+  updateProgressionBadges();
   const name=getProfileName();
   const cvs=document.getElementById('prof-av');
   const ctx=cvs&&typeof cvs.getContext==='function'?cvs.getContext('2d'):null;
@@ -8372,6 +9310,10 @@ function buildProfile(){
     soundRow.querySelector('.tog-tr').style.background=soundToggle.checked?'var(--ind)':'var(--s5)';
     soundRow.querySelector('.tog-th').style.left=soundToggle.checked?'22px':'2px';
     saveAppSetting('soundEffects', soundToggle.checked);
+    if(soundToggle.checked){
+      SFX.prime();
+      SFX.test();
+    }
     toast(soundToggle.checked?'Sound Effects turned on.':'Sound Effects turned off.');
   };
   el.appendChild(soundRow);
@@ -8380,6 +9322,7 @@ function buildProfile(){
 // ── NAVIGATION ────────────────────────────────────────
 const TAB_MAP={home:'home-screen',studio:'studio-screen',create:'canvas-screen',closet:'closet-screen',challenges:'chal-screen',profile:'profile-screen'};
 function showTab(tab){
+  SFX.prime();
   if(tab==='challenges' && !featureEnabled('challenges')) tab='home';
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(TAB_MAP[tab]).classList.add('active');
@@ -8388,6 +9331,7 @@ function showTab(tab){
   if(tab==='create'&&!ST.frames.length) setTimeout(()=>initCanvas(),50);
   if(tab==='closet') renderCloset();
   if(tab==='home'){
+    refreshDailyVibe();
     buildHomeProof();
     buildHomeGallery();
     buildPublicGallery();
@@ -8616,11 +9560,15 @@ function boot(){
   applyReleaseVisibility();
   buildPalRow();
   loadProfileName();
+  loadLocalAccountTier();
+  loadDailyVibeState();
   loadAppSettings();
   loadProjects();
   loadChallengeSubmissions();
   loadEngagementState();
+  loadPixelVerseState();
   buildHomeTemplates();
+  refreshDailyVibe();
   buildHomeProof();
   buildHomeGallery();
   buildPublicGallery();
@@ -8645,6 +9593,7 @@ function boot(){
   updateStorageUI();
   refreshProfileStats();
   refreshHomeStatusBadge();
+  updateProgressionBadges();
   applyAutoZoom(16);
   initCanvas(16);
   updateToolChip();
@@ -8665,7 +9614,7 @@ function boot(){
   document.getElementById('save-project-name')?.addEventListener('keydown',e=>{
     if(e.key==='Enter'){ e.preventDefault(); confirmSaveProject(); }
   });
-  ['color-modal','text-modal','save-project-modal','profile-name-modal','auth-modal'].forEach(id=>{
+  ['color-modal','text-modal','save-project-modal','profile-name-modal','auth-modal','pro-info-modal'].forEach(id=>{
     const modal=document.getElementById(id);
     if(!modal) return;
     modal.addEventListener('click',e=>{
@@ -8675,10 +9624,14 @@ function boot(){
       else if(id==='save-project-modal') closeSaveProjectModal();
       else if(id==='profile-name-modal') closeProfileNameModal();
       else if(id==='auth-modal') closeAuthModal();
+      else if(id==='pro-info-modal') closeProInfo();
     });
   });
   updateTextScaleValue(document.getElementById('text-scale')?.value||1);
   window.addEventListener('resize',refreshResponsiveCanvasScale);
+  ['pointerdown','touchstart','click'].forEach(eventName=>{
+    document.addEventListener(eventName,()=>SFX.prime(),{once:true,passive:true});
+  });
   startAutoSave();
   document.addEventListener('keydown',onKey);
   loadPublicGalleryProjects().catch(err=>console.warn('[Supabase public gallery]', err));

@@ -1,4 +1,4 @@
-// PixelSprite Anti-Wash Master System — Phase 2 (Extended)
+// Pixel Sprite Vibe Anti-Wash Master System — Phase 2 (Extended)
 // Applies value-range, hue-shift, form-separation, and category-specific rules.
 
 (function () {

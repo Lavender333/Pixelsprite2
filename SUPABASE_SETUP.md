@@ -1,10 +1,11 @@
-# Supabase setup for Pixel Creator
+# Supabase setup for Pixel Sprite Vibe
 
 This app is ready for Supabase as a next step, but it is still local-first today.
 
 Current browser storage maps cleanly to Supabase like this:
 
 - `pc2_profile_name` → `public.profiles.gamename`
+- `pc2_account_tier` + `pc2_pro_since` → `public.profiles.account_tier` + `pro_since`
 - `pc2_streak` + `pc2_streak_claim_day` → `public.profiles.day_streak` + `last_streak_claim_on`
 - `pc2_proj` → `public.projects`
 - `pc2_challenge_submissions` → `public.challenge_entries`
@@ -14,7 +15,7 @@ Current browser storage maps cleanly to Supabase like this:
 
 The starter schema in [supabase/schema.sql](supabase/schema.sql) creates these core tables:
 
-- `public.profiles` — gamename, creator level, XP, streak, counts
+- `public.profiles` — gamename, Free/Club account status, creator level, XP, streak, counts
 - `public.app_settings` — sound and future account preferences
 - `public.projects` — saved drawings, frames JSON, gallery visibility
 - `public.project_assets` — exported PNG/GIF/thumbnail file records
@@ -90,16 +91,21 @@ To fully connect this app to your Supabase project, do these remaining steps:
 
 1. Run [supabase/schema.sql](supabase/schema.sql) in the Supabase SQL editor.
 2. Run [supabase/storage.sql](supabase/storage.sql) in the Supabase SQL editor.
-3. In **Authentication → Providers**, turn on **Email**.
-4. Decide whether to keep **Confirm email** on:
+3. In **Authentication → Providers**, turn on **Apple**, **Google**, and **Email**.
+   - Make **Apple** the primary iOS sign-in option. It supports Hide My Email and avoids password friction for families.
+   - Use **Google** for Android, Chromebook, and web families.
+   - Keep **Email** as the fallback option, not the primary button.
+4. In **Authentication → URL Configuration**, add `https://pixelspirite.com/` as an allowed redirect URL. Keep the local dev URLs only for testing.
+5. Decide whether to keep **Confirm email** on:
    - keep it **on** for stricter account verification
    - turn it **off** if you want instant sign-in right after signup
-5. In **Authentication → URL Configuration**, add your production URL and local dev URLs.
 6. In **Storage**, confirm the `project-assets` bucket exists.
 7. In **Authentication → Email Templates / SMTP**, connect a real sender for:
    - signup confirmation
    - password reset
    - change email
+
+The app is configured to persist sessions and refresh tokens automatically, so users should stay signed in until they explicitly sign out.
 
 If you already ran the schema before the gamename moderation update, run [supabase/schema.sql](supabase/schema.sql) again so the new username safety checks are added to your existing project.
 
@@ -108,6 +114,7 @@ If you already ran the schema before the gamename moderation update, run [supaba
 Already connected in the app:
 
 - email/password auth
+- Free vs Club account status on the profile record
 - session persistence
 - password reset emails
 - cloud profile sync for gamename
@@ -120,8 +127,11 @@ Already connected in the app:
 
 Not fully connected yet:
 
+- Apple In-App Purchase receipt validation for turning a Free account into Club
 - optional public gallery browsing screen for other users
 - optional thumbnail generation/upload for gallery cards
+
+For paid upgrades, create the In-App Purchase products in App Store Connect first: monthly `$1.99`, annual `$19.99`, and lifetime `$29.99`. Then add receipt validation before setting `account_tier = 'pro'`. The database can keep using `pro` internally while the app shows the customer-facing name "Pixel Sprite Vibes Club". Do not use Stripe, PayPal, Cash App, or another outside checkout for digital Club features inside the iOS app.
 
 So Supabase auth, profile sync, project sync, challenge sync, export uploads, and gallery publishing are now wired.
 
@@ -139,6 +149,8 @@ Before launch, also do this:
 ### `profiles`
 Use this for:
 - gamename
+- account tier: `account_tier` is `free` or `pro`
+- paid status: `is_pro` and optional `pro_since`
 - creator level
 - XP / XP cap
 - daily streak

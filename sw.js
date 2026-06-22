@@ -1,8 +1,8 @@
-// Pixel Creator — Service Worker
+// Pixel Sprite Vibe — Service Worker
 // Strategy: cache-first for app shell, network-first for dynamic content
 // Bump CACHE_VERSION to force all clients to update
 
-const CACHE_VERSION = 'pixel-creator-v5';
+const CACHE_VERSION = 'pixel-sprite-vibe-v5';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -82,11 +82,11 @@ self.addEventListener('push', event => {
   if (!event.data) return;
   const data = event.data.json();
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Pixel Creator', {
+    self.registration.showNotification(data.title || 'Pixel Sprite Vibe', {
       body: data.body || 'New challenge available!',
       icon: '/icon-192.png',
       badge: '/icon-96.png',
-      tag: 'pixel-creator-push',
+      tag: 'pixel-sprite-vibe-push',
       data: { url: data.url || '/' },
     })
   );

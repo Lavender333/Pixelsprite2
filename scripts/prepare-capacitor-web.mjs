@@ -1,8 +1,10 @@
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const root = resolve(process.cwd());
 const outDir = join(root, 'dist');
+const iosAppDir = join(root, 'ios', 'App', 'App');
+const iosPublicDir = join(iosAppDir, 'public');
 
 const includeFiles = [
   'index.html',
@@ -43,3 +45,17 @@ for (const entry of readdirSync(root, { withFileTypes: true })) {
 }
 
 console.log('Prepared dist/ for Capacitor iOS build.');
+
+if (existsSync(iosAppDir)) {
+  rmSync(iosPublicDir, { recursive: true, force: true });
+  cpSync(outDir, iosPublicDir, { recursive: true });
+  cpSync(join(root, 'capacitor.config.json'), join(iosAppDir, 'capacitor.config.json'));
+  writeFileSync(join(iosAppDir, 'config.xml'), `<?xml version="1.0" encoding="UTF-8"?>
+<widget id="com.truelavender.pixelspritevibe" version="1.0.0" xmlns="http://www.w3.org/ns/widgets">
+  <name>Pixel Sprite Vibe</name>
+  <description>Pixel art studio packaged with Capacitor.</description>
+  <author>True Lavender Digital Solutions</author>
+</widget>
+`);
+  console.log('Prepared ios/App/App/ Capacitor assets.');
+}

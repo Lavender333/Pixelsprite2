@@ -1,8 +1,8 @@
 {
-  "name": "pixel-creator-ios",
+  "name": "pixel-sprite-vibe-ios",
   "version": "1.0.0",
   "private": true,
-  "description": "Pixel Creator packaged for Apple App Store release with Capacitor.",
+  "description": "Pixel Sprite Vibe packaged for Apple App Store release with Capacitor.",
   "scripts": {
     "build:ios": "node scripts/prepare-capacitor-web.mjs",
     "generate:ios-assets": "python3 scripts/generate_ios_assets.py",

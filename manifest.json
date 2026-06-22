@@ -1,6 +1,6 @@
 {
-  "name": "Pixel Creator",
-  "short_name": "Pixel Creator",
+  "name": "Pixel Sprite Vibe",
+  "short_name": "Pixel Sprite Vibe",
   "description": "Draw, color and animate pixel art on your phone or desktop. Free forever.",
   "start_url": "/",
   "display": "standalone",
@@ -40,7 +40,7 @@
       "src": "screenshot-mobile.png",
       "sizes": "390x844",
       "type": "image/png",
-      "label": "Pixel Creator on mobile"
+      "label": "Pixel Sprite Vibe on mobile"
     }
   ],
   "shortcuts": [

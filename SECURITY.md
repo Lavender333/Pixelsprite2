@@ -1,6 +1,6 @@
-# Security notes for Pixel Creator
+# Security notes for Pixel Sprite Vibe
 
-Pixel Creator is a public static web app backed by Supabase Auth, Postgres, and Storage.
+Pixel Sprite Vibe is a public static web app backed by Supabase Auth, Postgres, and Storage.
 
 This document describes the security model that makes sense for this stack today.
 
