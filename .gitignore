@@ -1,5 +1,6 @@
 node_modules/
 dist/
+supabase/.temp/
 ios/App/App/public/
 ios/App/Pods/
 ios/App/DerivedData/

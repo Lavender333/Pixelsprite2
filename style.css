@@ -1131,11 +1131,13 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 }
 .birthday-logo{
   display:block;
-  width:clamp(112px,18vw,160px);
+  width:min(88vw,720px);
+  max-height:min(52vh,480px);
   height:auto;
-  margin:0 auto 18px;
-  border-radius:28px;
-  box-shadow:0 20px 45px rgba(151,71,255,.28), 0 0 34px rgba(151,71,255,.18);
+  object-fit:contain;
+  margin:0 auto 6px;
+  border-radius:18px;
+  filter:drop-shadow(0 22px 48px rgba(151,71,255,.26)) drop-shadow(0 0 26px rgba(255,201,74,.16));
   animation:birthday-logo-float 3.4s ease-in-out infinite;
 }
 @keyframes birthday-logo-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}

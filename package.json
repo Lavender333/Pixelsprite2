@@ -16,6 +16,7 @@
     "@capacitor/ios": "^8.2.0"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.2.0"
+    "@capacitor/cli": "^8.2.0",
+    "supabase": "^2.107.0"
   }
 }

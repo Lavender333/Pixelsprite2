@@ -41,6 +41,11 @@ It also adds:
 7. Add your app keys later in the frontend:
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
+8. Deploy the PixelVerse image moderation function and add your private OpenAI key:
+   - `supabase functions deploy moderate-pixelverse`
+   - `supabase secrets set OPENAI_API_KEY=sk-your-private-key`
+
+Important: never put the private OpenAI key in [script.js](script.js), Xcode, or any public app file. It belongs only in Supabase secrets.
 
 ## Auth flow now added in the app
 
@@ -124,12 +129,30 @@ Already connected in the app:
 - PNG / transparent PNG / GIF export upload into `project-assets`
 - `public.project_assets` metadata rows for uploaded exports
 - publish / private gallery controls on top of `visibility` and `is_gallery_item`
+- real PixelVerse publish moderation through the `moderate-pixelverse` Supabase Edge Function, using OpenAI image moderation on the server side
 
 Not fully connected yet:
 
 - Apple In-App Purchase receipt validation for turning a Free account into Club
-- optional public gallery browsing screen for other users
 - optional thumbnail generation/upload for gallery cards
+
+## PixelVerse image moderation
+
+The app now checks creations twice before public publishing:
+
+1. Local safety checks block blank art, unsafe names, and personal information.
+2. The Supabase Edge Function at [supabase/functions/moderate-pixelverse/index.ts](supabase/functions/moderate-pixelverse/index.ts) sends a PNG preview to OpenAI's moderation API with the `omni-moderation-latest` model.
+
+If the moderation function is missing, down, or unsure, the app keeps the creation private. This is intentional for child safety.
+
+To turn it on in production:
+
+```bash
+supabase functions deploy moderate-pixelverse
+supabase secrets set OPENAI_API_KEY=sk-your-private-key
+```
+
+Then test by signing in, saving a drawing, and tapping **Share to PixelVerse**. A safe image should publish; unsafe or unchecked images should stay private.
 
 For paid upgrades, create the In-App Purchase products in App Store Connect first: monthly `$1.99`, annual `$19.99`, and lifetime `$29.99`. Then add receipt validation before setting `account_tier = 'pro'`. The database can keep using `pro` internally while the app shows the customer-facing name "Pixel Sprite Vibes Club". Do not use Stripe, PayPal, Cash App, or another outside checkout for digital Club features inside the iOS app.
 

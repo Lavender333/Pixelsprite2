@@ -6982,6 +6982,72 @@ function analyzePixelVerseSafety(project){
   return {ok:true,reason:'safe'};
 }
 
+function pixelVerseModerationEndpoint(){
+  return `${SUPABASE_CONFIG.url.replace(/\/+$/,'')}/functions/v1/moderate-pixelverse`;
+}
+
+function createPixelVerseModerationImage(project){
+  const source=createCompositeFrameCanvas(getProjectPreviewFrameIndex(project),project);
+  const canvas=document.createElement('canvas');
+  const size=512;
+  const padding=48;
+  canvas.width=size;
+  canvas.height=size;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='#080812';
+  ctx.fillRect(0,0,size,size);
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(source,0,0,source.width,source.height,padding,padding,size-padding*2,size-padding*2);
+  return canvas.toDataURL('image/png');
+}
+
+async function moderatePixelVerseProject(project){
+  const localSafety=analyzePixelVerseSafety(project);
+  if(!localSafety.ok) return {...localSafety,status:'blocked'};
+  if(!hasCloudAccount()) return {ok:false,status:'error',reason:'sign in required'};
+  const token=AUTH_STATE.session?.access_token;
+  if(!token) return {ok:false,status:'error',reason:'missing session'};
+  let image='';
+  try{
+    image=createPixelVerseModerationImage(project);
+  }catch(err){
+    console.warn('[PixelVerse moderation image]',err);
+    return {ok:false,status:'error',reason:'could not prepare image'};
+  }
+  try{
+    const response=await fetch(pixelVerseModerationEndpoint(),{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${token}`,
+        'apikey':SUPABASE_CONFIG.publishableKey,
+      },
+      body:JSON.stringify({
+        image,
+        text:{
+          title:project?.name||'untitled.px',
+          creator:getProfileName(),
+          category:projectCategoryLabel(project),
+          theme:getPixelVerseTheme(),
+        },
+      }),
+    });
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok || !result.ok){
+      return {
+        ok:false,
+        status:result.status||'error',
+        reason:result.reason||'moderation unavailable',
+        moderation:result,
+      };
+    }
+    return {ok:true,status:'approved',reason:'safe',moderation:result};
+  }catch(err){
+    console.warn('[PixelVerse moderation]',err);
+    return {ok:false,status:'error',reason:'moderation unavailable'};
+  }
+}
+
 function pixelVerseProjectKey(project,idx=0){
   return project?.cloudId || project?.slug || slugifyProjectName(projectBaseName(project?.name||`pixelverse-${idx}`));
 }
@@ -8231,7 +8297,8 @@ function serializeProjectForCloud(proj){
       category:projectCategoryLabel(proj),
       creator:sanitizeGameName(getProfileName()),
       pixelverse_theme:getPixelVerseTheme(),
-      pixelverse_safe:analyzePixelVerseSafety(proj).ok,
+      pixelverse_safe:proj.moderation ? proj.moderation.status==='approved' : analyzePixelVerseSafety(proj).ok,
+      pixelverse_moderation:proj.moderation||null,
     },
   };
 }
@@ -8252,6 +8319,7 @@ function deserializeCloudProject(row){
     creator:sanitizeGameName(row.metadata?.creator||'PixelCreator'),
     pixelVerseTheme:row.metadata?.pixelverse_theme||getPixelVerseTheme(),
     pixelVerseSafe:row.metadata?.pixelverse_safe!==false,
+    moderation:row.metadata?.pixelverse_moderation||null,
     updatedAt:row.updated_at||null,
   };
 }
@@ -8661,9 +8729,18 @@ async function toggleProjectPublishing(idx){
   }
   const nextPublic=!isProjectPublic(project);
   if(nextPublic){
-    const safety=analyzePixelVerseSafety(project);
+    toast('Checking PixelVerse safety...');
+    const safety=await moderatePixelVerseProject(project);
+    project.moderation={
+      provider:'openai',
+      status:safety.ok?'approved':(safety.status||'blocked'),
+      reason:safety.reason||'safety check',
+      checkedAt:new Date().toISOString(),
+      flagged:!!safety.moderation?.flagged,
+      categories:safety.moderation?.categories||null,
+    };
     if(!safety.ok){
-      toast('PixelVerse kept this private for safety. Remove personal info or unsafe content.');
+      toast('PixelVerse kept this private for safety. Try a different creation or name.');
       project.visibility='private';
       project.isGalleryItem=false;
       saveProjects();
