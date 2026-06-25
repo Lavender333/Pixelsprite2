@@ -853,6 +853,19 @@ function authRedirectURL(){
   return SUPABASE_CONFIG.appUrl;
 }
 
+function isPasswordRecoveryURL(){
+  const hashParams=new URLSearchParams(window.location.hash.replace(/^#/,''));
+  const searchParams=new URLSearchParams(window.location.search);
+  return hashParams.get('type')==='recovery' || searchParams.get('type')==='recovery';
+}
+
+function clearAuthTokensFromURL(){
+  const hash=window.location.hash || '';
+  const search=window.location.search || '';
+  if(!/(access_token|refresh_token|type=recovery)/.test(`${hash}${search}`)) return;
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+
 function authProviderLabel(provider){
   if(provider==='apple') return 'Apple';
   if(provider==='google') return 'Google';
@@ -875,20 +888,21 @@ function syncAuthProviders(){
   const google=document.querySelector('.auth-provider.google');
   const email=document.querySelector('.auth-provider.email');
   const emailFields=document.getElementById('email-auth-fields');
+  const resettingPassword=AUTH_STATE.mode==='reset';
   const emailReady=authProviderEnabled('email');
   const appleAllowed=authProviderAllowed('apple');
   const googleAllowed=authProviderAllowed('google');
   const emailFormOpen=!!emailFields && !emailFields.hidden;
   if(apple){
-    apple.hidden=!appleAllowed;
+    apple.hidden=resettingPassword || !appleAllowed;
     apple.disabled=AUTH_STATE.busy;
   }
   if(google){
-    google.hidden=!googleAllowed;
+    google.hidden=resettingPassword || !googleAllowed;
     google.disabled=AUTH_STATE.busy;
   }
   if(email){
-    email.hidden=!emailReady || emailFormOpen;
+    email.hidden=resettingPassword || !emailReady || emailFormOpen;
     email.disabled=AUTH_STATE.busy || !emailReady;
     email.textContent=AUTH_STATE.mode==='signup' ? 'Continue with Email' : 'Sign in with Email';
   }
@@ -1009,35 +1023,48 @@ async function handleSplashAuthSecondary(){
 
 function syncAuthModal(){
   const isSignup=AUTH_STATE.mode==='signup';
+  const isReset=AUTH_STATE.mode==='reset';
   const badge=document.getElementById('auth-modal-badge');
   const title=document.getElementById('auth-modal-title');
   const copy=document.getElementById('auth-modal-copy');
   const help=document.getElementById('auth-modal-help');
   const submit=document.getElementById('auth-submit-btn');
   const switchBtn=document.getElementById('auth-switch-btn');
+  const resetBtn=document.querySelector('.modal-auth-reset');
   const gamenameWrap=document.getElementById('auth-gamename-wrap');
+  const emailInput=document.getElementById('auth-email-input');
   const password=document.getElementById('auth-password-input');
   const gamenameInput=document.getElementById('auth-gamename-input');
   const hasOAuth=authProviderEnabled('apple') || authProviderEnabled('google');
-  if(badge) badge.textContent=isSignup?'Account':'Welcome back';
-  if(title) title.textContent='Save Your PixelVerse';
-  if(copy) copy.textContent=isSignup
-    ? 'Create an account to sync creations and keep your progress.'
-    : hasOAuth
-      ? 'Choose a sign-in option to reconnect.'
-      : 'Sign in with email to reconnect.';
+  if(badge) badge.textContent=isReset?'Password reset':isSignup?'Account':'Welcome back';
+  if(title) title.textContent=isReset?'Choose a New Password':'Save Your PixelVerse';
+  if(copy) copy.textContent=isReset
+    ? 'Enter a new password for your PixelVerse account.'
+    : isSignup
+      ? 'Create an account to sync creations and keep your progress.'
+      : hasOAuth
+        ? 'Choose a sign-in option to reconnect.'
+        : 'Sign in with email to reconnect.';
   if(help){
-    help.textContent=isSignup
+    help.textContent=isReset
+      ? 'Use at least 6 characters.'
+      : isSignup
       ? hasOAuth
         ? 'Email is available as a backup.'
         : 'Passwords are handled securely by Supabase Auth.'
       : '';
     help.hidden=!help.textContent;
   }
-  if(submit) submit.textContent=isSignup?'Create account':'Sign in';
+  if(submit) submit.textContent=isReset?'Save new password':isSignup?'Create account':'Sign in';
   if(switchBtn) switchBtn.textContent=isSignup?'Already have an account? Sign in':'Need an account? Sign up';
+  if(switchBtn) switchBtn.hidden=isReset;
+  if(resetBtn) resetBtn.hidden=isReset;
   if(gamenameWrap) gamenameWrap.hidden=!isSignup;
-  if(password) password.setAttribute('autocomplete', isSignup?'new-password':'current-password');
+  if(emailInput) emailInput.hidden=isReset;
+  if(password){
+    password.placeholder=isReset?'New password':'Password';
+    password.setAttribute('autocomplete', (isSignup || isReset)?'new-password':'current-password');
+  }
   if(isSignup && gamenameInput && !gamenameInput.value) gamenameInput.value=getSavedProfileName();
   syncAuthProviders();
 }
@@ -1276,7 +1303,7 @@ function openAuthModal(mode='signin'){
     toast('Cloud auth is still loading. Try again in a moment.');
     return;
   }
-  AUTH_STATE.mode=mode==='signup'?'signup':'signin';
+  AUTH_STATE.mode=mode==='reset'?'reset':mode==='signup'?'signup':'signin';
   syncAuthModal();
   const modal=document.getElementById('auth-modal');
   const email=document.getElementById('auth-email-input');
@@ -1286,9 +1313,10 @@ function openAuthModal(mode='signin'){
   if(password) password.value='';
   if(gamename && AUTH_STATE.mode==='signup') gamename.value=getSavedProfileName();
   const emailFields=document.getElementById('email-auth-fields');
-  if(emailFields) emailFields.hidden=true;
+  if(emailFields) emailFields.hidden=AUTH_STATE.mode!=='reset';
   syncAuthProviders();
   if(modal) modal.style.display='flex';
+  if(AUTH_STATE.mode==='reset') setTimeout(()=>password?.focus(),20);
 }
 
 function closeAuthModal(){
@@ -1469,6 +1497,7 @@ async function initSupabaseAuth(){
   }
   try{
     await loadAuthProviderSettings();
+    const passwordRecoveryInURL=isPasswordRecoveryURL();
     AUTH_STATE.client=factory(SUPABASE_CONFIG.url, SUPABASE_CONFIG.publishableKey, {
       auth:{
         persistSession:true,
@@ -1477,12 +1506,18 @@ async function initSupabaseAuth(){
       },
     });
     AUTH_STATE.initialized=true;
-    AUTH_STATE.client.auth.onAuthStateChange((_event, session)=>{
+    AUTH_STATE.client.auth.onAuthStateChange((event, session)=>{
       handleAuthSession(session).catch(err=>console.warn('[Supabase auth state]', err));
+      if(event==='PASSWORD_RECOVERY'){
+        setTimeout(()=>openPasswordResetModal(),0);
+      }
     });
     const {data,error}=await AUTH_STATE.client.auth.getSession();
     if(error) throw error;
     await handleAuthSession(data.session||null);
+    if(passwordRecoveryInURL && data.session){
+      setTimeout(()=>openPasswordResetModal(),0);
+    }
   }catch(err){
     console.warn('[Supabase init]', err);
   }finally{
@@ -1504,6 +1539,27 @@ async function submitAuthForm(){
   const email=String(emailInput?.value||'').trim().toLowerCase();
   const password=String(passwordInput?.value||'');
   const gamename=sanitizeGameName(gamenameInput?.value||getSavedProfileName());
+  if(AUTH_STATE.mode==='reset'){
+    if(password.length<6){
+      toast('Passwords must be at least 6 characters.');
+      passwordInput?.focus();
+      return;
+    }
+    setAuthBusy(true);
+    try{
+      const {error}=await client.auth.updateUser({ password });
+      if(error) throw error;
+      clearAuthTokensFromURL();
+      closeAuthModal();
+      syncAuthUI();
+      toast('Password updated. You are signed in.');
+    }catch(err){
+      toast(err?.message || 'Could not update password right now.');
+    }finally{
+      setAuthBusy(false);
+    }
+    return;
+  }
   if(!email || !/^\S+@\S+\.\S+$/.test(email)){
     toast('Enter a valid email address.');
     emailInput?.focus();
@@ -1595,6 +1651,17 @@ async function sendPasswordResetEmail(){
     return;
   }
   toast('Password reset email sent.');
+}
+
+function openPasswordResetModal(){
+  if(!AUTH_STATE.initialized || !getSupabaseClient()){
+    toast('Cloud auth is still loading. Try again in a moment.');
+    return;
+  }
+  const modal=document.getElementById('auth-modal');
+  if(AUTH_STATE.mode==='reset' && modal?.style.display==='flex') return;
+  openAuthModal('reset');
+  toast('Choose a new password to finish resetting your account.');
 }
 
 async function signOutCloudAccount(){
