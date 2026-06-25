@@ -2938,6 +2938,19 @@ function renderStoredFramePreview(ctx,projectOrState,frameIndex=0,dx=0,dy=0,dw,d
   if(frame) renderFrameImageToContext(ctx,frame,size,dx,dy,width,height);
   texts.forEach(item=>renderPixelTextToContext(ctx,item,{canvasScale:width/size,offsetX:dx,offsetY:dy}));
 }
+function createPixelArtPreviewCanvas(projectOrState,{pixelSize=192,padding=18,background='#080812'}={}){
+  const source=createCompositeFrameCanvas(getProjectPreviewFrameIndex(projectOrState),projectOrState);
+  const canvas=document.createElement('canvas');
+  canvas.width=pixelSize;
+  canvas.height=pixelSize;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle=background;
+  ctx.fillRect(0,0,pixelSize,pixelSize);
+  ctx.imageSmoothingEnabled=false;
+  const drawSize=pixelSize-(padding*2);
+  ctx.drawImage(source,0,0,source.width,source.height,padding,padding,drawSize,drawSize);
+  return canvas;
+}
 function frameHasVisiblePixels(frame){
   if(!frame?.data?.length) return false;
   for(let i=3;i<frame.data.length;i+=4){
@@ -2963,7 +2976,13 @@ function createCompositeFrameCanvas(frameIndex=ST.currentFrame,projectOrState=ge
 }
 async function createCompositeFrameBitmap(frameIndex=ST.currentFrame,projectOrState=getActiveProjectState()){
   const canvas=createCompositeFrameCanvas(frameIndex,projectOrState);
-  return createImageBitmap(canvas);
+  if(typeof createImageBitmap!=='function') return canvas;
+  try{
+    return await createImageBitmap(canvas);
+  }catch(e){
+    console.warn('[Export bitmap fallback]', e);
+    return canvas;
+  }
 }
 function renderTextOverlay(frameIndex=ST.currentFrame){
   const canvas=document.getElementById('text-canvas'); if(!canvas) return;
@@ -6474,6 +6493,57 @@ function toggleUseIdeas(){
   if(panel) panel.hidden=!panel.hidden;
 }
 
+function runUseCreationAction(message, action, {close=true}={}){
+  if(message) toast(message,1400);
+  if(close) closeExportModal();
+  try{
+    const result=action?.();
+    if(result && typeof result.catch==='function'){
+      result.catch(err=>{
+        console.warn('[Use creation]', err);
+        toast('That export did not finish. Try again.');
+      });
+    }
+  }catch(err){
+    console.warn('[Use creation]', err);
+    toast('That export did not finish. Try again.');
+  }
+}
+
+function useCreationForGames(){
+  runUseCreationAction('Preparing a game icon download...', exportGameIcon);
+}
+
+function useCreationForVideos(){
+  runUseCreationAction('Preparing an animated sticker...', exportGIF);
+}
+
+function useCreationForSchool(){
+  runUseCreationAction('Preparing a PNG for school and creative projects...', exportCanvas);
+}
+
+function useCreationForArtworkImage(){
+  runUseCreationAction('Preparing your PNG artwork image...', exportCanvas);
+}
+
+function useCreationForSchoolPicture(){
+  runUseCreationAction('Preparing your JPG school picture...', exportJPEG);
+}
+
+function useCreationForProjectCopy(){
+  runUseCreationAction('Preparing a reopenable project copy...', exportPXVProject);
+}
+
+function openProjectCopyPicker(){
+  const input=document.getElementById('pxv-import-input');
+  if(!input){
+    toast('Project copy picker is not available.');
+    return;
+  }
+  toast('Choose a Pixel Sprite project copy to reopen.');
+  input.click();
+}
+
 function currentPXVProjectPayload(){
   captureFrame();
   const name=currentProjectName();
@@ -6590,6 +6660,10 @@ function exportJPEG(){
 // ── EXPORT: ANIMATED GIF ──────────────────────────────
 // Pure JS GIF encoder — no libraries, no network
 function downloadBlobFile(blob, filename){
+  if(!blob){
+    toast('Export could not create a file. Try again.');
+    return false;
+  }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -6602,10 +6676,12 @@ function downloadBlobFile(blob, filename){
   const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
   try {
     if (!('download' in HTMLAnchorElement.prototype) || isIOS || isSafari) {
-      window.open(url, '_blank');
+      const opened=window.open(url, '_blank');
+      if(!opened) location.href=url;
     } else {
       a.click();
     }
+    return true;
   } finally {
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 1500);
@@ -6861,12 +6937,17 @@ function openSaveProjectModal(){
   const modal=document.getElementById('save-project-modal');
   const nameInput=document.getElementById('save-project-name');
   const categorySelect=document.getElementById('save-project-category');
+  const visibilitySelect=document.getElementById('save-project-visibility');
   const note=document.getElementById('save-project-note');
   if(!modal||!nameInput||!categorySelect) return;
   const currentName=currentProjectName();
   const existing=findProjectByName(currentName);
   nameInput.value=currentName;
   categorySelect.value=normalizeProjectCategory(existing?.category, existing?.starterKey||ST.challengeStarterKey, currentName);
+  if(visibilitySelect){
+    visibilitySelect.value=isProjectPublic(existing)?'public':'private';
+    visibilitySelect.disabled=!hasCloudAccount();
+  }
   if(note){
     const saveLimit=getMaxSavedProjects();
     const limitText=saveLimit===Infinity
@@ -6888,10 +6969,12 @@ function closeSaveProjectModal(){
 async function confirmSaveProject(openGallery=false){
   const nameInput=document.getElementById('save-project-name');
   const categorySelect=document.getElementById('save-project-category');
+  const visibilitySelect=document.getElementById('save-project-visibility');
   if(!nameInput||!categorySelect) return;
   const cleanName=(nameInput.value||'untitled').trim()||'untitled';
   const finalName=/\.px$/i.test(cleanName)?cleanName:`${cleanName}.px`;
   const category=normalizeProjectCategory(categorySelect.value, ST.challengeStarterKey, finalName);
+  const wantsPublic=visibilitySelect?.value==='public' && hasCloudAccount();
   document.getElementById('pname').textContent=finalName;
   const saved=upsertProject(makeProjectSnapshot(finalName,{category}),{reward:true});
   if(saved){
@@ -6905,10 +6988,20 @@ async function confirmSaveProject(openGallery=false){
         toast('Saved on this device, but cloud sync did not finish. Keep this device open and try saving again.');
       }
     }
+    const project=findProjectByName(finalName);
+    if(project && cloudSaveOk && wantsPublic && !isProjectPublic(project)){
+      const projectIndex=ST.projects.indexOf(project);
+      await toggleProjectPublishing(projectIndex,{quiet:true});
+    } else if(project && !wantsPublic && isProjectPublic(project)){
+      const projectIndex=ST.projects.indexOf(project);
+      await toggleProjectPublishing(projectIndex,{quiet:true});
+    }
     closeSaveProjectModal();
     updateChallengeSubmitUI();
     if(openGallery) showTab('closet');
-    if(hasCloudAccount() && cloudSaveOk){
+    if(wantsPublic && isProjectPublic(findProjectByName(finalName))){
+      toast('Saved and shared to PixelVerse ✨');
+    }else if(hasCloudAccount() && cloudSaveOk){
       toast('Saved to your account ✦');
     }
   }
@@ -7569,11 +7662,21 @@ function buildPublicGallery(){
     const safe=document.createElement('div');
     safe.className='pixelverse-safe-chip';
     safe.textContent='Safe Share';
-    const cvs=document.createElement('canvas');
-    const size=proj.size||16;
-    cvs.width=size;
-    cvs.height=size;
-    renderStoredFramePreview(cvs.getContext('2d'),proj,getProjectPreviewFrameIndex(proj),0,0,size,size);
+    let previewEl;
+    if(proj.thumbnailUrl || proj.previewUrl){
+      previewEl=document.createElement('img');
+      previewEl.className='gallery-preview';
+      previewEl.alt=proj.name||'PixelVerse creation';
+      previewEl.loading='lazy';
+      previewEl.src=proj.thumbnailUrl||proj.previewUrl;
+    }else{
+      const cvs=document.createElement('canvas');
+      const size=proj.size||16;
+      cvs.width=size;
+      cvs.height=size;
+      renderStoredFramePreview(cvs.getContext('2d'),proj,getProjectPreviewFrameIndex(proj),0,0,size,size);
+      previewEl=cvs;
+    }
     const lbl=document.createElement('div');
     lbl.className='gallery-label';
     lbl.textContent=proj.name||`Public creation ${idx+1}`;
@@ -7598,13 +7701,29 @@ function buildPublicGallery(){
     follow.onclick=e=>{e.stopPropagation();togglePixelVerseFollow(creator);};
     card.appendChild(chip);
     card.appendChild(safe);
-    card.appendChild(cvs);
+    card.appendChild(previewEl);
     card.appendChild(lbl);
     card.appendChild(sub);
     card.appendChild(reactions);
     card.appendChild(follow);
     wrap.appendChild(card);
   });
+}
+
+async function getSignedProjectAssetUrls(paths=[]){
+  const client=getSupabaseClient();
+  const cleanPaths=[...new Set(paths.filter(Boolean))];
+  if(!client || !cleanPaths.length) return new Map();
+  const {data,error}=await client.storage
+    .from('project-assets')
+    .createSignedUrls(cleanPaths, 60 * 60);
+  if(error){
+    console.warn('[Supabase gallery asset urls]', error.message||error);
+    return new Map();
+  }
+  return new Map((data||[])
+    .filter(item=>item?.path && item?.signedUrl)
+    .map(item=>[item.path,item.signedUrl]));
 }
 
 async function loadPublicGalleryProjects(){
@@ -7615,7 +7734,7 @@ async function loadPublicGalleryProjects(){
     return [];
   }
   const {data,error}=await client.from('projects')
-    .select('id,title,canvas_size,frames,cover_frame,updated_at,visibility,is_gallery_item,metadata')
+    .select('id,title,canvas_size,cover_frame,updated_at,visibility,is_gallery_item,metadata')
     .eq('visibility','public')
     .eq('is_gallery_item', true)
     .eq('is_archived', false)
@@ -7627,27 +7746,80 @@ async function loadPublicGalleryProjects(){
     buildPublicGallery();
     return [];
   }
-  ST.publicGallery=(data||[]).map(row=>({
+  const projectIds=(data||[]).map(row=>row.id).filter(Boolean);
+  let assetsByProject=new Map();
+  let signedUrls=new Map();
+  if(projectIds.length){
+    const {data:assets,error:assetError}=await client.from('project_assets')
+      .select('project_id,asset_type,bucket_path')
+      .in('project_id', projectIds)
+      .in('asset_type', ['thumbnail','preview'])
+      .eq('is_public', true);
+    if(assetError){
+      console.warn('[Supabase gallery assets]', assetError.message||assetError);
+    }else{
+      assetsByProject=new Map();
+      (assets||[]).forEach(asset=>{
+        const existing=assetsByProject.get(asset.project_id)||{};
+        existing[asset.asset_type]=asset.bucket_path;
+        assetsByProject.set(asset.project_id, existing);
+      });
+      signedUrls=await getSignedProjectAssetUrls((assets||[]).map(asset=>asset.bucket_path));
+    }
+  }
+  ST.publicGallery=(data||[]).map(row=>{
+    const assets=assetsByProject.get(row.id)||{};
+    return {
     cloudId:row.id,
     name:row.title,
     size:row.canvas_size||16,
-    frames:deserializeFrames(row.canvas_size||16,row.frames||[]),
+    frames:deserializeFrames(row.canvas_size||16,row.cover_frame?[row.cover_frame]:[]),
     textFrames:deserializeTextFrames(row.metadata?.text_frames),
     category:normalizeProjectCategory(row.metadata?.category, '', row.title),
     creator:sanitizeGameName(row.metadata?.creator||'PixelCreator'),
     pixelVerseTheme:row.metadata?.pixelverse_theme||getPixelVerseTheme(),
     pixelVerseSafe:row.metadata?.pixelverse_safe!==false,
+    thumbnailUrl:signedUrls.get(assets.thumbnail)||'',
+    previewUrl:signedUrls.get(assets.preview)||'',
     updatedAt:row.updated_at||null,
-  }));
+    };
+  });
   buildPublicGallery();
   return ST.publicGallery;
 }
 
-function loadPublicGalleryProject(projectOrIndex){
-  const project=typeof projectOrIndex==='number'
+async function hydratePublicGalleryProject(project){
+  const client=getSupabaseClient();
+  if(!client || !project?.cloudId || (project.frames||[]).length>1) return project;
+  const {data,error}=await client.from('projects')
+    .select('id,title,canvas_size,frames,starter_key,metadata')
+    .eq('id', project.cloudId)
+    .maybeSingle();
+  if(error || !data){
+    if(error) console.warn('[Supabase public remix load]', error.message||error);
+    return project;
+  }
+  return {
+    ...project,
+    name:data.title||project.name,
+    size:data.canvas_size||project.size||16,
+    frames:deserializeFrames(data.canvas_size||project.size||16,data.frames||[]),
+    textFrames:deserializeTextFrames(data.metadata?.text_frames),
+    starterKey:data.starter_key||project.starterKey||'',
+    category:normalizeProjectCategory(data.metadata?.category, data.starter_key, data.title),
+  };
+}
+
+async function loadPublicGalleryProject(projectOrIndex){
+  const baseProject=typeof projectOrIndex==='number'
     ? getPixelVerseDisplayProjects()[projectOrIndex]
     : projectOrIndex;
+  const project=await hydratePublicGalleryProject(baseProject);
   if(!project) return;
+  if(!(project.frames||[]).length){
+    toast('That public creation is still preparing. Try another one.');
+    return;
+  }
   ST.size=project.size||16;
   ST.frames=cloneFrames(project.frames||[]);
   ST.textFrames=cloneTextFrames(project.textFrames||ST.frames.map(()=>[]));
@@ -8828,6 +9000,38 @@ async function uploadExportedBlobForProject(project,{blob,assetType,fileName,mim
   }
 }
 
+async function createPublicGalleryAssets(project){
+  if(!hasCloudAccount() || !project?.cloudId || !isProjectPublic(project)) return {ok:false,skipped:true};
+  try{
+    const previewCanvas=createPixelArtPreviewCanvas(project,{pixelSize:384,padding:36});
+    const thumbCanvas=createPixelArtPreviewCanvas(project,{pixelSize:160,padding:16});
+    const [previewBlob,thumbBlob]=await Promise.all([
+      canvasToBlob(previewCanvas,'image/png'),
+      canvasToBlob(thumbCanvas,'image/png'),
+    ]);
+    const preview=await uploadExportedBlobForProject(project,{
+      blob:previewBlob,
+      assetType:'preview',
+      fileName:'preview.png',
+      mimeType:'image/png',
+      width:previewCanvas.width,
+      height:previewCanvas.height,
+    });
+    const thumbnail=await uploadExportedBlobForProject(project,{
+      blob:thumbBlob,
+      assetType:'thumbnail',
+      fileName:'thumbnail.png',
+      mimeType:'image/png',
+      width:thumbCanvas.width,
+      height:thumbCanvas.height,
+    });
+    return {ok:!!(preview.ok || thumbnail.ok), preview, thumbnail};
+  }catch(error){
+    console.warn('[PixelVerse assets]', error);
+    return {ok:false,error};
+  }
+}
+
 async function uploadExportedBlobForCurrentProject(opts){
   if(!hasCloudAccount()) return {ok:false,skipped:true};
   const project=await ensureCurrentProjectCloudRecord();
@@ -8840,7 +9044,7 @@ async function uploadExportedBlobForCurrentProject(opts){
   return result;
 }
 
-async function toggleProjectPublishing(idx){
+async function toggleProjectPublishing(idx,{quiet=false}={}){
   const project=ST.projects[idx];
   if(!project) return;
   if(!hasCloudAccount()){
@@ -8882,6 +9086,12 @@ async function toggleProjectPublishing(idx){
     toast('Could not sync publish settings to cloud.');
     return;
   }
+  if(nextPublic){
+    const assetResult=await createPublicGalleryAssets(project);
+    if(!assetResult.ok && !assetResult.skipped){
+      console.warn('[PixelVerse assets]', assetResult.error||assetResult);
+    }
+  }
   try{
     await syncProjectAssetVisibility(project);
   }catch(err){
@@ -8891,7 +9101,7 @@ async function toggleProjectPublishing(idx){
   renderCloset();
   buildHomeGallery();
   buildPublicGallery();
-  toast(nextPublic?'Shared to PixelVerse ✨ Emoji reactions only. No comments or chat.':'Moved back to private saves');
+  if(!quiet) toast(nextPublic?'Shared to PixelVerse ✨ Emoji reactions only. No comments or chat.':'Moved back to private saves');
 }
 
 function estimateBytes(str=''){

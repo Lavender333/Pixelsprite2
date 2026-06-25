@@ -259,6 +259,7 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .gallery-chip-toggle{font-family:var(--ff-body);appearance:none}
 .gallery-chip-toggle.private{background:rgba(255,255,255,.04);border-color:var(--border2);color:var(--text2)}
 .gallery-item canvas{width:100%;aspect-ratio:1;background:var(--s3);border-radius:8px;image-rendering:pixelated;image-rendering:crisp-edges}
+.gallery-item img.gallery-preview{width:100%;aspect-ratio:1;object-fit:contain;background:var(--s3);border-radius:8px;image-rendering:pixelated;image-rendering:crisp-edges}
 .gallery-label{font-size:9px;color:var(--text2);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gallery-sub{font-size:8px;color:var(--text3);font-weight:800;letter-spacing:.05em;text-transform:uppercase}
 .gallery-actions{display:flex;flex-direction:column;gap:6px;margin-top:2px}

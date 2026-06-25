@@ -43,7 +43,7 @@
 
 <!-- Service Worker registration -->
 
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=10">
 
 <script>
   const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
@@ -59,7 +59,7 @@
 
   if (canUseSW) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js?v=7').catch(() => {});
+      navigator.serviceWorker.register('/sw.js?v=10').catch(() => {});
     });
   }
 </script>
@@ -95,7 +95,6 @@
     </div>
     <div class="hero-eyebrow">✦ Smart UX Studio</div>
     <h1 class="hero-title">PIXEL<br><span>CREATOR</span></h1>
-    <p class="hero-sub">Professional tools. Zero complexity.<br>Built for creators aged 9–15.</p>
     <div class="hero-cta">
       <button class="btn-primary" onclick="openStudio()">+ New Creation</button>
       <button class="btn-secondary" onclick="showTab('closet')">My Gallery</button>
@@ -597,6 +596,14 @@
     <p class="name-modal-copy">Choose a name and where this creation belongs in your gallery.</p>
     <input id="save-project-name" class="name-modal-input" type="text" maxlength="32" placeholder="Project name" autocomplete="off" spellcheck="false">
     <div class="text-scale-wrap">
+      <label class="text-scale-label" for="save-project-visibility">Sharing</label>
+      <select id="save-project-visibility" class="ptog-select">
+        <option value="private">Private</option>
+        <option value="public">Public Gallery</option>
+      </select>
+      <div class="text-color-note">Public creations may appear in PixelVerse after a safety check. You can make them private anytime.</div>
+    </div>
+    <div class="text-scale-wrap">
       <label class="text-scale-label" for="save-project-category">Gallery section</label>
       <select id="save-project-category" class="ptog-select">
         <option value="Avatar">Avatar</option>
@@ -609,8 +616,7 @@
     <div class="text-color-note" id="save-project-note">Saved creations stay in My Gallery. Sign in to sync them and publish publicly.</div>
     <div class="name-modal-actions">
       <button class="name-modal-skip" onclick="closeSaveProjectModal()">Cancel</button>
-      <button class="name-modal-skip" onclick="confirmSaveProject(true)">Keep & Open Gallery</button>
-      <button class="name-modal-save" onclick="confirmSaveProject()">Keep Creation</button>
+      <button class="name-modal-save" onclick="confirmSaveProject(true)">Keep & Open Gallery</button>
     </div>
   </div>
 </div>
@@ -710,17 +716,17 @@
     <div class="use-subtitle">Create once. Use everywhere.</div>
     <div class="exp-info" id="exp-info">Your artwork is ready.</div>
     <div class="use-destination-grid" aria-label="Creative destination ideas">
-      <button class="use-destination-card" type="button" onclick="exportGameIcon();closeExportModal()">
+      <button class="use-destination-card" type="button" onclick="useCreationForGames()">
         <span class="use-destination-icon">🎮</span>
         <strong>Games & Coding</strong>
         <span>Characters, collectibles, icons, and beginner coding projects.</span>
       </button>
-      <button class="use-destination-card" type="button" onclick="closeExportModal();exportGIF()">
+      <button class="use-destination-card" type="button" onclick="useCreationForVideos()">
         <span class="use-destination-icon">📹</span>
         <strong>Videos & Sharing</strong>
         <span>Animations, thumbnails, creative videos, stickers, and emojis.</span>
       </button>
-      <button class="use-destination-card" type="button" onclick="exportCanvas();closeExportModal()">
+      <button class="use-destination-card" type="button" onclick="useCreationForSchool()">
         <span class="use-destination-icon">📚</span>
         <strong>School & Creativity</strong>
         <span>Presentations, wallpapers, comics, journals, and assignments.</span>
@@ -750,12 +756,12 @@
     </div>
     <div class="exp-grid" id="export-options-grid">
       <div class="exp-section-label">Create & Share</div>
-      <button class="exp-card" onclick="exportCanvas();closeExportModal()">
+      <button class="exp-card" type="button" onclick="useCreationForArtworkImage()">
         <div class="exp-icon">🖼</div>
         <div class="exp-fmt">Artwork Image</div>
         <div class="exp-desc">Ready for school projects, wallpapers, and character concepts.<br><span class="exp-dim" id="exp-png-dim">128×128 px</span></div>
       </button>
-      <button class="exp-card" onclick="exportJPEG();closeExportModal()">
+      <button class="exp-card" type="button" onclick="useCreationForSchoolPicture()">
         <div class="exp-icon">🖼️</div>
         <div class="exp-fmt">School Picture</div>
         <div class="exp-desc">White background for slides, docs, and class projects.<br><span class="exp-dim" id="exp-jpg-dim">128×128 px</span></div>
@@ -765,12 +771,12 @@
         <div class="exp-fmt">Cutout Art <span class="club-mini">Club</span></div>
         <div class="exp-desc">Transparent art for stickers, videos, and creative projects.</div>
       </button>
-      <button class="exp-card" onclick="exportPXVProject();closeExportModal()">
+      <button class="exp-card" type="button" onclick="useCreationForProjectCopy()">
         <div class="exp-icon">💾</div>
         <div class="exp-fmt">Project Copy</div>
         <div class="exp-desc">Keep a Pixel Sprite Vibes project copy you can reopen later.</div>
       </button>
-      <button class="exp-card" onclick="document.getElementById('pxv-import-input').click()">
+      <button class="exp-card" type="button" onclick="openProjectCopyPicker()">
         <div class="exp-icon">📂</div>
         <div class="exp-fmt">Open Project Copy</div>
         <div class="exp-desc">Reopen a Pixel Sprite Vibes project from this device.</div>
@@ -842,9 +848,16 @@
     <input id="pxv-import-input" type="file" accept=".pxv,application/json" hidden onchange="importPXVProject(this)">
   </div>
 </div>
+<div id="gif-progress" aria-live="polite">
+  <div class="gif-box">
+    <div class="gif-title">Building animation</div>
+    <div class="gif-bar-wrap"><div class="gif-bar" id="gif-bar" style="width:0%"></div></div>
+    <div class="gif-pct" id="gif-pct">0%</div>
+  </div>
+</div>
 <!-- Antiwash Palette Upgrade System -->
 <script src="antiwash-upgrade-extended.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="script.js?v=7"></script>
+<script src="script.js?v=10"></script>
 </body>
 </html>

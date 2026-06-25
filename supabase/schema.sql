@@ -182,7 +182,7 @@ create table if not exists public.project_assets (
   project_id uuid not null references public.projects (id) on delete cascade,
   owner_id uuid not null references public.profiles (id) on delete cascade,
   asset_type text not null
-    check (asset_type in ('thumbnail', 'png', 'gif', 'sprite-sheet', 'transparent-png')),
+    check (asset_type in ('thumbnail', 'preview', 'png', 'gif', 'sprite-sheet', 'transparent-png')),
   bucket_path text not null unique,
   mime_type text not null,
   width integer check (width is null or width > 0),
@@ -191,6 +191,13 @@ create table if not exists public.project_assets (
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
+
+alter table public.project_assets
+drop constraint if exists project_assets_asset_type_check;
+
+alter table public.project_assets
+add constraint project_assets_asset_type_check
+check (asset_type in ('thumbnail', 'preview', 'png', 'gif', 'sprite-sheet', 'transparent-png'));
 
 create index if not exists project_assets_project_idx
   on public.project_assets (project_id, asset_type);
