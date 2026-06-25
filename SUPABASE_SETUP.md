@@ -100,6 +100,9 @@ To fully connect this app to your Supabase project, do these remaining steps:
    - Make **Apple** the primary iOS sign-in option. It supports Hide My Email and avoids password friction for families.
    - Use **Google** for Android, Chromebook, and web families.
    - Keep **Email** as the fallback option, not the primary button.
+   - Supabase callback URL for both OAuth providers: `https://xqltgcxqlzchrnulomkv.supabase.co/auth/v1/callback`
+   - Google needs an OAuth client ID and client secret from Google Cloud Console.
+   - Apple needs a Services ID, Team ID, Key ID, and private key from Apple Developer.
 4. In **Authentication → URL Configuration**, add `https://pixelspirite.com/` as an allowed redirect URL. Keep the local dev URLs only for testing.
 5. Decide whether to keep **Confirm email** on:
    - keep it **on** for stricter account verification

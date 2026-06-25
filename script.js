@@ -712,6 +712,7 @@ const SUPABASE_CONFIG = {
   url: 'https://xqltgcxqlzchrnulomkv.supabase.co',
   publishableKey: 'sb_publishable_pNozt3QXGax9Uppt0-TFAw_9PbfZURE',
   appUrl: 'https://pixelspirite.com/',
+  oauthProviders: ['apple', 'google'],
 };
 
 const AUTH_STATE = {
@@ -858,7 +859,13 @@ function authProviderLabel(provider){
   return 'Email';
 }
 
+function authProviderAllowed(provider){
+  if(provider==='email') return AUTH_STATE.authSettings.email !== false;
+  return (SUPABASE_CONFIG.oauthProviders||[]).includes(provider);
+}
+
 function authProviderEnabled(provider){
+  if(!authProviderAllowed(provider)) return false;
   if(provider==='email') return AUTH_STATE.authSettings.email !== false;
   return AUTH_STATE.authSettings[provider] === true;
 }
@@ -868,15 +875,15 @@ function syncAuthProviders(){
   const google=document.querySelector('.auth-provider.google');
   const email=document.querySelector('.auth-provider.email');
   const emailReady=authProviderEnabled('email');
-  const appleReady=authProviderEnabled('apple');
-  const googleReady=authProviderEnabled('google');
+  const appleAllowed=authProviderAllowed('apple');
+  const googleAllowed=authProviderAllowed('google');
   if(apple){
-    apple.hidden=!appleReady;
-    apple.disabled=AUTH_STATE.busy || !appleReady;
+    apple.hidden=!appleAllowed;
+    apple.disabled=AUTH_STATE.busy;
   }
   if(google){
-    google.hidden=!googleReady;
-    google.disabled=AUTH_STATE.busy || !googleReady;
+    google.hidden=!googleAllowed;
+    google.disabled=AUTH_STATE.busy;
   }
   if(email){
     email.hidden=!emailReady;
