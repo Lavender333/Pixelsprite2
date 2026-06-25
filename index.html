@@ -43,7 +43,7 @@
 
 <!-- Service Worker registration -->
 
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="style.css?v=14">
 
 <script>
   const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
@@ -59,7 +59,7 @@
 
   if (canUseSW) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js?v=11').catch(() => {});
+      navigator.serviceWorker.register('/sw.js?v=14').catch(() => {});
     });
   }
 </script>
@@ -788,20 +788,25 @@
         <div class="exp-fmt">Block Building Worlds</div>
         <div class="exp-desc">Character ideas, pixel builds, and skin concepts.</div>
       </button>
-      <button class="exp-card" onclick="exportBlockTexturePack();closeExportModal()">
+      <button class="exp-card" type="button" onclick="useCreationForBlockResourcePack()">
         <div class="exp-icon">🗂️</div>
-        <div class="exp-fmt">Block Texture Ideas</div>
-        <div class="exp-desc">Turn art into texture concepts for creative worlds.</div>
+        <div class="exp-fmt">Block Resource Pack <span class="club-mini">Club</span></div>
+        <div class="exp-desc">Saves a starter pack with manifest, folders, metadata, and texture files.</div>
       </button>
-      <button class="exp-card" onclick="exportAvatarShirtPreview();closeExportModal()">
+      <button class="exp-card" type="button" onclick="useCreationForFrontShirtImage()">
         <div class="exp-icon">👕</div>
-        <div class="exp-fmt">Avatar Outfit Idea</div>
-        <div class="exp-desc">Preview art as a character clothing concept.</div>
+        <div class="exp-fmt">Front Shirt Image</div>
+        <div class="exp-desc">A square front image for T-shirt-style uploads. Not a full shirt or pants template.</div>
       </button>
-      <button class="exp-card" onclick="exportAvatarPantsPreview();closeExportModal()">
+      <button class="exp-card" type="button" onclick="useCreationForFullShirtTemplate()">
+        <div class="exp-icon">🧥</div>
+        <div class="exp-fmt">Full Shirt Template <span class="club-mini">Club</span></div>
+        <div class="exp-desc">Classic avatar shirt layout. Preview it first so arms and body wrap correctly.</div>
+      </button>
+      <button class="exp-card" type="button" onclick="useCreationForFullPantsTemplate()">
         <div class="exp-icon">👖</div>
-        <div class="exp-fmt">Avatar Pants Idea</div>
-        <div class="exp-desc">Preview art as a matching outfit concept.</div>
+        <div class="exp-fmt">Full Pants Template <span class="club-mini">Club</span></div>
+        <div class="exp-desc">Classic avatar pants layout. Preview it first so legs wrap correctly.</div>
       </button>
       <button class="exp-card" onclick="exportGameIcon();closeExportModal()">
         <div class="exp-icon">🖼️</div>
@@ -817,13 +822,13 @@
       </button>
       <button class="exp-card" type="button" onclick="useCreationForSpriteSheet()">
         <div class="exp-icon">🗃️</div>
-        <div class="exp-fmt">Game Asset Sheet <span class="club-mini">Club</span></div>
-        <div class="exp-desc">For indie games, coding projects, and animation practice.</div>
+        <div class="exp-fmt">2D Game Animation Sheet <span class="club-mini">Club</span></div>
+        <div class="exp-desc">Sprite sheet package for image assets, frame settings, and 2D animation logic.</div>
       </button>
-      <button class="exp-card" onclick="export3DTexture();closeExportModal()">
+      <button class="exp-card" type="button" onclick="useCreationForPlayable3DSetup()">
         <div class="exp-icon">🧊</div>
-        <div class="exp-fmt">3D Texture Idea</div>
-        <div class="exp-desc">A big texture canvas for 3D and creative editor projects.</div>
+        <div class="exp-fmt">Playable 3D Setup <span class="club-mini">Club</span></div>
+        <div class="exp-desc">Advanced setup package for a rigged 3D character workflow. Not a normal PNG.</div>
       </button>
 
       <div class="exp-section-label">Stickers & Creativity</div>
@@ -858,6 +863,6 @@
 <!-- Antiwash Palette Upgrade System -->
 <script src="antiwash-upgrade-extended.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="script.js?v=11"></script>
+<script src="script.js?v=14"></script>
 </body>
 </html>

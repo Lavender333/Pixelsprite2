@@ -3157,6 +3157,64 @@ async function createStoredZip(files){
   return new Blob(out,{type:'application/zip'});
 }
 
+function makeExportUuid(){
+  if(window.crypto?.randomUUID) return window.crypto.randomUUID();
+  const bytes=new Uint8Array(16);
+  window.crypto?.getRandomValues?.(bytes);
+  bytes[6]=(bytes[6]&0x0f)|0x40;
+  bytes[8]=(bytes[8]&0x3f)|0x80;
+  const hex=[...bytes].map(value=>value.toString(16).padStart(2,'0'));
+  return `${hex.slice(0,4).join('')}-${hex.slice(4,6).join('')}-${hex.slice(6,8).join('')}-${hex.slice(8,10).join('')}-${hex.slice(10,16).join('')}`;
+}
+
+function encodeExportText(value){
+  return new TextEncoder().encode(String(value||''));
+}
+
+function hasVisibleExportContent(source=getExportSource()){
+  const project=source?.project||getActiveProjectState();
+  const frames=project.frames||[];
+  const textFrames=project.textFrames||[];
+  return frames.some(frameHasVisiblePixels) || textFrames.some(list=>Array.isArray(list)&&list.length>0);
+}
+
+function validateExportSource(source, {purpose='export', width=null, height=null, metadata=null}={}){
+  const checks=[
+    {name:'has_visible_art', ok:hasVisibleExportContent(source), detail:'Artwork is not blank.'},
+    {name:'has_frames', ok:exportSourceFrameCount(source)>0, detail:'At least one frame exists.'},
+  ];
+  if(width) checks.push({name:'width', ok:Number(width)>0, detail:`Width is ${width}.`});
+  if(height) checks.push({name:'height', ok:Number(height)>0, detail:`Height is ${height}.`});
+  if(metadata) checks.push({name:'metadata', ok:!!metadata, detail:'Metadata file is included.'});
+  return {
+    purpose,
+    passed:checks.every(check=>check.ok),
+    checks,
+    checkedAt:new Date().toISOString(),
+  };
+}
+
+function stopInvalidExport(validation){
+  if(validation?.passed) return false;
+  toast('Add visible art before exporting this package.');
+  console.warn('[Export validation]', validation);
+  return true;
+}
+
+function makePackageMetadata({name,type,status='starter',intendedUse='',notFor=[],files=[],validation}={}){
+  return {
+    packageName:name,
+    packageType:type,
+    exportStatus:status,
+    intendedUse,
+    notFor,
+    files,
+    validatorResults:validation||null,
+    kidSafeWarning:'This package helps you start. Test it in the correct editor before uploading, sharing, or calling it finished.',
+    createdAt:new Date().toISOString(),
+  };
+}
+
 function exportBlockCharacterSkin() {
   const source=captureExportSource();
   const targetSize = 64;
@@ -3171,71 +3229,309 @@ function exportBlockCharacterSkin() {
   }
 }
 function exportBlockTexturePack() {
+  if(!requireClubFeature('block resource pack exports')) return;
   const source=captureExportSource();
+  const validation=validateExportSource(source,{purpose:'block_resource_pack_starter', width:64, height:64, metadata:true});
+  if(stopInvalidExport(validation)) return;
   const targetSize = 64;
   const {cvs,ctx}=createStandardExportCanvas(targetSize,targetSize);
   if (exportSourceFrameCount(source)) {
     createExportSourceBitmap(source).then(bmp => {
       drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:targetSize,targetHeight:targetSize,nativeSize:exportSourceSize(source)});
       cvs.toBlob(async blob => {
-        const files = [];
-        files.push({
-          name: 'pack.mcmeta',
-          data: new TextEncoder().encode('{"pack":{"pack_format":15,"description":"Pixel Sprite Vibe Block Builder Idea"}}')
+        const packName=`${exportSourceName(source)} Block Resource Pack`;
+        const bedrockManifest={
+          format_version:2,
+          header:{
+            name:packName,
+            description:'Pixel Sprite Vibes starter resource pack. Test in Minecraft: Bedrock Edition before sharing.',
+            uuid:makeExportUuid(),
+            version:[1,0,0],
+            min_engine_version:[1,20,0],
+          },
+          modules:[{
+            type:'resources',
+            uuid:makeExportUuid(),
+            version:[1,0,0],
+          }],
+        };
+        const terrainTexture={
+          resource_pack_name:packName,
+          texture_name:'atlas.terrain',
+          texture_data:{
+            pixel_sprite_block:{textures:'textures/blocks/pixel_sprite_block'},
+          },
+        };
+        const itemTexture={
+          resource_pack_name:packName,
+          texture_name:'atlas.items',
+          texture_data:{
+            pixel_sprite_item:{textures:'textures/items/pixel_sprite_item'},
+          },
+        };
+        const bedrockReadme=[
+          'Bedrock Resource Pack Starter',
+          '',
+          'This folder includes manifest.json plus texture folders and texture metadata.',
+          'A texture image alone does not create a complete custom block. Custom blocks can require behavior/data setup too.',
+          '',
+          'Test in Minecraft: Bedrock Edition before sharing.',
+        ].join('\n');
+        const javaPackMeta={pack:{pack_format:15,description:'Pixel Sprite Vibes Java-style starter resource pack. Change pack_format for your target Java version.'}};
+        const javaReadme=[
+          'Java Resource Pack Starter',
+          '',
+          'This folder includes pack.mcmeta and a Java-style texture path.',
+          'pack_format changes by Java version, so update it for your target version before testing.',
+          '',
+          'Test in Minecraft: Java Edition before sharing.',
+        ].join('\n');
+        const rootReadme=[
+          'Block Resource Pack Starter',
+          '',
+          'This is an independent starter resource pack. It is not official Minecraft content.',
+          '',
+          'Bedrock and Java use different resource pack formats. Test the correct folder for your version before sharing or publishing.',
+          '',
+          'Included folders:',
+          '- bedrock/',
+          '- java/',
+          '',
+          'This package helps you start. It is not finished until tested in the correct version.',
+        ].join('\n');
+        const packageMetadata=makePackageMetadata({
+          name:'pixel-sprite-vibes-block-resource-pack',
+          type:'block_resource_pack',
+          status:'starter',
+          intendedUse:'Minecraft-style Bedrock or Java resource pack starter textures.',
+          notFor:['complete_custom_block_behavior','marketplace_ready_pack','official_minecraft_content'],
+          files:['bedrock/manifest.json','bedrock/textures/terrain_texture.json','java/pack.mcmeta'],
+          validation,
         });
-        files.push({
-          name: 'assets/block-builder/textures/entity/skin.png',
-          data: blob
-        });
+        const files = [
+          {name:'README.txt',data:encodeExportText(rootReadme)},
+          {name:'package-metadata.json',data:encodeExportText(JSON.stringify(packageMetadata,null,2))},
+          {name:'bedrock/manifest.json',data:encodeExportText(JSON.stringify(bedrockManifest,null,2))},
+          {name:'bedrock/textures/terrain_texture.json',data:encodeExportText(JSON.stringify(terrainTexture,null,2))},
+          {name:'bedrock/textures/item_texture.json',data:encodeExportText(JSON.stringify(itemTexture,null,2))},
+          {name:'bedrock/textures/blocks/pixel_sprite_block.png',data:blob},
+          {name:'bedrock/textures/items/pixel_sprite_item.png',data:blob},
+          {name:'bedrock/pack_icon.png',data:blob},
+          {name:'bedrock/README.txt',data:encodeExportText(bedrockReadme)},
+          {name:'java/pack.mcmeta',data:encodeExportText(JSON.stringify(javaPackMeta,null,2))},
+          {name:'java/assets/minecraft/textures/block/pixel_sprite_block.png',data:blob},
+          {name:'java/pack.png',data:blob},
+          {name:'java/README.txt',data:encodeExportText(javaReadme)},
+        ];
         const zipBlob = await createStoredZip(files);
-        const url = URL.createObjectURL(zipBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${exportSourceName(source)}-block-texture-pack.zip`;
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-        toast('Your block texture idea is ready.');
+        downloadBlobFile(zipBlob, `${exportSourceName(source)}-block-resource-pack.zip`);
+        toast('Block resource pack starter saved with Bedrock and Java folders.');
         trackExport('block-texture-pack',10);
       });
     });
   }
 }
-function exportAvatarShirtPreview() {
+function drawBitmapCenteredInRect(ctx,bmp,rect,{nativeSize=16,fill='#ffffff',padding=5,alpha=1}={}){
+  ctx.save();
+  ctx.globalAlpha=alpha;
+  ctx.fillStyle=fill;
+  ctx.fillRect(rect.x,rect.y,rect.w,rect.h);
+  ctx.beginPath();
+  ctx.rect(rect.x,rect.y,rect.w,rect.h);
+  ctx.clip();
+  ctx.imageSmoothingEnabled=false;
+  const maxW=Math.max(1,rect.w-padding*2);
+  const maxH=Math.max(1,rect.h-padding*2);
+  const scale=Math.max(1,Math.floor(Math.min(maxW/nativeSize,maxH/nativeSize)));
+  const drawW=nativeSize*scale;
+  const drawH=nativeSize*scale;
+  const dx=rect.x+Math.floor((rect.w-drawW)/2);
+  const dy=rect.y+Math.floor((rect.h-drawH)/2);
+  ctx.drawImage(bmp,0,0,nativeSize,nativeSize,dx,dy,drawW,drawH);
+  ctx.restore();
+}
+
+function drawClassicAvatarTemplate(ctx,bmp,{kind='shirt',nativeSize=16}={}){
+  const base=kind==='pants'?'#f6f7ff':'#fff7fb';
+  const accent=kind==='pants'?'#a8daff':'#ffd0e8';
+  const dark=kind==='pants'?'#6c63ff':'#ce93d8';
+  const panels=[
+    {name:'torsoTop',x:231,y:8,w:128,h:64},{name:'torsoFront',x:231,y:74,w:128,h:128},
+    {name:'torsoRight',x:165,y:74,w:64,h:128},{name:'torsoLeft',x:359,y:74,w:64,h:128},
+    {name:'torsoBack',x:423,y:74,w:128,h:128},{name:'torsoBottom',x:231,y:202,w:128,h:64},
+    {name:'leftTop',x:197,y:292,w:64,h:64},{name:'leftFront',x:197,y:356,w:64,h:128},
+    {name:'leftBottom',x:197,y:484,w:64,h:64},{name:'leftInner',x:5,y:356,w:64,h:128},
+    {name:'leftBack',x:69,y:356,w:64,h:128},{name:'leftOuter',x:133,y:356,w:64,h:128},
+    {name:'rightTop',x:297,y:292,w:64,h:64},{name:'rightFront',x:297,y:356,w:64,h:128},
+    {name:'rightOuter',x:361,y:356,w:64,h:128},{name:'rightBack',x:425,y:356,w:64,h:128},
+    {name:'rightInner',x:489,y:356,w:64,h:128},{name:'rightBottom',x:297,y:484,w:64,h:64},
+  ];
+  ctx.clearRect(0,0,585,559);
+  panels.forEach((panel,idx)=>{
+    const fill=idx%3===0?base:(idx%3===1?accent:'#ffffff');
+    drawBitmapCenteredInRect(ctx,bmp,panel,{nativeSize,fill,padding:kind==='pants'?7:6,alpha:1});
+  });
+  ctx.save();
+  ctx.globalAlpha=.18;
+  ctx.fillStyle=dark;
+  panels.forEach(panel=>{
+    ctx.fillRect(panel.x,panel.y,Math.min(4,panel.w),panel.h);
+    ctx.fillRect(panel.x,panel.y,panel.w,Math.min(4,panel.h));
+  });
+  ctx.restore();
+}
+
+async function exportAvatarFrontShirtImage() {
   const source=captureExportSource();
-  const targetW = 585, targetH = 559;
-  const {cvs,ctx}=createStandardExportCanvas(targetW,targetH);
+  const validation=validateExportSource(source,{purpose:'front_shirt_image', width:512, height:512, metadata:true});
+  if(stopInvalidExport(validation)) return;
+  const targetSize = 512;
+  const {cvs,ctx}=createStandardExportCanvas(targetSize,targetSize);
   if (exportSourceFrameCount(source)) {
-    createExportSourceBitmap(source).then(bmp => {
+    try{
+      const bmp=await createExportSourceBitmap(source);
       drawBitmapIntoStandardExport(ctx,bmp,{
-        targetWidth:targetW,
-        targetHeight:targetH,
-        maxWidth:Math.floor(targetW*0.76),
-        maxHeight:Math.floor(targetH*0.76),
+        targetWidth:targetSize,
+        targetHeight:targetSize,
+        maxWidth:420,
+        maxHeight:420,
         nativeSize:exportSourceSize(source),
       });
-      downloadBlobFile(dataURLToBlob(cvs.toDataURL('image/png')), `${exportSourceName(source)}-avatar-shirt-preview.png`);
-      toast('Your avatar outfit idea is ready.');
-      trackExport('avatar-shirt-preview',7);
-    });
+      const imageBlob=await canvasToBlob(cvs,'image/png');
+      const templateInfo={
+        type:'front-shirt-image',
+        width:512,
+        height:512,
+        uploadAs:'T-Shirt-style/front image asset',
+        mustPreview:true,
+        exportStatus:'starter',
+        platformStatus:'front_image_only',
+        notFor:['full_shirt_template','pants_template','playable_character','rig_animation'],
+      };
+      const usage='Use this as a simple front shirt image. It is not a full shirt or pants template. Preview before upload.';
+      const packageMetadata=makePackageMetadata({
+        name:'pixel-sprite-vibes-front-shirt-image',
+        type:'front_shirt_image',
+        status:'starter',
+        intendedUse:'Square front image for T-shirt-style avatar uploads.',
+        notFor:templateInfo.notFor,
+        files:['avatar-front-shirt.png','template-info.json','preview-warning.txt','USAGE.txt'],
+        validation,
+      });
+      const zipBlob=await createStoredZip([
+        {name:'avatar-front-shirt.png',data:imageBlob},
+        {name:'template-info.json',data:encodeExportText(JSON.stringify(templateInfo,null,2))},
+        {name:'preview-warning.txt',data:encodeExportText('Preview before upload. This may need adjustment so it appears correctly on the front torso.')},
+        {name:'USAGE.txt',data:encodeExportText(usage)},
+        {name:'package-metadata.json',data:encodeExportText(JSON.stringify(packageMetadata,null,2))},
+      ]);
+      downloadBlobFile(zipBlob, `${exportSourceName(source)}-front-shirt-image.zip`);
+      toast('Front shirt image package ready. This is not a full shirt or pants template.');
+      trackExport('front-shirt-image',7);
+    }catch(err){
+      console.warn('[Front shirt export]', err);
+      toast('The front shirt package did not finish. Try again.');
+    }
   }
 }
-function exportAvatarPantsPreview() {
+
+async function exportClassicAvatarShirtTemplate() {
+  if(!requireClubFeature('classic avatar shirt template exports')) return;
   const source=captureExportSource();
   const targetW = 585, targetH = 559;
+  const validation=validateExportSource(source,{purpose:'classic_shirt_template', width:targetW, height:targetH, metadata:true});
+  if(stopInvalidExport(validation)) return;
   const {cvs,ctx}=createStandardExportCanvas(targetW,targetH);
   if (exportSourceFrameCount(source)) {
-    createExportSourceBitmap(source).then(bmp => {
-      drawBitmapIntoStandardExport(ctx,bmp,{
-        targetWidth:targetW,
-        targetHeight:targetH,
-        maxWidth:Math.floor(targetW*0.76),
-        maxHeight:Math.floor(targetH*0.76),
-        nativeSize:exportSourceSize(source),
+    try{
+      const bmp=await createExportSourceBitmap(source);
+      drawClassicAvatarTemplate(ctx,bmp,{kind:'shirt',nativeSize:exportSourceSize(source)});
+      const imageBlob=await canvasToBlob(cvs,'image/png');
+      const templateInfo={
+        type:'classic-shirt',
+        templateSource:'classic clothing template layout',
+        width:targetW,
+        height:targetH,
+        mustUseFullTemplateLayout:true,
+        mustPreview:true,
+        exportStatus:'starter',
+        uploadAs:'Shirt',
+        notFor:['pants','game_icon','sprite_sheet','playable_character'],
+      };
+      const usage='Use this when you want a full avatar shirt. Preview before upload so arms and body wrap correctly.';
+      const packageMetadata=makePackageMetadata({
+        name:'pixel-sprite-vibes-avatar-shirt-template',
+        type:'classic_shirt_template',
+        status:'starter',
+        intendedUse:'Full classic avatar shirt template starter.',
+        notFor:templateInfo.notFor,
+        files:['avatar-shirt-template.png','template-info.json','preview-warning.txt','USAGE.txt'],
+        validation,
       });
-      downloadBlobFile(dataURLToBlob(cvs.toDataURL('image/png')), `${exportSourceName(source)}-avatar-pants-preview.png`);
-      toast('Your avatar pants idea is ready.');
-      trackExport('avatar-pants-preview',7);
-    });
+      const zipBlob=await createStoredZip([
+        {name:'avatar-shirt-template.png',data:imageBlob},
+        {name:'template-info.json',data:encodeExportText(JSON.stringify(templateInfo,null,2))},
+        {name:'preview-warning.txt',data:encodeExportText('Preview before upload. Shirt templates may need adjustment so the design wraps correctly on the avatar.')},
+        {name:'USAGE.txt',data:encodeExportText(usage)},
+        {name:'package-metadata.json',data:encodeExportText(JSON.stringify(packageMetadata,null,2))},
+      ]);
+      downloadBlobFile(zipBlob, `${exportSourceName(source)}-classic-shirt-template.zip`);
+      toast('Full shirt template package ready. Preview it before upload.');
+      trackExport('classic-shirt-template',10);
+    }catch(err){
+      console.warn('[Shirt template export]', err);
+      toast('The shirt template package did not finish. Try again.');
+    }
+  }
+}
+
+async function exportClassicAvatarPantsTemplate() {
+  if(!requireClubFeature('classic avatar pants template exports')) return;
+  const source=captureExportSource();
+  const targetW = 585, targetH = 559;
+  const validation=validateExportSource(source,{purpose:'classic_pants_template', width:targetW, height:targetH, metadata:true});
+  if(stopInvalidExport(validation)) return;
+  const {cvs,ctx}=createStandardExportCanvas(targetW,targetH);
+  if (exportSourceFrameCount(source)) {
+    try{
+      const bmp=await createExportSourceBitmap(source);
+      drawClassicAvatarTemplate(ctx,bmp,{kind:'pants',nativeSize:exportSourceSize(source)});
+      const imageBlob=await canvasToBlob(cvs,'image/png');
+      const templateInfo={
+        type:'classic-pants',
+        templateSource:'classic clothing template layout',
+        width:targetW,
+        height:targetH,
+        mustUseFullTemplateLayout:true,
+        mustPreview:true,
+        exportStatus:'starter',
+        uploadAs:'Pants',
+        notFor:['shirt','game_icon','sprite_sheet','playable_character'],
+      };
+      const usage='Use this when you want full avatar pants. Preview before upload so the waist and legs wrap correctly.';
+      const packageMetadata=makePackageMetadata({
+        name:'pixel-sprite-vibes-avatar-pants-template',
+        type:'classic_pants_template',
+        status:'starter',
+        intendedUse:'Full classic avatar pants template starter.',
+        notFor:templateInfo.notFor,
+        files:['avatar-pants-template.png','template-info.json','preview-warning.txt','USAGE.txt'],
+        validation,
+      });
+      const zipBlob=await createStoredZip([
+        {name:'avatar-pants-template.png',data:imageBlob},
+        {name:'template-info.json',data:encodeExportText(JSON.stringify(templateInfo,null,2))},
+        {name:'preview-warning.txt',data:encodeExportText('Preview before upload. Pants templates may need adjustment so the design wraps correctly on the avatar.')},
+        {name:'USAGE.txt',data:encodeExportText(usage)},
+        {name:'package-metadata.json',data:encodeExportText(JSON.stringify(packageMetadata,null,2))},
+      ]);
+      downloadBlobFile(zipBlob, `${exportSourceName(source)}-classic-pants-template.zip`);
+      toast('Full pants template package ready. Preview it before upload.');
+      trackExport('classic-pants-template',10);
+    }catch(err){
+      console.warn('[Pants template export]', err);
+      toast('The pants template package did not finish. Try again.');
+    }
   }
 }
 function exportGameIcon() {
@@ -3251,28 +3547,121 @@ function exportGameIcon() {
     });
   }
 }
-function exportSpriteSheet() {
+async function exportSpriteSheet() {
   if(!requireClubFeature('sprite sheet exports')) return;
   const source=captureExportSource();
-  const scale = 8;
+  const targetFrameSize = 256;
   const frameCount = exportSourceFrameCount(source);
   const sz = exportSourceSize(source);
+  if (frameCount <= 0) return;
+  const validation=validateExportSource(source,{purpose:'2d_animation_sheet', width:targetFrameSize*frameCount, height:targetFrameSize, metadata:true});
+  if(stopInvalidExport(validation)) return;
   const cvs = document.createElement('canvas');
-  cvs.width = sz * scale * frameCount;
-  cvs.height = sz * scale;
+  cvs.width = targetFrameSize * frameCount;
+  cvs.height = targetFrameSize;
   const ctx = cvs.getContext('2d');
   ctx.imageSmoothingEnabled = false;
-  if (frameCount > 0) {
-    let x = 0;
-    Promise.all(source.project.frames.map((_,i) => createExportSourceBitmap(source,i))).then(bitmaps => {
-      bitmaps.forEach(bmp => {
-        ctx.drawImage(bmp, 0, 0, sz, sz, x, 0, sz * scale, sz * scale);
-        x += sz * scale;
-      });
-      downloadBlobFile(dataURLToBlob(cvs.toDataURL('image/png')), `${exportSourceName(source)}-sprite-sheet.png`);
-      toast('Your game assets are ready. Ideas: indie games, coding projects, animation practice.');
-      trackExport('sprite-sheet',10);
+  try{
+    const bitmaps=await Promise.all(source.project.frames.map((_,i) => createExportSourceBitmap(source,i)));
+    bitmaps.forEach((bmp,i) => {
+      ctx.drawImage(bmp, 0, 0, sz, sz, i * targetFrameSize, 0, targetFrameSize, targetFrameSize);
     });
+    const pngBlob=await canvasToBlob(cvs,'image/png');
+    const contactCanvas=document.createElement('canvas');
+    contactCanvas.width=cvs.width;
+    contactCanvas.height=cvs.height+34;
+    const contactCtx=contactCanvas.getContext('2d');
+    contactCtx.imageSmoothingEnabled=false;
+    contactCtx.fillStyle='#080812';
+    contactCtx.fillRect(0,0,contactCanvas.width,contactCanvas.height);
+    contactCtx.drawImage(cvs,0,0);
+    contactCtx.fillStyle='#ffffff';
+    contactCtx.font='16px sans-serif';
+    for(let i=0;i<frameCount;i++) contactCtx.fillText(`Frame ${i+1}`, i*targetFrameSize+12, targetFrameSize+24);
+    const contactBlob=await canvasToBlob(contactCanvas,'image/png');
+    const durationMs=Math.round(1000/(ST.fps||8));
+    const frames=Array.from({length:frameCount},(_,index)=>({
+      index,
+      x:index*targetFrameSize,
+      y:0,
+      width:targetFrameSize,
+      height:targetFrameSize,
+      durationMs,
+    }));
+    const info={
+      fileName:'pixel-sprite-vibes-animation.png',
+      frameWidth:targetFrameSize,
+      frameHeight:targetFrameSize,
+      totalFrames:frameCount,
+      columns:frameCount,
+      rows:1,
+      fps:ST.fps||8,
+      loop:true,
+      transparentBackground:true,
+      suggestedUse:'2D game effect, pet, icon, menu animation, UI art, collectible, or 2D animation',
+      platformStatus:'image_asset_only',
+      notFor:['avatar_clothing','playable_character','rig_animation'],
+      frames,
+      robloxUseNote:'Upload PNG to Roblox Studio as an image asset. Use ImageRectSize and ImageRectOffset to show one frame at a time.',
+      safetyNote:'This is game art for 2D animation. It is not avatar clothing, a playable character, or a Roblox rig animation.',
+    };
+    const helperLua=[
+      '-- 2D sprite sheet helper notes.',
+      '-- Upload the PNG as an image asset, then use ImageRectSize and ImageRectOffset.',
+      `local FRAME_WIDTH = ${targetFrameSize}`,
+      `local FRAME_HEIGHT = ${targetFrameSize}`,
+      `local TOTAL_FRAMES = ${frameCount}`,
+      `local FPS = ${ST.fps||8}`,
+      'local UPLOADED_ASSET_ID = "rbxassetid://PASTE_IMAGE_ASSET_ID_HERE"',
+      '',
+      'local function setFrame(imageLabel, frameIndex)',
+      '  imageLabel.Image = UPLOADED_ASSET_ID',
+      '  local index = (frameIndex - 1) % TOTAL_FRAMES',
+      '  imageLabel.ImageRectSize = Vector2.new(FRAME_WIDTH, FRAME_HEIGHT)',
+      '  imageLabel.ImageRectOffset = Vector2.new(index * FRAME_WIDTH, 0)',
+      'end',
+      '',
+      'return setFrame',
+    ].join('\n');
+    const readme=[
+      '2D Game Animation Sheet',
+      '',
+      'Use this inside a game as a picture, effect, pet, icon, UI art, collectible, or 2D animation.',
+      '',
+      'This is not avatar clothing. It is not a playable character. It is not a rig animation.',
+      '',
+      'Included files:',
+      '- pixel-sprite-vibes-animation.png',
+      '- animation-info.json',
+      '- pixel-sprite-vibes-roblox-helper.lua',
+      '',
+      'A developer must set frame size, frame count, speed, loop behavior, and display logic in the game editor.',
+    ].join('\n');
+    const usage='This is a 2D game animation image asset. It can be used for game effects, pets, collectibles, icons, menus, UI, and 2D frame animation. It is not Roblox avatar clothing, not a playable character, and not a Roblox rig animation.';
+    const packageMetadata=makePackageMetadata({
+      name:'pixel-sprite-vibes-2d-animation',
+      type:'2d_animation_sheet',
+      status:'starter',
+      intendedUse:'2D game animation image asset with frame metadata.',
+      notFor:['avatar_clothing','playable_character','rig_animation'],
+      files:['pixel-sprite-vibes-animation.png','animation-info.json','preview-contact-sheet.png','USAGE.txt','roblox-helper.lua'],
+      validation,
+    });
+    const zipBlob=await createStoredZip([
+      {name:'pixel-sprite-vibes-animation.png',data:pngBlob},
+      {name:'animation-info.json',data:encodeExportText(JSON.stringify(info,null,2))},
+      {name:'preview-contact-sheet.png',data:contactBlob},
+      {name:'roblox-helper.lua',data:encodeExportText(helperLua)},
+      {name:'USAGE.txt',data:encodeExportText(usage)},
+      {name:'README.txt',data:encodeExportText(readme)},
+      {name:'package-metadata.json',data:encodeExportText(JSON.stringify(packageMetadata,null,2))},
+    ]);
+    downloadBlobFile(zipBlob, `${exportSourceName(source)}-2d-animation.zip`);
+    toast('2D animation sheet saved with PNG, frame info, and helper notes.');
+    trackExport('sprite-sheet',10);
+  }catch(err){
+    console.warn('[Sprite sheet export]', err);
+    toast('The sprite sheet package did not finish. Try again.');
   }
 }
 function exportSticker() {
@@ -3335,6 +3724,182 @@ function export3DTexture() {
       toast('Your 3D texture idea is ready for creative editor projects.');
       trackExport('3d-base-texture',9);
     });
+  }
+}
+
+async function exportPlayable3DCharacterSetup() {
+  if(!requireClubFeature('playable 3D character setup exports')) return;
+  const source=captureExportSource();
+  if (!exportSourceFrameCount(source)) return;
+  const validation=validateExportSource(source,{purpose:'playable_3d_character_starter', width:1024, height:1024, metadata:true});
+  if(stopInvalidExport(validation)) return;
+  try{
+    const nativeSize=exportSourceSize(source);
+    const bmp=await createExportSourceBitmap(source);
+    const {cvs,ctx}=createStandardExportCanvas(1024,1024);
+    drawBitmapIntoStandardExport(ctx,bmp,{targetWidth:1024,targetHeight:1024,maxWidth:820,maxHeight:820,nativeSize});
+    const referenceBlob=await canvasToBlob(cvs,'image/png');
+    const textureCanvas=document.createElement('canvas');
+    textureCanvas.width=512;
+    textureCanvas.height=512;
+    const textureCtx=textureCanvas.getContext('2d');
+    textureCtx.imageSmoothingEnabled=false;
+    textureCtx.fillStyle='#ffffff';
+    textureCtx.fillRect(0,0,512,512);
+    textureCtx.drawImage(bmp,0,0,nativeSize,nativeSize,64,64,384,384);
+    const textureBlob=await canvasToBlob(textureCanvas,'image/png');
+    const safeName=exportSourceName(source);
+    const readme=[
+      '# Playable 3D Character Setup',
+      '',
+      'This package is an advanced developer starter setup. It is not guaranteed accepted as a finished playable character.',
+      'A flat pixel picture cannot become a playable 3D character by itself.',
+      '',
+      'Included files:',
+      '- reference-art.png: concept art for the character.',
+      '- texture-reference.png: square texture reference for a modeler.',
+      '- block-character-starter.lua: Studio script that creates a starter humanoid-style block rig.',
+      '- rig-checklist.txt: setup checklist for a real rigged/skinned character.',
+      '',
+      'To finish a real playable character, a developer still needs to test the rig, controller behavior, collisions, scaling, animation setup, platform moderation, and target game rules in the editor.',
+      '',
+      'Upload files using the correct asset type. Do not upload this package as clothing, pants, an icon, or a 2D sprite sheet.',
+    ].join('\n');
+    const lua=[
+      '-- Block character starter generated by Pixel Sprite Vibes.',
+      '-- This creates a starter humanoid-style block rig from parts.',
+      '-- Test it before using it as a playable character.',
+      '',
+      'local model = Instance.new("Model")',
+      `model.Name = "${safeName.replace(/[^A-Za-z0-9_ -]/g,'') || 'PixelCharacter'}_StarterModel"`,
+      '',
+      'local function part(name, size, position, color, transparency)',
+      '  local p = Instance.new("Part")',
+      '  p.Name = name',
+      '  p.Size = size',
+      '  p.Position = position',
+      '  p.Color = color',
+      '  p.Transparency = transparency or 0',
+      '  p.Anchored = false',
+      '  p.CanCollide = false',
+      '  p.TopSurface = Enum.SurfaceType.Smooth',
+      '  p.BottomSurface = Enum.SurfaceType.Smooth',
+      '  p.Parent = model',
+      '  return p',
+      'end',
+      '',
+      'local function motor(name, part0, part1, c0, c1)',
+      '  local m = Instance.new("Motor6D")',
+      '  m.Name = name',
+      '  m.Part0 = part0',
+      '  m.Part1 = part1',
+      '  m.C0 = c0',
+      '  m.C1 = c1 or CFrame.new()',
+      '  m.Parent = part0',
+      '  return m',
+      'end',
+      '',
+      'local mainColor = Color3.fromRGB(108, 99, 255)',
+      'local accentColor = Color3.fromRGB(255, 209, 102)',
+      'local root = part("HumanoidRootPart", Vector3.new(2, 2, 1), Vector3.new(0, 4, 0), mainColor, 1)',
+      'local torso = part("Torso", Vector3.new(2, 2, 1), Vector3.new(0, 4, 0), mainColor)',
+      'local head = part("Head", Vector3.new(1.5, 1.5, 1.5), Vector3.new(0, 5.75, 0), accentColor)',
+      'local leftArm = part("Left Arm", Vector3.new(.8, 2, .8), Vector3.new(-1.45, 4, 0), mainColor)',
+      'local rightArm = part("Right Arm", Vector3.new(.8, 2, .8), Vector3.new(1.45, 4, 0), mainColor)',
+      'local leftLeg = part("Left Leg", Vector3.new(.9, 2, .9), Vector3.new(-.55, 2, 0), mainColor)',
+      'local rightLeg = part("Right Leg", Vector3.new(.9, 2, .9), Vector3.new(.55, 2, 0), mainColor)',
+      '',
+      'local humanoid = Instance.new("Humanoid")',
+      'humanoid.RigType = Enum.HumanoidRigType.R6',
+      'humanoid.Parent = model',
+      '',
+      'motor("RootJoint", root, torso, CFrame.new(0, 0, 0))',
+      'motor("Neck", torso, head, CFrame.new(0, 1.25, 0), CFrame.new(0, -.75, 0))',
+      'motor("Left Shoulder", torso, leftArm, CFrame.new(-1.05, .5, 0), CFrame.new(.4, .5, 0))',
+      'motor("Right Shoulder", torso, rightArm, CFrame.new(1.05, .5, 0), CFrame.new(-.4, .5, 0))',
+      'motor("Left Hip", torso, leftLeg, CFrame.new(-.5, -1, 0), CFrame.new(0, 1, 0))',
+      'motor("Right Hip", torso, rightLeg, CFrame.new(.5, -1, 0), CFrame.new(0, 1, 0))',
+      '',
+      'model.PrimaryPart = root',
+      'model.Parent = workspace',
+      '',
+      '-- Next developer steps:',
+      '-- 1. Test this starter rig in the target game.',
+      '-- 2. Replace simple parts with better modeled parts or a skinned mesh if needed.',
+      '-- 3. Apply textures/materials from texture-reference.png.',
+      '-- 4. Test movement, scale, collision, and animations in Studio.',
+    ].join('\n');
+    const checklist=[
+      'Playable 3D character checklist',
+      '',
+      '[ ] Build or import a real 3D model.',
+      '[ ] Split body into the needed body parts or use a skinned mesh.',
+      '[ ] Add bones/joints/rig controls.',
+      '[ ] Configure humanoid or character controller requirements.',
+      '[ ] Apply texture/reference art intentionally.',
+      '[ ] Create or assign animations on the rig.',
+      '[ ] Test walking, jumping, collisions, scaling, camera, and respawn.',
+      '[ ] Only call it playable after it works in the target game editor.',
+    ].join('\n');
+    const modelSpec={
+      bodyParts:['HumanoidRootPart','Torso','Head','Left Arm','Right Arm','Left Leg','Right Leg'],
+      joints:['RootJoint','Neck','Left Shoulder','Right Shoulder','Left Hip','Right Hip'],
+      textureFiles:['texture-reference.png'],
+      rigType:'starter_block_rig_r6_style',
+      scaleNotes:'Starter dimensions are approximate. Test scale, camera, collision, and animation behavior in the target editor.',
+      validationStatus:'starter_not_final',
+      platformStatus:'requires_3d_modeling_and_testing',
+      exportStatus:'starter',
+      notFor:['finished_playable_character_without_testing','avatar_clothing','2d_sprite_animation','rig_animation_clip'],
+    };
+    const rigMap={
+      root:'HumanoidRootPart',
+      torso:'Torso',
+      head:'Head',
+      limbs:{
+        leftArm:'Left Arm',
+        rightArm:'Right Arm',
+        leftLeg:'Left Leg',
+        rightLeg:'Right Leg',
+      },
+      joints:{
+        RootJoint:['HumanoidRootPart','Torso'],
+        Neck:['Torso','Head'],
+        'Left Shoulder':['Torso','Left Arm'],
+        'Right Shoulder':['Torso','Right Arm'],
+        'Left Hip':['Torso','Left Leg'],
+        'Right Hip':['Torso','Right Leg'],
+      },
+    };
+    const usage='This is a character idea and developer starter. A playable Roblox character needs a proper 3D model, body parts, rigging, skinning, and Roblox Studio testing. A PNG, GIF, or sprite sheet cannot become a playable Roblox character by itself.';
+    const packageMetadata=makePackageMetadata({
+      name:'pixel-sprite-vibes-3d-character-starter',
+      type:'playable_3d_character_starter',
+      status:'starter',
+      intendedUse:'Developer starter package for a rigged/skinned 3D character workflow.',
+      notFor:modelSpec.notFor,
+      files:['model-spec.json','rig-map.json','textures/README.txt','animations/README.txt','USAGE.txt'],
+      validation,
+    });
+    const zipBlob=await createStoredZip([
+      {name:'reference-art.png',data:referenceBlob},
+      {name:'texture-reference.png',data:textureBlob},
+      {name:'block-character-starter.lua',data:new TextEncoder().encode(lua)},
+      {name:'model-spec.json',data:encodeExportText(JSON.stringify(modelSpec,null,2))},
+      {name:'rig-map.json',data:encodeExportText(JSON.stringify(rigMap,null,2))},
+      {name:'textures/README.txt',data:encodeExportText('Use texture-reference.png as concept art for model textures. A real playable character may need UV mapping, materials, and skinning.')},
+      {name:'animations/README.txt',data:encodeExportText('This package does not include a finished rig animation. Real character animation needs a rig, timeline/keyframes, and testing in the editor.')},
+      {name:'rig-checklist.txt',data:encodeExportText(checklist)},
+      {name:'USAGE.txt',data:encodeExportText(usage)},
+      {name:'README.txt',data:encodeExportText(readme)},
+      {name:'package-metadata.json',data:encodeExportText(JSON.stringify(packageMetadata,null,2))},
+    ]);
+    downloadBlobFile(zipBlob,`${safeName}-3d-character-starter.zip`);
+    toast('3D setup package ready. A developer still needs to rig and test it.');
+    trackExport('playable-3d-setup',12);
+  }catch(err){
+    console.warn('[3D setup export]', err);
+    toast('The 3D setup package did not finish. Try again.');
   }
 }
 // ── SOUND ENGINE: PIXELSPRITE SOLFEGGIO FRAMEWORK ─────
@@ -6516,6 +7081,26 @@ function useCreationForGames(){
 
 function useCreationForSpriteSheet(){
   runUseCreationAction('Preparing a sprite sheet for coding and game projects...', exportSpriteSheet);
+}
+
+function useCreationForBlockResourcePack(){
+  runUseCreationAction('Preparing a block resource pack starter with manifest and texture folders...', exportBlockTexturePack);
+}
+
+function useCreationForFrontShirtImage(){
+  runUseCreationAction('Preparing a front shirt image. This is not a full shirt or pants template.', exportAvatarFrontShirtImage);
+}
+
+function useCreationForFullShirtTemplate(){
+  runUseCreationAction('Preparing a full shirt template. Preview the wrap before uploading.', exportClassicAvatarShirtTemplate);
+}
+
+function useCreationForFullPantsTemplate(){
+  runUseCreationAction('Preparing a full pants template. Preview the legs before uploading.', exportClassicAvatarPantsTemplate);
+}
+
+function useCreationForPlayable3DSetup(){
+  runUseCreationAction('Preparing an advanced 3D setup package. A developer must still rig and test it.', exportPlayable3DCharacterSetup);
 }
 
 function useCreationForVideos(){
