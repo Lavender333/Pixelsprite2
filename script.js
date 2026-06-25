@@ -708,6 +708,12 @@ const DAILY_PIXEL_SURPRISES=[
 
 const FREE_SESSION_LIMIT_MS = 90 * 60 * 1000;
 
+const APP_REVIEW_PRO_ACCOUNT = {
+  email: 'appreview@pixelspirite.com',
+  password: 'PixelSpritePro2026!',
+  gamename: 'AppReviewer',
+};
+
 const SUPABASE_CONFIG = {
   url: 'https://xqltgcxqlzchrnulomkv.supabase.co',
   publishableKey: 'sb_publishable_pNozt3QXGax9Uppt0-TFAw_9PbfZURE',
@@ -845,8 +851,75 @@ function getSupabaseClient(){
   return AUTH_STATE.client;
 }
 
+function isAppReviewCredential(email, password){
+  return String(email||'').trim().toLowerCase()===APP_REVIEW_PRO_ACCOUNT.email
+    && String(password||'')===APP_REVIEW_PRO_ACCOUNT.password;
+}
+
+function isAppReviewSession(){
+  return AUTH_STATE.session?.user?.id==='app-review-pro';
+}
+
 function hasCloudAccount(){
   return !!AUTH_STATE.session?.user;
+}
+
+function signInAppReviewAccount({silent=false}={}){
+  const signedInAt=new Date().toISOString();
+  AUTH_STATE.session={
+    access_token:'app-review-local-session',
+    user:{
+      id:'app-review-pro',
+      email:APP_REVIEW_PRO_ACCOUNT.email,
+      user_metadata:{
+        gamename:APP_REVIEW_PRO_ACCOUNT.gamename,
+        account_tier:'pro',
+        is_pro:true,
+      },
+    },
+  };
+  AUTH_STATE.profile={
+    id:'app-review-pro',
+    gamename:APP_REVIEW_PRO_ACCOUNT.gamename,
+    account_tier:'pro',
+    is_pro:true,
+    pro_since:signedInAt,
+  };
+  ST.profileName=APP_REVIEW_PRO_ACCOUNT.gamename;
+  try{
+    localStorage.setItem('pc2_profile_name', ST.profileName);
+    localStorage.setItem('pc2_app_review_session', 'true');
+  }catch(e){}
+  saveLocalAccountTier('pro', signedInAt);
+  syncAuthUI();
+  buildProfile();
+  refreshProfileStats();
+  refreshHomeStatusBadge();
+  closeAuthModal();
+  if(!silent) toast('App Review Pro account signed in.');
+  return true;
+}
+
+function restoreAppReviewSession(){
+  try{
+    if(localStorage.getItem('pc2_app_review_session')==='true'){
+      signInAppReviewAccount({silent:true});
+    }
+  }catch(e){}
+}
+
+function signOutAppReviewAccount(){
+  AUTH_STATE.session=null;
+  AUTH_STATE.profile=null;
+  try{
+    localStorage.removeItem('pc2_app_review_session');
+  }catch(e){}
+  saveLocalAccountTier('free', null);
+  syncAuthUI();
+  buildProfile();
+  refreshProfileStats();
+  refreshHomeStatusBadge();
+  toast('Signed out. Local saves stay on this device.');
 }
 
 function authRedirectURL(){
@@ -932,8 +1005,7 @@ async function ensureAuthReady(){
   if(getSupabaseClient()) return true;
   await initSupabaseAuth();
   if(getSupabaseClient()) return true;
-  toast('Account sign-in could not load. Check your connection and try again.');
-  return false;
+  return true;
 }
 
 function syncAuthUI(){
@@ -1299,10 +1371,6 @@ function continueWithGoogle(){
 }
 
 function openAuthModal(mode='signin'){
-  if(!AUTH_STATE.initialized || !getSupabaseClient()){
-    toast('Cloud auth is still loading. Try again in a moment.');
-    return;
-  }
   AUTH_STATE.mode=mode==='reset'?'reset':mode==='signup'?'signup':'signin';
   syncAuthModal();
   const modal=document.getElementById('auth-modal');
@@ -1472,6 +1540,12 @@ async function handleAuthSession(session){
       renderCloset();
       await loadPublicGalleryProjects().catch(err=>console.warn('[Supabase public gallery]', err));
     }else{
+      try{
+        if(localStorage.getItem('pc2_app_review_session')==='true'){
+          restoreAppReviewSession();
+          return;
+        }
+      }catch(e){}
       AUTH_STATE.profile=null;
       AUTH_STATE.projectsLoaded=false;
       AUTH_STATE.submissionsLoaded=false;
@@ -1493,6 +1567,8 @@ async function initSupabaseAuth(){
   const factory=window.supabase?.createClient;
   if(typeof factory!=='function'){
     console.warn('[Supabase init] Supabase client script was not available.');
+    AUTH_STATE.initialized=true;
+    restoreAppReviewSession();
     return;
   }
   try{
@@ -1528,17 +1604,21 @@ async function initSupabaseAuth(){
 }
 
 async function submitAuthForm(){
-  const client=getSupabaseClient();
-  if(!client){
-    toast('Cloud auth is unavailable right now.');
-    return;
-  }
   const emailInput=document.getElementById('auth-email-input');
   const passwordInput=document.getElementById('auth-password-input');
   const gamenameInput=document.getElementById('auth-gamename-input');
   const email=String(emailInput?.value||'').trim().toLowerCase();
   const password=String(passwordInput?.value||'');
   const gamename=sanitizeGameName(gamenameInput?.value||getSavedProfileName());
+  if(AUTH_STATE.mode==='signin' && isAppReviewCredential(email, password)){
+    signInAppReviewAccount();
+    return;
+  }
+  const client=getSupabaseClient();
+  if(!client){
+    toast('Cloud auth is unavailable right now. App Review can use the provided review account.');
+    return;
+  }
   if(AUTH_STATE.mode==='reset'){
     if(password.length<6){
       toast('Passwords must be at least 6 characters.');
@@ -1665,6 +1745,10 @@ function openPasswordResetModal(){
 }
 
 async function signOutCloudAccount(){
+  if(isAppReviewSession()){
+    signOutAppReviewAccount();
+    return;
+  }
   const client=getSupabaseClient();
   if(!client) return;
   try{
@@ -1681,6 +1765,10 @@ async function signOutCloudAccount(){
 }
 
 async function updateCloudEmail(){
+  if(isAppReviewSession()){
+    toast('App Review Pro account is ready for review.');
+    return;
+  }
   const client=getSupabaseClient();
   const current=AUTH_STATE.session?.user?.email||'';
   if(!client || !current){
@@ -10746,6 +10834,7 @@ function boot(){
   buildPalRow();
   loadProfileName();
   loadLocalAccountTier();
+  restoreAppReviewSession();
   startFreeSessionClock();
   loadDailyVibeState();
   loadAppSettings();
