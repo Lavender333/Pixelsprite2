@@ -10352,6 +10352,13 @@ function showTab(tab){
   closeFXMenu();closeAnimMenu();
 }
 function openStudio(){showTab('studio');}
+function openPixelVerse(){
+  showTab('home');
+  setTimeout(()=>{
+    const section=document.getElementById('public-gallery-section');
+    if(section) section.scrollIntoView({behavior:'smooth',block:'start'});
+  },80);
+}
 
 // ── HELPERS ───────────────────────────────────────────
 function toast(msg,dur=2200){document.querySelectorAll('.toast').forEach(t=>t.remove());const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.style.opacity='0',dur-300);setTimeout(()=>t.remove(),dur);}
