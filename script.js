@@ -874,9 +874,11 @@ function syncAuthProviders(){
   const apple=document.querySelector('.auth-provider.apple');
   const google=document.querySelector('.auth-provider.google');
   const email=document.querySelector('.auth-provider.email');
+  const emailFields=document.getElementById('email-auth-fields');
   const emailReady=authProviderEnabled('email');
   const appleAllowed=authProviderAllowed('apple');
   const googleAllowed=authProviderAllowed('google');
+  const emailFormOpen=!!emailFields && !emailFields.hidden;
   if(apple){
     apple.hidden=!appleAllowed;
     apple.disabled=AUTH_STATE.busy;
@@ -886,7 +888,7 @@ function syncAuthProviders(){
     google.disabled=AUTH_STATE.busy;
   }
   if(email){
-    email.hidden=!emailReady;
+    email.hidden=!emailReady || emailFormOpen;
     email.disabled=AUTH_STATE.busy || !emailReady;
     email.textContent=AUTH_STATE.mode==='signup' ? 'Continue with Email' : 'Sign in with Email';
   }
@@ -1017,18 +1019,21 @@ function syncAuthModal(){
   const password=document.getElementById('auth-password-input');
   const gamenameInput=document.getElementById('auth-gamename-input');
   const hasOAuth=authProviderEnabled('apple') || authProviderEnabled('google');
-  if(badge) badge.textContent='Save Your PixelVerse';
+  if(badge) badge.textContent=isSignup?'Account':'Welcome back';
   if(title) title.textContent='Save Your PixelVerse';
   if(copy) copy.textContent=isSignup
-    ? 'Create an account to sync your username, streaks, badges, and creations across devices.'
+    ? 'Create an account to sync creations and keep your progress.'
     : hasOAuth
-      ? 'Welcome back. Choose a sign-in option to reconnect your PixelVerse.'
-      : 'Welcome back. Sign in with email to reconnect your PixelVerse.';
-  if(help) help.textContent=isSignup
-    ? hasOAuth
-      ? 'Email is available as a backup. Apple is recommended on iPhone and iPad when enabled.'
-      : 'Create a secure email account. Passwords are handled by Supabase Auth.'
-    : 'Need a new password? Use the reset link below and Supabase will email you a recovery link.';
+      ? 'Choose a sign-in option to reconnect.'
+      : 'Sign in with email to reconnect.';
+  if(help){
+    help.textContent=isSignup
+      ? hasOAuth
+        ? 'Email is available as a backup.'
+        : 'Passwords are handled securely by Supabase Auth.'
+      : '';
+    help.hidden=!help.textContent;
+  }
   if(submit) submit.textContent=isSignup?'Create account':'Sign in';
   if(switchBtn) switchBtn.textContent=isSignup?'Already have an account? Sign in':'Need an account? Sign up';
   if(gamenameWrap) gamenameWrap.hidden=!isSignup;
@@ -1040,6 +1045,7 @@ function syncAuthModal(){
 function showEmailAuthFields(){
   const fields=document.getElementById('email-auth-fields');
   if(fields) fields.hidden=false;
+  syncAuthProviders();
   const target=AUTH_STATE.mode==='signup'
     ? document.getElementById('auth-gamename-input')
     : document.getElementById('auth-email-input');
