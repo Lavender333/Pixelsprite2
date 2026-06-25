@@ -672,6 +672,8 @@ const ST = {
   publicGallery: [],
   pixelVerseReactions: {},
   pixelVerseFollows: {},
+  freeSessionUsedMs: 0,
+  freeSessionLastTick: null,
 };
 
 const APP_SETTINGS = {
@@ -703,6 +705,8 @@ const DAILY_PIXEL_SURPRISES=[
   {type:'Sticker',label:'Star Sticker Idea'},
   {type:'Template',label:'Tiny Pet Starter'},
 ];
+
+const FREE_SESSION_LIMIT_MS = 90 * 60 * 1000;
 
 const SUPABASE_CONFIG = {
   url: 'https://xqltgcxqlzchrnulomkv.supabase.co',
@@ -861,6 +865,7 @@ function syncAuthUI(){
   const splashWrap=document.getElementById('splash-auth-cta');
   const storageNote=document.getElementById('profile-storage-note');
   const signedIn=hasCloudAccount();
+  const userEmail=AUTH_STATE.session?.user?.email || '';
 
   if(title) title.textContent=signedIn?'PixelVerse saved':'Save Your PixelVerse';
   if(copy) copy.textContent=signedIn
@@ -985,15 +990,77 @@ function formatLimit(value){
 }
 
 function showClubComingSoon(plan='monthly'){
-  const labels={monthly:'Monthly Club',annual:'Annual Club',lifetime:'Lifetime Club'};
-  toast(`${labels[plan]||'Club'} will unlock after Apple In-App Purchase is connected.`);
+  const labels={monthly:'Monthly Plus',annual:'Annual Plus',lifetime:'Lifetime Plus'};
+  toast(`${labels[plan]||'LavenderCare Plus'} will unlock after Apple In-App Purchase is connected.`);
 }
 
 function requireClubFeature(feature='this feature'){
   if(isClubAccount()) return true;
-  openProInfo();
-  toast(`Pixel Sprite Vibes Club unlocks ${feature}.`);
+  openProInfo('feature');
+  toast(`LavenderCare Plus unlocks ${feature}.`);
   return false;
+}
+
+function formatFreeSessionTime(ms){
+  const totalMinutes=Math.max(0,Math.ceil(ms/60000));
+  const hours=Math.floor(totalMinutes/60);
+  const minutes=totalMinutes%60;
+  if(hours && minutes) return `${hours}h ${minutes}m`;
+  if(hours) return `${hours}h`;
+  return `${minutes}m`;
+}
+
+function persistFreeSessionTime(){
+  try{localStorage.setItem('pc2_free_session_used_ms',String(Math.max(0,Math.floor(ST.freeSessionUsedMs||0))));}catch(e){}
+}
+
+function loadFreeSessionTime(){
+  try{
+    const used=Number(localStorage.getItem('pc2_free_session_used_ms')||0);
+    ST.freeSessionUsedMs=Number.isFinite(used) ? Math.max(0,used) : 0;
+  }catch(e){
+    ST.freeSessionUsedMs=0;
+  }
+  ST.freeSessionLastTick=Date.now();
+}
+
+function tickFreeSessionTime(){
+  const now=Date.now();
+  if(ST.freeSessionLastTick===null) ST.freeSessionLastTick=now;
+  if(!isClubAccount() && document.visibilityState!=='hidden'){
+    const delta=Math.max(0,Math.min(now-ST.freeSessionLastTick,60000));
+    ST.freeSessionUsedMs=Math.min(FREE_SESSION_LIMIT_MS,ST.freeSessionUsedMs+delta);
+    persistFreeSessionTime();
+  }
+  ST.freeSessionLastTick=now;
+}
+
+function startFreeSessionClock(){
+  loadFreeSessionTime();
+  document.addEventListener('visibilitychange',()=>tickFreeSessionTime());
+  setInterval(tickFreeSessionTime,15000);
+}
+
+function freeSessionLimitReached(){
+  tickFreeSessionTime();
+  return !isClubAccount() && (ST.freeSessionUsedMs||0)>=FREE_SESSION_LIMIT_MS;
+}
+
+function canStartCreativeSession(){
+  if(!freeSessionLimitReached()) return true;
+  openProInfo('limit');
+  return false;
+}
+
+function maybeShowSuccessUpgradePrompt(reason='success'){
+  if(isClubAccount() || freeSessionLimitReached()) return;
+  if((ST.freeSessionUsedMs||0)<5*60*1000) return;
+  try{
+    const key='pc2_plus_success_prompt_day';
+    if(localStorage.getItem(key)===dayStamp()) return;
+    localStorage.setItem(key,dayStamp());
+  }catch(e){}
+  setTimeout(()=>openProInfo(reason),850);
 }
 
 function saveLocalAccountTier(tier=ST.accountTier, proSince=ST.proSince){
@@ -1036,8 +1103,28 @@ function refreshPlanUI(){
   if(proSection) proSection.hidden=pro;
 }
 
-function openProInfo(){
+function openProInfo(reason='default'){
   const modal=document.getElementById('pro-info-modal');
+  const badge=document.getElementById('pro-info-badge');
+  const title=document.getElementById('pro-info-title');
+  const copy=document.getElementById('pro-info-copy');
+  const primary=document.getElementById('pro-info-primary');
+  if(badge) badge.textContent='LavenderCare Plus';
+  if(primary) primary.textContent='Upgrade';
+  if(title && copy){
+    if(reason==='limit'){
+      title.textContent='You’re on a roll!';
+      copy.textContent='Upgrade to LavenderCare Plus to unlock unlimited update hours and keep going. Free time is up, so new sessions pause here without Plus benefits like extended time, watermark-free animations, premium packs, and priority updates.';
+      if(primary) primary.textContent='Keep Going';
+    }else if(reason==='success'){
+      title.textContent='Nice work. Want to supercharge the next session?';
+      copy.textContent='Enjoying the speed? Unlock LavenderCare Plus for deeper creative insights, more update time, unlimited saves, and premium tools for your next creation.';
+      if(primary) primary.textContent='Unlock Plus';
+    }else{
+      title.textContent='More magic. More animation. More fun.';
+      copy.textContent=`Free includes ${formatFreeSessionTime(Math.max(0,FREE_SESSION_LIMIT_MS-(ST.freeSessionUsedMs||0)))} of update time, 10 saves, and 3-frame animation. LavenderCare Plus unlocks unlimited update hours, unlimited saves, premium packs, and priority updates.`;
+    }
+  }
   if(modal) modal.style.display='flex';
 }
 
@@ -5537,6 +5624,7 @@ function isLocked(x,y){
 // Load a coloring template: switch to 32×32, draw outline to overlay canvas,
 // build Uint8Array bitmask, push suggested palette, enter coloring mode
 function loadColoringTemplate(id){
+  if(!canStartCreativeSession()) return;
   if(!isTemplateVisible(id)){
     toast('Color-in templates are coming soon.');
     return;
@@ -5663,6 +5751,7 @@ function triggerColoringComplete(){
   EventBus.emit('coloring:complete', { template: ST.coloringTemplate });
   // Celebration overlay
   toast(`🎉 Amazing! ${ST.coloringTemplate?.name || 'Coloring'} complete! +${xp} XP`);
+  maybeShowSuccessUpgradePrompt('success');
   SFX.levelUp();
   // Flash the canvas gold
   const mc = document.getElementById('mc');
@@ -5784,6 +5873,7 @@ function buildFramesUI(){
   if(sel) sel.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
 }
 function startBlank(size){
+  if(!canStartCreativeSession()) return;
   if(ST.coloringMode) clearColoringMode();
   ST.size=size; ST.frames=[]; ST.textFrames=[]; ST.undoStacks=[]; ST.undoTextStacks=[]; ST.undoIdx=[]; clearTextSelection();
   showTab('create');
@@ -5800,8 +5890,8 @@ function updateThumb(i){const t=document.getElementById('ft-'+i);if(!t||!ST.fram
 function addFrame(){
   const maxFrames=getMaxAnimationFrames();
   if(maxFrames!==Infinity && ST.frames.length>=maxFrames){
-    openProInfo();
-    toast(`Free animations include ${maxFrames} frames. Club unlocks unlimited frames.`);
+    openProInfo('feature');
+    toast(`Free animations include ${maxFrames} frames. LavenderCare Plus unlocks unlimited frames.`);
     return;
   }
   ST.frames.push(new ImageData(ST.size,ST.size));ST.textFrames.push([]);ST.undoStacks.push([new ImageData(ST.size,ST.size)]);ST.undoTextStacks.push([[]]);ST.undoIdx.push(0);switchFrame(ST.frames.length-1);buildFramesUI();Economy.track('frame:add');addXP(3);SFX.click();
@@ -5875,8 +5965,8 @@ function updatePlayButton(){
 function dupFrame(){
   const maxFrames=getMaxAnimationFrames();
   if(maxFrames!==Infinity && ST.frames.length>=maxFrames){
-    openProInfo();
-    toast(`Free animations include ${maxFrames} frames. Club unlocks unlimited frames.`);
+    openProInfo('feature');
+    toast(`Free animations include ${maxFrames} frames. LavenderCare Plus unlocks unlimited frames.`);
     return;
   }
   if(ST.playing)stopPlay();captureFrame();const src=ST.frames[ST.currentFrame];const copy=cloneImageData(src);const textCopy=cloneTextObjectArray(getFrameTextObjects(ST.currentFrame));const at=ST.currentFrame+1;ST.frames.splice(at,0,copy);ST.textFrames.splice(at,0,textCopy);ST.undoStacks.splice(at,0,[cloneImageData(copy)]);ST.undoTextStacks.splice(at,0,[cloneTextObjectArray(textCopy)]);ST.undoIdx.splice(at,0,0);buildFramesUI();switchFrame(at);toast('⧉ Frame duplicated!');SFX.click();
@@ -6780,8 +6870,8 @@ function openSaveProjectModal(){
   if(note){
     const saveLimit=getMaxSavedProjects();
     const limitText=saveLimit===Infinity
-      ? 'Club includes unlimited saved creations.'
-      : `Free includes ${saveLimit} save slots. Club unlocks unlimited saves.`;
+      ? 'LavenderCare Plus includes unlimited saved creations.'
+      : `Free includes ${saveLimit} save slots. LavenderCare Plus unlocks unlimited saves.`;
     note.textContent=hasCloudAccount()
       ? `Saved creations sync to your account. ${limitText} Public Gallery posting is free.`
       : `Saved creations stay on this device until you sign in. ${limitText}`;
@@ -6945,6 +7035,16 @@ function savePixelVerseState(){
   }catch(e){}
 }
 
+function openPixelVerseShare(){
+  if(ST.projects.length){
+    showTab('closet');
+    toast('Choose a saved creation, then tap Share to PixelVerse.');
+    return;
+  }
+  toast('Create and save something first, then share it to PixelVerse.');
+  showTab('studio');
+}
+
 function claimDailyPixelSurprise(){
   const today=dayStamp();
   const key='pc2_pixelverse_surprise_day';
@@ -7050,6 +7150,21 @@ async function moderatePixelVerseProject(project){
 
 function pixelVerseProjectKey(project,idx=0){
   return project?.cloudId || project?.slug || slugifyProjectName(projectBaseName(project?.name||`pixelverse-${idx}`));
+}
+
+function getPixelVerseDisplayProjects(){
+  const seen=new Set();
+  const add=(list=[], out=[])=>{
+    list.forEach((project,idx)=>{
+      if(!project || project.pixelVerseSafe===false) return;
+      const key=pixelVerseProjectKey(project,idx);
+      if(seen.has(key)) return;
+      seen.add(key);
+      out.push(project);
+    });
+    return out;
+  };
+  return add(ST.publicGallery||[], add((ST.projects||[]).filter(isProjectPublic), []));
 }
 
 function reactToPixelVerse(projectKey,reaction){
@@ -7297,6 +7412,7 @@ function refreshDailyVibe(){
 }
 
 function startDailyPrompt(){
+  if(!canStartCreativeSession()) return;
   const prompt=getDailyVibePrompt();
   ST.activeDailyVibeKey=dayStamp();
   try{
@@ -7415,7 +7531,8 @@ function buildPublicGallery(){
   if(!wrap||!section) return;
   refreshPixelVerseUI();
   wrap.innerHTML='';
-  if(!ST.publicGallery.length){
+  const displayProjects=getPixelVerseDisplayProjects();
+  if(!displayProjects.length){
     section.style.display='block';
     const empty=document.createElement('div');
     empty.className='gallery-empty';
@@ -7425,13 +7542,13 @@ function buildPublicGallery(){
   }
   section.style.display='block';
   const theme=getPixelVerseTheme();
-  const ranked=[...ST.publicGallery].sort((a,b)=>{
+  const ranked=[...displayProjects].sort((a,b)=>{
     const ak=(a.pixelVerseTheme===theme?0:1)+(ST.pixelVerseFollows?.[sanitizeGameName(a.creator||'')]?-0.25:0);
     const bk=(b.pixelVerseTheme===theme?0:1)+(ST.pixelVerseFollows?.[sanitizeGameName(b.creator||'')]?-0.25:0);
     return ak-bk || String(a.name).localeCompare(String(b.name));
   });
   ranked.forEach((proj)=>{
-    const idx=ST.publicGallery.indexOf(proj);
+    const idx=displayProjects.indexOf(proj);
     if(proj.pixelVerseSafe===false) return;
     const projectKey=pixelVerseProjectKey(proj,idx);
     const creator=sanitizeGameName(proj.creator||'PixelCreator');
@@ -7439,11 +7556,11 @@ function buildPublicGallery(){
     card.className='gallery-item community';
     card.setAttribute('role','button');
     card.tabIndex=0;
-    card.onclick=()=>loadPublicGalleryProject(idx);
+    card.onclick=()=>loadPublicGalleryProject(proj);
     card.onkeydown=e=>{
       if(e.key==='Enter' || e.key===' '){
         e.preventDefault();
-        loadPublicGalleryProject(idx);
+        loadPublicGalleryProject(proj);
       }
     };
     const chip=document.createElement('div');
@@ -7526,8 +7643,10 @@ async function loadPublicGalleryProjects(){
   return ST.publicGallery;
 }
 
-function loadPublicGalleryProject(idx){
-  const project=ST.publicGallery[idx];
+function loadPublicGalleryProject(projectOrIndex){
+  const project=typeof projectOrIndex==='number'
+    ? getPixelVerseDisplayProjects()[projectOrIndex]
+    : projectOrIndex;
   if(!project) return;
   ST.size=project.size||16;
   ST.frames=cloneFrames(project.frames||[]);
@@ -8014,6 +8133,7 @@ function getTemplateCanvasSize(id){
 }
 
 function loadTemplate(id,name){
+  if(!canStartCreativeSession()) return;
   if(!isTemplateVisible(id)){
     toast('This template is coming soon.');
     return;
@@ -8044,6 +8164,7 @@ function loadTemplate(id,name){
 }
 
 function loadAnimTemplate(tmpl){
+  if(!canStartCreativeSession()) return;
   if(!tmpl || !isAnimTemplateVisible(tmpl.id)){
     toast('This animation pack is coming soon.');
     return;
@@ -8769,6 +8890,7 @@ async function toggleProjectPublishing(idx){
   loadPublicGalleryProjects().catch(err=>console.warn('[Supabase public gallery]', err));
   renderCloset();
   buildHomeGallery();
+  buildPublicGallery();
   toast(nextPublic?'Shared to PixelVerse ✨ Emoji reactions only. No comments or chat.':'Moved back to private saves');
 }
 
@@ -8919,8 +9041,8 @@ function upsertProject(proj,{reward=true,silent=false}={}){
   const idx=ST.projects.findIndex(p=>p.name===proj.name);
   const maxProjects=getMaxSavedProjects();
   if(idx<0 && maxProjects!==Infinity && ST.projects.length>=maxProjects){
-    openProInfo();
-    toast(`Free includes ${maxProjects} save slots. Upgrade to Club for unlimited saves.`);
+    openProInfo('feature');
+    toast(`Free includes ${maxProjects} save slots. Upgrade to LavenderCare Plus for unlimited saves.`);
     return false;
   }
   if(idx>=0) ST.projects[idx]={...ST.projects[idx],...proj}; else ST.projects.push(proj);
@@ -8943,6 +9065,7 @@ function upsertProject(proj,{reward=true,silent=false}={}){
         : '✦ Saved on this device. Sign in to sync and publish from My Gallery.';
     const rewardMessage=dailyReward ? `Saved +20 XP · ${dailyReward.message}` : savedMessage;
     confetti();addXP(xpReward);toast(rewardMessage,dailyReward?3000:2200);SFX.save();Economy.track('project:save');
+    maybeShowSuccessUpgradePrompt('success');
   } else if(!silent){
     toast('Updated in Gallery ✦');
   }
@@ -9216,6 +9339,7 @@ function startChallenge(){
     toast('Challenges are hidden for the App Store release build.');
     return;
   }
+  if(!canStartCreativeSession()) return;
   const curr=getCurrentChallenge();
   const selected=getSelectedChallengeStarter(curr);
   ST.activeChallenge=curr.name;
@@ -9638,6 +9762,7 @@ function boot(){
   buildPalRow();
   loadProfileName();
   loadLocalAccountTier();
+  startFreeSessionClock();
   loadDailyVibeState();
   loadAppSettings();
   loadProjects();

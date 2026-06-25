@@ -36,13 +36,14 @@
 <link rel="manifest" href="manifest.json">
 
 <!-- Icons -->
-<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="shortcut icon" href="icon-32.png">
 <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
 <!-- Service Worker registration -->
 
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=7">
 
 <script>
   const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
@@ -58,7 +59,7 @@
 
   if (canUseSW) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      navigator.serviceWorker.register('/sw.js?v=7').catch(() => {});
     });
   }
 </script>
@@ -168,7 +169,10 @@
         <div class="pixelverse-theme" id="pixelverse-theme">Pixel Pets</div>
         <div class="pixelverse-copy">A safe creative universe: emoji reactions only, no comments, no chat.</div>
       </div>
-      <button class="pixelverse-surprise" type="button" onclick="claimDailyPixelSurprise()">Daily Surprise</button>
+      <div class="pixelverse-actions">
+        <button class="pixelverse-join" type="button" onclick="openPixelVerseShare()">Share Creation</button>
+        <button class="pixelverse-surprise" type="button" onclick="claimDailyPixelSurprise()">Daily Surprise</button>
+      </div>
     </div>
     <div class="gallery-strip" id="public-gallery-strip"></div>
   </div>
@@ -487,13 +491,13 @@
     </div>
   </div>
   <div class="prof-section" id="profile-pro-section">
-    <div class="prof-sec-title">Pixel Sprite Vibes Club</div>
+    <div class="prof-sec-title">LavenderCare Plus</div>
     <div class="pro-card">
       <div class="pro-card-main">
         <div class="pro-card-title">Free to create. Upgrade for more magic.</div>
-        <div class="pro-card-copy">Unlimited saves, unlimited animation frames, watermark-free animations, premium packs, and advanced creation tools.</div>
+        <div class="pro-card-copy">Unlimited update hours, saves, animation frames, watermark-free animations, premium packs, and advanced creation tools.</div>
       </div>
-      <button class="pro-card-btn" onclick="openProInfo()">View Club</button>
+      <button class="pro-card-btn" onclick="openProInfo()">View Plus</button>
     </div>
   </div>
   <div class="ptoggle-list" id="ptog-list"></div>
@@ -643,9 +647,9 @@
 
 <div id="pro-info-modal" class="modal-bg centered" style="display:none">
   <div class="name-modal-card pro-modal-card">
-    <div class="name-modal-badge">Pixel Sprite Vibes Club</div>
-    <div class="name-modal-title">More magic. More animation. More fun.</div>
-    <p class="name-modal-copy">Free to create. Upgrade for more magic.</p>
+    <div class="name-modal-badge" id="pro-info-badge">LavenderCare Plus</div>
+    <div class="name-modal-title" id="pro-info-title">More magic. More animation. More fun.</div>
+    <p class="name-modal-copy" id="pro-info-copy">Free to create. Upgrade for more magic.</p>
     <div class="club-price-row" aria-label="Club price options">
       <button class="club-price-card featured" type="button" onclick="showClubComingSoon('monthly')">
         <span class="club-price-kicker">Monthly</span>
@@ -677,20 +681,21 @@
         </ul>
       </div>
       <div class="club-plan-card club">
-        <div class="club-plan-title">Club</div>
+        <div class="club-plan-title">LavenderCare Plus</div>
         <ul>
+          <li>Unlimited update hours</li>
           <li>Unlimited saves</li>
           <li>Unlimited animation frames</li>
           <li>Watermark-free animations</li>
           <li>Cutout art and sticker creation</li>
           <li>Premium templates and palettes</li>
           <li>Glow and particle effects</li>
-          <li>Seasonal packs, sprite sheets, exclusive badges, and early access</li>
+          <li>Priority updates, seasonal packs, sprite sheets, exclusive badges, and early access</li>
         </ul>
       </div>
     </div>
     <div class="name-modal-actions">
-      <button class="name-modal-save" onclick="showClubComingSoon('monthly')">Choose Club</button>
+      <button class="name-modal-save" id="pro-info-primary" onclick="showClubComingSoon('monthly')">Upgrade</button>
       <button class="name-modal-skip" onclick="closeProInfo()">Maybe later</button>
     </div>
   </div>
@@ -840,6 +845,6 @@
 <!-- Antiwash Palette Upgrade System -->
 <script src="antiwash-upgrade-extended.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="script.js"></script>
+<script src="script.js?v=7"></script>
 </body>
 </html>
