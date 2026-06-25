@@ -86,34 +86,44 @@
 <!-- HOME -->
 <div id="home-screen" class="screen active">
   <div class="home-hero">
-    <div class="home-status-badge" id="home-status-badge">
-      <span class="home-status-level">Level <span id="home-status-level-value">1</span> Creator</span>
-      <span class="home-status-xp">XP: <span id="home-status-xp-cur">0</span> / <span id="home-status-xp-max">600</span></span>
-    </div>
     <div class="home-logo-badge">
       <img class="home-logo" src="icon-512.png" alt="Pixel Sprite Vibe logo" width="84" height="84">
     </div>
-    <div class="hero-eyebrow">✦ Smart UX Studio</div>
-    <h1 class="hero-title">PIXEL<br><span>CREATOR</span></h1>
+    <div class="hero-eyebrow">Pixel Sprite Vibe</div>
+    <h1 class="hero-title">What would you like to do?</h1>
+    <p class="hero-sub">Choose one path. You can switch anytime.</p>
     <div class="hero-cta">
-      <button class="btn-primary" onclick="openStudio()">+ New Creation</button>
-      <button class="btn-secondary" onclick="showTab('closet')">My Gallery</button>
-      <button class="btn-pixelverse" onclick="openPixelVerse()">PixelVerse</button>
+      <button class="btn-primary" onclick="openStudio()">
+        <span class="action-title">Create</span>
+        <span class="action-copy">Start drawing</span>
+      </button>
+      <button class="btn-secondary" onclick="showTab('closet')">
+        <span class="action-title">Gallery</span>
+        <span class="action-copy">Open saved art</span>
+      </button>
+      <button class="btn-pixelverse" onclick="openPixelVerse()">
+        <span class="action-title">PixelVerse</span>
+        <span class="action-copy">See public creations</span>
+      </button>
     </div>
-    <div class="home-blank-card" aria-label="Start a blank canvas">
-      <div class="home-blank-copy">
+    <details class="home-blank-card" aria-label="Start a blank canvas">
+      <summary class="home-blank-summary">
         <div class="home-blank-title">Start Blank</div>
-        <div class="home-blank-sub">Jump straight into a fresh canvas size.</div>
-      </div>
+        <div class="home-blank-sub">Choose a canvas size when you already know what you want.</div>
+      </summary>
       <div class="home-blank-actions">
         <button class="blank-size-btn home-blank-btn" onclick="startBlank(16)">16×16</button>
         <button class="blank-size-btn home-blank-btn" onclick="startBlank(32)">32×32</button>
         <button class="blank-size-btn home-blank-btn" onclick="startBlank(64)">64×64</button>
       </div>
-    </div>
+    </details>
     <div class="home-auth-cta" id="home-auth-cta">
       <button class="home-auth-primary" id="home-auth-primary" onclick="handleHomeAuthPrimary()">Create account</button>
       <button class="home-auth-secondary" id="home-auth-secondary" onclick="handleHomeAuthSecondary()">Sign in</button>
+    </div>
+    <div class="home-status-badge" id="home-status-badge">
+      <span class="home-status-level">Level <span id="home-status-level-value">1</span> Creator</span>
+      <span class="home-status-xp">XP: <span id="home-status-xp-cur">0</span> / <span id="home-status-xp-max">600</span></span>
     </div>
   </div>
   <div class="home-section" id="home-challenge-section">
