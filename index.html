@@ -43,7 +43,7 @@
 
 <!-- Service Worker registration -->
 
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=11">
 
 <script>
   const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
@@ -59,7 +59,7 @@
 
   if (canUseSW) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js?v=10').catch(() => {});
+      navigator.serviceWorker.register('/sw.js?v=11').catch(() => {});
     });
   }
 </script>
@@ -719,7 +719,7 @@
       <button class="use-destination-card" type="button" onclick="useCreationForGames()">
         <span class="use-destination-icon">🎮</span>
         <strong>Games & Coding</strong>
-        <span>Characters, collectibles, icons, and beginner coding projects.</span>
+        <span>Sprite sheets for characters, animation, and beginner coding projects.</span>
       </button>
       <button class="use-destination-card" type="button" onclick="useCreationForVideos()">
         <span class="use-destination-icon">📹</span>
@@ -815,7 +815,7 @@
         <div class="exp-fmt">Animated Sticker</div>
         <div class="exp-desc">Great for digital stickers, creative videos, and sharing with friends.<br><span class="exp-dim" id="exp-gif-dim">1 frame · 8 FPS</span></div>
       </button>
-      <button class="exp-card" onclick="exportSpriteSheet();closeExportModal()">
+      <button class="exp-card" type="button" onclick="useCreationForSpriteSheet()">
         <div class="exp-icon">🗃️</div>
         <div class="exp-fmt">Game Asset Sheet <span class="club-mini">Club</span></div>
         <div class="exp-desc">For indie games, coding projects, and animation practice.</div>
@@ -858,6 +858,6 @@
 <!-- Antiwash Palette Upgrade System -->
 <script src="antiwash-upgrade-extended.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="script.js?v=10"></script>
+<script src="script.js?v=11"></script>
 </body>
 </html>

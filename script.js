@@ -6511,7 +6511,11 @@ function runUseCreationAction(message, action, {close=true}={}){
 }
 
 function useCreationForGames(){
-  runUseCreationAction('Preparing a game icon download...', exportGameIcon);
+  useCreationForSpriteSheet();
+}
+
+function useCreationForSpriteSheet(){
+  runUseCreationAction('Preparing a sprite sheet for coding and game projects...', exportSpriteSheet);
 }
 
 function useCreationForVideos(){
@@ -7980,43 +7984,40 @@ function renderCloset(){
     visibility.innerHTML=isProjectPublic(proj)
       ? '<span class="cc-visibility-label">PixelVerse</span><span class="cc-visibility-copy">Shared safely · emoji reactions only</span>'
       : '<span class="cc-visibility-label">Private</span><span class="cc-visibility-copy">Only visible in your gallery</span>';
-    visibility.setAttribute('role','button');
-    visibility.tabIndex=0;
-    visibility.onclick=async(e)=>{e.stopPropagation();await toggleProjectPublishing(idx);};
-    visibility.onkeydown=async e=>{
-      if(e.key==='Enter' || e.key===' '){
-        e.preventDefault();
-        e.stopPropagation();
-        await toggleProjectPublishing(idx);
-      }
-    };
-    const publishBtn=document.createElement('button');
-    publishBtn.className='cc-publish';
-    publishBtn.textContent=isProjectPublic(proj)?'Make Private':'Share to PixelVerse';
-    publishBtn.onclick=async(e)=>{e.stopPropagation();await toggleProjectPublishing(idx);};
     publishRow.appendChild(visibility);
-    publishRow.appendChild(publishBtn);
 
     const acts=document.createElement('div');
     acts.className='cc-acts';
+
+    const publicBtn=document.createElement('button');
+    publicBtn.className='cc-act cc-public'+(isProjectPublic(proj)?' on':'');
+    publicBtn.textContent='Public';
+    publicBtn.onclick=async(e)=>{e.stopPropagation();await setProjectPublishing(idx,true);};
+
+    const privateBtn=document.createElement('button');
+    privateBtn.className='cc-act cc-private'+(!isProjectPublic(proj)?' on':'');
+    privateBtn.textContent='Private';
+    privateBtn.onclick=async(e)=>{e.stopPropagation();await setProjectPublishing(idx,false);};
+
+    const useBtn=document.createElement('button');
+    useBtn.className='cc-act cc-exp';
+    useBtn.textContent='Use';
+    useBtn.onclick=(e)=>{e.stopPropagation();exportProject(idx);};
 
     const viewBtn=document.createElement('button');
     viewBtn.className='cc-act cc-open';
     viewBtn.textContent='View';
     viewBtn.onclick=(e)=>{e.stopPropagation();loadProject(idx);};
 
-    const exportBtn=document.createElement('button');
-    exportBtn.className='cc-act cc-exp';
-    exportBtn.textContent='Use It';
-    exportBtn.onclick=(e)=>{e.stopPropagation();exportProject(idx);};
-
     const deleteBtn=document.createElement('button');
     deleteBtn.className='cc-act cc-del';
     deleteBtn.textContent='🗑';
     deleteBtn.onclick=(e)=>{e.stopPropagation();deleteProject(idx);};
 
+    acts.appendChild(publicBtn);
+    acts.appendChild(privateBtn);
+    acts.appendChild(useBtn);
     acts.appendChild(viewBtn);
-    acts.appendChild(exportBtn);
     acts.appendChild(deleteBtn);
 
     card.appendChild(info);
@@ -9042,6 +9043,16 @@ async function uploadExportedBlobForCurrentProject(opts){
     persistProjectsWithLimits();
   }
   return result;
+}
+
+async function setProjectPublishing(idx,nextPublic){
+  const project=ST.projects[idx];
+  if(!project) return;
+  if(isProjectPublic(project)===!!nextPublic){
+    toast(nextPublic?'Already public in PixelVerse.':'Already private in My Gallery.');
+    return;
+  }
+  await toggleProjectPublishing(idx);
 }
 
 async function toggleProjectPublishing(idx,{quiet=false}={}){
