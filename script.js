@@ -718,6 +718,8 @@ const AUTH_STATE = {
   client: null,
   session: null,
   profile: null,
+  initPromise: null,
+  authSettings: { email: true, apple: false, google: false },
   mode: 'signin',
   busy: false,
   initialized: false,
@@ -850,6 +852,67 @@ function authRedirectURL(){
   return SUPABASE_CONFIG.appUrl;
 }
 
+function authProviderLabel(provider){
+  if(provider==='apple') return 'Apple';
+  if(provider==='google') return 'Google';
+  return 'Email';
+}
+
+function authProviderEnabled(provider){
+  if(provider==='email') return AUTH_STATE.authSettings.email !== false;
+  return AUTH_STATE.authSettings[provider] === true;
+}
+
+function syncAuthProviders(){
+  const apple=document.querySelector('.auth-provider.apple');
+  const google=document.querySelector('.auth-provider.google');
+  const email=document.querySelector('.auth-provider.email');
+  const emailReady=authProviderEnabled('email');
+  const appleReady=authProviderEnabled('apple');
+  const googleReady=authProviderEnabled('google');
+  if(apple){
+    apple.hidden=!appleReady;
+    apple.disabled=AUTH_STATE.busy || !appleReady;
+  }
+  if(google){
+    google.hidden=!googleReady;
+    google.disabled=AUTH_STATE.busy || !googleReady;
+  }
+  if(email){
+    email.hidden=!emailReady;
+    email.disabled=AUTH_STATE.busy || !emailReady;
+    email.textContent=AUTH_STATE.mode==='signup' ? 'Continue with Email' : 'Sign in with Email';
+  }
+}
+
+async function loadAuthProviderSettings(){
+  try{
+    const response=await fetch(`${SUPABASE_CONFIG.url}/auth/v1/settings`, {
+      headers:{ apikey:SUPABASE_CONFIG.publishableKey },
+    });
+    if(!response.ok) throw new Error(`Auth settings request failed: ${response.status}`);
+    const settings=await response.json();
+    const external=settings?.external || {};
+    AUTH_STATE.authSettings={
+      email:external.email !== false,
+      apple:external.apple === true,
+      google:external.google === true,
+    };
+  }catch(err){
+    console.warn('[Supabase auth settings]', err);
+    AUTH_STATE.authSettings={ email:true, apple:false, google:false };
+  }
+  syncAuthProviders();
+}
+
+async function ensureAuthReady(){
+  if(getSupabaseClient()) return true;
+  await initSupabaseAuth();
+  if(getSupabaseClient()) return true;
+  toast('Account sign-in could not load. Check your connection and try again.');
+  return false;
+}
+
 function syncAuthUI(){
   const title=document.getElementById('auth-status-title');
   const copy=document.getElementById('auth-status-copy');
@@ -875,7 +938,7 @@ function syncAuthUI(){
     email.hidden=!signedIn;
     email.textContent=userEmail?'Email connected':'';
   }
-  if(primary) primary.textContent=signedIn?'Sign out':'Continue with Apple';
+  if(primary) primary.textContent=signedIn?'Sign out':'Create account';
   if(secondary) secondary.textContent=signedIn?'Account settings':'Sign in';
   if(reset) reset.hidden=!signedIn;
   if(homePrimary) homePrimary.textContent=signedIn?'Manage account':'Create account';
@@ -893,40 +956,45 @@ function syncAuthUI(){
   if(storageNote) storageNote.textContent=signedIn
     ? 'PixelVerse account connected. You stay signed in unless you sign out.'
     : 'Play now. Create an account later when you want to sync or share to PixelVerse.';
+  syncAuthProviders();
   refreshPlanUI();
 }
 
-function handleHomeAuthPrimary(){
+async function handleHomeAuthPrimary(){
   if(hasCloudAccount()){
     showTab('profile');
     return;
   }
+  if(!(await ensureAuthReady())) return;
   openAuthModal('signup');
 }
 
-function handleHomeAuthSecondary(){
+async function handleHomeAuthSecondary(){
   if(hasCloudAccount()){
     showTab('profile');
     return;
   }
+  if(!(await ensureAuthReady())) return;
   openAuthModal('signin');
 }
 
-function handleSplashAuthPrimary(){
+async function handleSplashAuthPrimary(){
   startCreating();
   if(hasCloudAccount()){
     showTab('profile');
     return;
   }
+  if(!(await ensureAuthReady())) return;
   openAuthModal('signup');
 }
 
-function handleSplashAuthSecondary(){
+async function handleSplashAuthSecondary(){
   startCreating();
   if(hasCloudAccount()){
     showTab('closet');
     return;
   }
+  if(!(await ensureAuthReady())) return;
   openAuthModal('signin');
 }
 
@@ -941,19 +1009,25 @@ function syncAuthModal(){
   const gamenameWrap=document.getElementById('auth-gamename-wrap');
   const password=document.getElementById('auth-password-input');
   const gamenameInput=document.getElementById('auth-gamename-input');
+  const hasOAuth=authProviderEnabled('apple') || authProviderEnabled('google');
   if(badge) badge.textContent='Save Your PixelVerse';
   if(title) title.textContent='Save Your PixelVerse';
   if(copy) copy.textContent=isSignup
     ? 'Create an account to sync your username, streaks, badges, and creations across devices.'
-    : 'Welcome back. Continue with Apple, Google, or email to reconnect your PixelVerse.';
+    : hasOAuth
+      ? 'Welcome back. Choose a sign-in option to reconnect your PixelVerse.'
+      : 'Welcome back. Sign in with email to reconnect your PixelVerse.';
   if(help) help.textContent=isSignup
-    ? 'Email is available as a backup. Apple is recommended on iPhone and iPad.'
+    ? hasOAuth
+      ? 'Email is available as a backup. Apple is recommended on iPhone and iPad when enabled.'
+      : 'Create a secure email account. Passwords are handled by Supabase Auth.'
     : 'Need a new password? Use the reset link below and Supabase will email you a recovery link.';
   if(submit) submit.textContent=isSignup?'Create account':'Sign in';
   if(switchBtn) switchBtn.textContent=isSignup?'Already have an account? Sign in':'Need an account? Sign up';
   if(gamenameWrap) gamenameWrap.hidden=!isSignup;
   if(password) password.setAttribute('autocomplete', isSignup?'new-password':'current-password');
   if(isSignup && gamenameInput && !gamenameInput.value) gamenameInput.value=getSavedProfileName();
+  syncAuthProviders();
 }
 
 function showEmailAuthFields(){
@@ -1143,9 +1217,15 @@ function setAuthBusy(busy){
     ...document.querySelectorAll('.auth-provider'),
   ];
   controls.forEach(el=>{ if(el) el.disabled=!!busy; });
+  syncAuthProviders();
 }
 
 async function continueWithOAuth(provider){
+  if(!authProviderEnabled(provider)){
+    toast(`${authProviderLabel(provider)} sign-in is not enabled yet. Continue with Email.`);
+    showEmailAuthFields();
+    return;
+  }
   const client=getSupabaseClient();
   if(!client){
     toast('Account sign-in is still loading. Try again in a moment.');
@@ -1194,6 +1274,7 @@ function openAuthModal(mode='signin'){
   if(gamename && AUTH_STATE.mode==='signup') gamename.value=getSavedProfileName();
   const emailFields=document.getElementById('email-auth-fields');
   if(emailFields) emailFields.hidden=true;
+  syncAuthProviders();
   if(modal) modal.style.display='flex';
 }
 
@@ -1366,10 +1447,15 @@ async function handleAuthSession(session){
 }
 
 async function initSupabaseAuth(){
-  if(AUTH_STATE.initialized) return;
+  if(AUTH_STATE.initialized || AUTH_STATE.initPromise) return AUTH_STATE.initPromise;
+  AUTH_STATE.initPromise=(async()=>{
   const factory=window.supabase?.createClient;
-  if(typeof factory!=='function') return;
+  if(typeof factory!=='function'){
+    console.warn('[Supabase init] Supabase client script was not available.');
+    return;
+  }
   try{
+    await loadAuthProviderSettings();
     AUTH_STATE.client=factory(SUPABASE_CONFIG.url, SUPABASE_CONFIG.publishableKey, {
       auth:{
         persistSession:true,
@@ -1386,7 +1472,11 @@ async function initSupabaseAuth(){
     await handleAuthSession(data.session||null);
   }catch(err){
     console.warn('[Supabase init]', err);
+  }finally{
+    AUTH_STATE.initPromise=null;
   }
+  })();
+  return AUTH_STATE.initPromise;
 }
 
 async function submitAuthForm(){
@@ -1532,20 +1622,21 @@ async function updateCloudEmail(){
   toast('Check your inbox to confirm the email change.');
 }
 
-function handlePrimaryAuthAction(){
+async function handlePrimaryAuthAction(){
   if(hasCloudAccount()){
     signOutCloudAccount();
     return;
   }
+  if(!(await ensureAuthReady())) return;
   openAuthModal('signup');
-  continueWithApple();
 }
 
-function handleSecondaryAuthAction(){
+async function handleSecondaryAuthAction(){
   if(hasCloudAccount()){
     updateCloudEmail();
     return;
   }
+  if(!(await ensureAuthReady())) return;
   openAuthModal('signin');
 }
 
