@@ -157,7 +157,7 @@ supabase secrets set OPENAI_API_KEY=sk-your-private-key
 
 Then test by signing in, saving a drawing, and tapping **Share to PixelVerse**. A safe image should publish; unsafe or unchecked images should stay private.
 
-For paid upgrades, create the In-App Purchase products in App Store Connect first: monthly `$1.99`, annual `$19.99`, and lifetime `$29.99`. Then add receipt validation before setting `account_tier = 'pro'`. The database can keep using `pro` internally while the app shows the customer-facing name "Pixel Sprite Vibes Club". Do not use Stripe, PayPal, Cash App, or another outside checkout for digital Club features inside the iOS app.
+For paid upgrades, create and submit the In-App Purchase products in App Store Connect first: Monthly `$1.99` and Annual `$19.99` as auto-renewable subscriptions, plus Forever Access `$29.99` as a Non-Consumable In-App Purchase. Then add receipt validation before setting `account_tier = 'pro'`. The database can keep using `pro` internally while the app shows the customer-facing name "Premium Features". Do not use Stripe, PayPal, Cash App, or another outside checkout for digital premium features inside the iOS app.
 
 So Supabase auth, profile sync, project sync, challenge sync, export uploads, and gallery publishing are now wired.
 

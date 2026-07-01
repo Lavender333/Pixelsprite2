@@ -43,7 +43,7 @@
 
 <!-- Service Worker registration -->
 
-<link rel="stylesheet" href="style.css?v=16">
+<link rel="stylesheet" href="style.css?v=17">
 
 <script>
   const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
@@ -59,7 +59,7 @@
 
   if (canUseSW) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js?v=16').catch(() => {});
+      navigator.serviceWorker.register('/sw.js?v=17').catch(() => {});
     });
   }
 </script>
@@ -501,13 +501,13 @@
     </div>
   </div>
   <div class="prof-section" id="profile-pro-section">
-    <div class="prof-sec-title">LavenderCare Plus</div>
+    <div class="prof-sec-title">Premium Features</div>
     <div class="pro-card">
       <div class="pro-card-main">
         <div class="pro-card-title">Free to create. Upgrade for more magic.</div>
-        <div class="pro-card-copy">Unlimited update hours, saves, animation frames, watermark-free animations, premium packs, and advanced creation tools.</div>
+        <div class="pro-card-copy">Monthly and Annual subscriptions or Forever Access unlock unlimited update hours, saves, animation frames, watermark-free animations, premium packs, and advanced creation tools.</div>
       </div>
-      <button class="pro-card-btn" onclick="openProInfo()">View Plus</button>
+      <button class="pro-card-btn" onclick="openProInfo()">View Premium</button>
     </div>
   </div>
   <div class="ptoggle-list" id="ptog-list"></div>
@@ -561,6 +561,32 @@
     </div>
     <button class="auth-link-btn modal-auth-switch" id="auth-switch-btn" onclick="toggleAuthMode()">Need an account? Sign up</button>
     <button class="auth-link-btn modal-auth-reset" onclick="sendPasswordResetEmail()">Forgot password?</button>
+    </div>
+  </div>
+</div>
+
+<div id="account-settings-modal" class="modal-bg centered" style="display:none">
+  <div class="name-modal-card auth-modal-card">
+    <div class="name-modal-badge">Account settings</div>
+    <h2 class="name-modal-title">Manage account</h2>
+    <p class="name-modal-copy" id="account-settings-copy">Review your connected account, plan, and sign-in options.</p>
+    <div class="account-settings-list">
+      <div class="account-settings-row">
+        <span>Email</span>
+        <strong id="account-settings-email">Connected</strong>
+      </div>
+      <div class="account-settings-row">
+        <span>Plan</span>
+        <strong id="account-settings-plan">Free</strong>
+      </div>
+    </div>
+    <div class="name-modal-actions account-settings-actions">
+      <button class="name-modal-save" type="button" onclick="updateCloudEmail()">Change email</button>
+      <button class="name-modal-skip" type="button" onclick="sendPasswordResetEmail()">Reset password</button>
+    </div>
+    <div class="name-modal-actions account-settings-actions">
+      <button class="name-modal-skip" type="button" onclick="closeAccountSettings()">Close</button>
+      <button class="name-modal-save danger" type="button" onclick="signOutFromAccountSettings()">Sign out</button>
     </div>
   </div>
 </div>
@@ -660,24 +686,24 @@
 
 <div id="pro-info-modal" class="modal-bg centered" style="display:none">
   <div class="name-modal-card pro-modal-card">
-    <div class="name-modal-badge" id="pro-info-badge">LavenderCare Plus</div>
+    <div class="name-modal-badge" id="pro-info-badge">Premium Features</div>
     <div class="name-modal-title" id="pro-info-title">More magic. More animation. More fun.</div>
-    <p class="name-modal-copy" id="pro-info-copy">Free to create. Upgrade for more magic.</p>
+    <p class="name-modal-copy" id="pro-info-copy">Start creating for free with generous features. Upgrade with a Monthly or Annual subscription for ongoing premium benefits, or unlock Forever Access with a one-time purchase.</p>
     <div class="club-price-row" aria-label="Club price options">
       <button class="club-price-card featured" type="button" onclick="showClubComingSoon('monthly')">
         <span class="club-price-kicker">Monthly</span>
         <strong>$1.99</strong>
-        <span>Best starter price</span>
+        <span>Billed monthly</span>
       </button>
       <button class="club-price-card" type="button" onclick="showClubComingSoon('annual')">
         <span class="club-price-kicker">Annual</span>
         <strong>$19.99</strong>
         <span>Save about 16%</span>
       </button>
-      <button class="club-price-card" type="button" onclick="showClubComingSoon('lifetime')">
-        <span class="club-price-kicker">Lifetime</span>
+      <button class="club-price-card" type="button" onclick="showClubComingSoon('forever')">
+        <span class="club-price-kicker">Forever Access</span>
         <strong>$29.99</strong>
-        <span>Pay once</span>
+        <span>One-time purchase</span>
       </button>
     </div>
     <div class="club-plan-grid">
@@ -694,7 +720,7 @@
         </ul>
       </div>
       <div class="club-plan-card club">
-        <div class="club-plan-title">LavenderCare Plus</div>
+        <div class="club-plan-title">Included with Premium</div>
         <ul>
           <li>Unlimited update hours</li>
           <li>Unlimited saves</li>
@@ -870,6 +896,6 @@
 <!-- Antiwash Palette Upgrade System -->
 <script src="antiwash-upgrade-extended.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="script.js?v=16"></script>
+<script src="script.js?v=17"></script>
 </body>
 </html>
