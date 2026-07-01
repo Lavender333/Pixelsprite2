@@ -28,9 +28,9 @@ async function exportTransparentPNG() {
   }
 }
 
-function startCreating(){
+function dismissBirthdaySplash(){
   const splash = document.getElementById('birthday-splash');
-  if(!splash) return;
+  if(!splash || splash.classList.contains('hidden')) return;
   splash.classList.add('hidden');
   // Prevent Safari from letting a hidden fixed overlay intercept taps.
   splash.style.pointerEvents = 'none';
@@ -38,6 +38,10 @@ function startCreating(){
   splash.setAttribute('aria-hidden', 'true');
   // Fully remove the node so no overlay can block nav/buttons.
   setTimeout(()=>{ splash.remove(); }, 50);
+}
+
+function startCreating(){
+  dismissBirthdaySplash();
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -963,22 +967,20 @@ function syncAuthProviders(){
   const emailFields=document.getElementById('email-auth-fields');
   const resettingPassword=AUTH_STATE.mode==='reset';
   const emailReady=authProviderEnabled('email');
-  const appleAllowed=authProviderAllowed('apple');
-  const googleAllowed=authProviderAllowed('google');
   const appleReady=authProviderEnabled('apple');
   const googleReady=authProviderEnabled('google');
   const emailFormOpen=!!emailFields && !emailFields.hidden;
   if(apple){
-    apple.hidden=resettingPassword || !appleAllowed;
+    apple.hidden=resettingPassword || !appleReady;
     apple.disabled=AUTH_STATE.busy;
-    apple.setAttribute('aria-disabled', String(!appleReady));
-    apple.textContent=appleReady ? 'Continue with Apple' : 'Continue with Apple unavailable';
+    apple.removeAttribute('aria-disabled');
+    apple.textContent='Continue with Apple';
   }
   if(google){
-    google.hidden=resettingPassword || !googleAllowed;
+    google.hidden=resettingPassword || !googleReady;
     google.disabled=AUTH_STATE.busy;
-    google.setAttribute('aria-disabled', String(!googleReady));
-    google.textContent=googleReady ? 'Continue with Google' : 'Continue with Google unavailable';
+    google.removeAttribute('aria-disabled');
+    google.textContent='Continue with Google';
   }
   if(email){
     email.hidden=resettingPassword || !emailReady || emailFormOpen;
@@ -1076,6 +1078,7 @@ function syncAuthUI(){
 async function handleHomeAuthPrimary(){
   if(hasCloudAccount()){
     showTab('profile');
+    openAccountSettings();
     return;
   }
   if(!(await ensureAuthReady())) return;
@@ -1095,6 +1098,7 @@ async function handleSplashAuthPrimary(){
   startCreating();
   if(hasCloudAccount()){
     showTab('profile');
+    openAccountSettings();
     return;
   }
   if(!(await ensureAuthReady())) return;
@@ -1394,6 +1398,7 @@ function continueWithGoogle(){
 }
 
 function openAuthModal(mode='signin'){
+  dismissBirthdaySplash();
   AUTH_STATE.mode=mode==='reset'?'reset':mode==='signup'?'signup':'signin';
   syncAuthModal();
   const modal=document.getElementById('auth-modal');
@@ -1832,6 +1837,7 @@ async function handleSecondaryAuthAction(){
 }
 
 function openAccountSettings(){
+  dismissBirthdaySplash();
   const modal=document.getElementById('account-settings-modal');
   const email=document.getElementById('account-settings-email');
   const plan=document.getElementById('account-settings-plan');
@@ -10636,6 +10642,7 @@ const TAB_MAP={home:'home-screen',studio:'studio-screen',create:'canvas-screen',
 function showTab(tab){
   SFX.prime();
   if(tab==='challenges' && !featureEnabled('challenges')) tab='home';
+  if(tab!=='home') dismissBirthdaySplash();
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(TAB_MAP[tab]).classList.add('active');
   document.querySelectorAll('.nt').forEach(t=>t.classList.remove('on'));
