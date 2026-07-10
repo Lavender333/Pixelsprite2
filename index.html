@@ -404,7 +404,7 @@
   <div class="studio-section"><div class="ss-title">🎬 Animated Starters</div><div class="coloring-section-sub">Ready-made motion loops · duplicate, edit, and bring to life</div><div class="tmpl-grid" id="tmpl-anim"></div></div>
   <div class="studio-section" id="studio-y2k-section">
     <div class="ss-title" style="display:flex;align-items:center;gap:6px">
-      <span>💎 Premium Pink Y2K Glitter Pack</span>
+      <span>💎 Pink Y2K Glitter Pack</span>
       <span style="background:linear-gradient(90deg,#F6A5C0,#CE93D8);color:#fff;font-size:8px;font-weight:900;padding:2px 6px;border-radius:10px;letter-spacing:.06em">PREMIUM</span>
     </div>
     <div style="font-size:9px;color:var(--text3);margin-bottom:10px;line-height:1.5">Cohesive 32×32 pack · Dark rose outlines · 3-tone cel shading · Y2K glam palette</div>
@@ -500,14 +500,14 @@
       <button class="auth-link-btn" id="auth-reset-btn" onclick="sendPasswordResetEmail()" hidden>Send password reset email</button>
     </div>
   </div>
-  <div class="prof-section" id="profile-pro-section">
-    <div class="prof-sec-title">LavenderCare Plus</div>
+  <div class="prof-section" id="profile-pro-section" hidden>
+    <div class="prof-sec-title">Creator Tools</div>
     <div class="pro-card">
       <div class="pro-card-main">
-        <div class="pro-card-title">Free to create. Upgrade for more magic.</div>
-        <div class="pro-card-copy">Unlimited update hours, saves, animation frames, watermark-free animations, premium packs, and advanced creation tools.</div>
+        <div class="pro-card-title">Launch tools are ready.</div>
+        <div class="pro-card-copy">Drawing, saving, animation, exports, and creative effects are available in this build.</div>
       </div>
-      <button class="pro-card-btn" onclick="openProInfo()">View Plus</button>
+      <button class="pro-card-btn" onclick="openProInfo()">View Tools</button>
     </div>
   </div>
   <div class="ptoggle-list" id="ptog-list"></div>
@@ -544,8 +544,8 @@
     <h2 class="name-modal-title" id="auth-modal-title">Save Your PixelVerse</h2>
     <p class="name-modal-copy" id="auth-modal-copy">Create an account to sync your username, streaks, badges, and creations across devices.</p>
     <div class="auth-provider-stack">
-      <button class="auth-provider apple" type="button" onclick="continueWithApple()">Continue with Apple</button>
-      <button class="auth-provider google" type="button" onclick="continueWithGoogle()">Continue with Google</button>
+      <button class="auth-provider apple" type="button" onclick="continueWithApple()" hidden>Continue with Apple</button>
+      <button class="auth-provider google" type="button" onclick="continueWithGoogle()" hidden>Continue with Google</button>
       <button class="auth-provider email" type="button" onclick="showEmailAuthFields()">Continue with Email</button>
     </div>
     <div id="email-auth-fields" class="email-auth-fields" hidden>
@@ -562,6 +562,21 @@
     <button class="auth-link-btn modal-auth-switch" id="auth-switch-btn" onclick="toggleAuthMode()">Need an account? Sign up</button>
     <button class="auth-link-btn modal-auth-reset" onclick="sendPasswordResetEmail()">Forgot password?</button>
     </div>
+  </div>
+</div>
+
+<div id="account-settings-modal" class="modal-bg centered" style="display:none">
+  <div class="name-modal-card auth-modal-card">
+    <div class="name-modal-badge">Account Settings</div>
+    <h2 class="name-modal-title">Your PixelVerse Account</h2>
+    <p class="name-modal-copy" id="account-settings-copy">Manage the account connected to this device.</p>
+    <div class="auth-email" id="account-settings-email"></div>
+    <div class="name-modal-actions">
+      <button class="name-modal-save" type="button" onclick="updateCloudEmail()">Change email</button>
+      <button class="name-modal-skip" type="button" onclick="signOutCloudAccount()">Sign out</button>
+    </div>
+    <button class="auth-link-btn modal-auth-reset" type="button" onclick="sendPasswordResetEmail()">Send password reset email</button>
+    <button class="auth-link-btn" type="button" onclick="closeAccountSettings()">Close</button>
   </div>
 </div>
 
@@ -660,24 +675,24 @@
 
 <div id="pro-info-modal" class="modal-bg centered" style="display:none">
   <div class="name-modal-card pro-modal-card">
-    <div class="name-modal-badge" id="pro-info-badge">LavenderCare Plus</div>
+    <div class="name-modal-badge" id="pro-info-badge">Creator Tools</div>
     <div class="name-modal-title" id="pro-info-title">More magic. More animation. More fun.</div>
-    <p class="name-modal-copy" id="pro-info-copy">Free to create. Upgrade for more magic.</p>
-    <div class="club-price-row" aria-label="Club price options">
-      <button class="club-price-card featured" type="button" onclick="showClubComingSoon('monthly')">
-        <span class="club-price-kicker">Monthly</span>
-        <strong>$1.99</strong>
-        <span>Best starter price</span>
+    <p class="name-modal-copy" id="pro-info-copy">Launch tools are available in this build.</p>
+    <div class="club-price-row" aria-label="Creator tool options" hidden>
+      <button class="club-price-card featured" type="button" onclick="showClubComingSoon('launch')">
+        <span class="club-price-kicker">Launch</span>
+        <strong>Ready</strong>
+        <span>Available now</span>
       </button>
-      <button class="club-price-card" type="button" onclick="showClubComingSoon('annual')">
-        <span class="club-price-kicker">Annual</span>
-        <strong>$19.99</strong>
-        <span>Save about 16%</span>
+      <button class="club-price-card" type="button" onclick="showClubComingSoon('creative')">
+        <span class="club-price-kicker">Creative</span>
+        <strong>Tools</strong>
+        <span>Available now</span>
       </button>
-      <button class="club-price-card" type="button" onclick="showClubComingSoon('lifetime')">
-        <span class="club-price-kicker">Lifetime</span>
-        <strong>$29.99</strong>
-        <span>Pay once</span>
+      <button class="club-price-card" type="button" onclick="showClubComingSoon('studio')">
+        <span class="club-price-kicker">Studio</span>
+        <strong>Ready</strong>
+        <span>Available now</span>
       </button>
     </div>
     <div class="club-plan-grid">
@@ -685,8 +700,8 @@
         <div class="club-plan-title">Free</div>
         <ul>
           <li>Full drawing experience</li>
-          <li>10 save slots</li>
-          <li>3-frame animation</li>
+          <li>Saved creations</li>
+          <li>Frame animation</li>
           <li>Basic artwork image</li>
           <li>Watermarked animated sticker</li>
           <li>Daily challenges</li>
@@ -694,21 +709,21 @@
         </ul>
       </div>
       <div class="club-plan-card club">
-        <div class="club-plan-title">LavenderCare Plus</div>
+        <div class="club-plan-title">Creator Tools</div>
         <ul>
-          <li>Unlimited update hours</li>
-          <li>Unlimited saves</li>
-          <li>Unlimited animation frames</li>
-          <li>Watermark-free animations</li>
+          <li>Drawing and editing tools</li>
+          <li>Saved gallery projects</li>
+          <li>Animation frames</li>
+          <li>Animation exports</li>
           <li>Cutout art and sticker creation</li>
-          <li>Premium templates and palettes</li>
+          <li>Templates and palettes</li>
           <li>Glow and particle effects</li>
-          <li>Priority updates, seasonal packs, sprite sheets, exclusive badges, and early access</li>
+          <li>Sprite sheets, badges, and seasonal creative updates</li>
         </ul>
       </div>
     </div>
     <div class="name-modal-actions">
-      <button class="name-modal-save" id="pro-info-primary" onclick="showClubComingSoon('monthly')">Upgrade</button>
+      <button class="name-modal-save" id="pro-info-primary" onclick="closeProInfo()">Got it</button>
       <button class="name-modal-skip" onclick="closeProInfo()">Maybe later</button>
     </div>
   </div>
@@ -775,7 +790,7 @@
       </button>
       <button class="exp-card" onclick="exportTransparentPNG();closeExportModal()">
         <div class="exp-icon">🖼</div>
-        <div class="exp-fmt">Cutout Art <span class="club-mini">Club</span></div>
+        <div class="exp-fmt">Cutout Art <span class="club-mini">Tool</span></div>
         <div class="exp-desc">Transparent art for stickers, videos, and creative projects.</div>
       </button>
       <button class="exp-card" type="button" onclick="useCreationForProjectCopy()">
@@ -797,7 +812,7 @@
       </button>
       <button class="exp-card" type="button" onclick="useCreationForBlockResourcePack()">
         <div class="exp-icon">🗂️</div>
-        <div class="exp-fmt">Block Resource Pack <span class="club-mini">Club</span></div>
+        <div class="exp-fmt">Block Resource Pack <span class="club-mini">Tool</span></div>
         <div class="exp-desc">Saves a starter pack with manifest, folders, metadata, and texture files.</div>
       </button>
       <button class="exp-card" type="button" onclick="useCreationForFrontShirtImage()">
@@ -807,12 +822,12 @@
       </button>
       <button class="exp-card" type="button" onclick="useCreationForFullShirtTemplate()">
         <div class="exp-icon">🧥</div>
-        <div class="exp-fmt">Full Shirt Template <span class="club-mini">Club</span></div>
+        <div class="exp-fmt">Full Shirt Template <span class="club-mini">Tool</span></div>
         <div class="exp-desc">Classic avatar shirt layout. Preview it first so arms and body wrap correctly.</div>
       </button>
       <button class="exp-card" type="button" onclick="useCreationForFullPantsTemplate()">
         <div class="exp-icon">👖</div>
-        <div class="exp-fmt">Full Pants Template <span class="club-mini">Club</span></div>
+        <div class="exp-fmt">Full Pants Template <span class="club-mini">Tool</span></div>
         <div class="exp-desc">Classic avatar pants layout. Preview it first so legs wrap correctly.</div>
       </button>
       <button class="exp-card" onclick="exportGameIcon();closeExportModal()">
@@ -829,19 +844,19 @@
       </button>
       <button class="exp-card" type="button" onclick="useCreationForSpriteSheet()">
         <div class="exp-icon">🗃️</div>
-        <div class="exp-fmt">2D Game Animation Sheet <span class="club-mini">Club</span></div>
+        <div class="exp-fmt">2D Game Animation Sheet <span class="club-mini">Tool</span></div>
         <div class="exp-desc">Sprite sheet package for image assets, frame settings, and 2D animation logic.</div>
       </button>
       <button class="exp-card" type="button" onclick="useCreationForPlayable3DSetup()">
         <div class="exp-icon">🧊</div>
-        <div class="exp-fmt">Playable 3D Setup <span class="club-mini">Club</span></div>
+        <div class="exp-fmt">Playable 3D Setup <span class="club-mini">Tool</span></div>
         <div class="exp-desc">Advanced setup package for a rigged 3D character workflow. Not a normal PNG.</div>
       </button>
 
       <div class="exp-section-label">Stickers & Creativity</div>
       <button class="exp-card" onclick="exportSticker();closeExportModal()">
         <div class="exp-icon">🏷️</div>
-        <div class="exp-fmt">Printable Sticker <span class="club-mini">Club</span></div>
+        <div class="exp-fmt">Printable Sticker <span class="club-mini">Tool</span></div>
         <div class="exp-desc">Decorate journals, notebooks, and crafts.</div>
       </button>
       <button class="exp-card" onclick="exportWallpaper();closeExportModal()">
@@ -851,7 +866,7 @@
       </button>
       <button class="exp-card" onclick="exportPlannerSticker();closeExportModal()">
         <div class="exp-icon">📒</div>
-        <div class="exp-fmt">Digital Planner Sticker <span class="club-mini">Club</span></div>
+        <div class="exp-fmt">Digital Planner Sticker <span class="club-mini">Tool</span></div>
         <div class="exp-desc">Use in planners, journals, and creative notes.</div>
       </button>
     </div>

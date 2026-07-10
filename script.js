@@ -718,7 +718,8 @@ const SUPABASE_CONFIG = {
   url: 'https://xqltgcxqlzchrnulomkv.supabase.co',
   publishableKey: 'sb_publishable_pNozt3QXGax9Uppt0-TFAw_9PbfZURE',
   appUrl: 'https://pixelspirite.com/',
-  oauthProviders: ['apple', 'google'],
+  // Keep unfinished OAuth providers out of the App Review build until native redirects are verified.
+  oauthProviders: [],
 };
 
 const AUTH_STATE = {
@@ -909,6 +910,7 @@ function restoreAppReviewSession(){
 }
 
 function signOutAppReviewAccount(){
+  closeAccountSettings();
   AUTH_STATE.session=null;
   AUTH_STATE.profile=null;
   try{
@@ -1164,10 +1166,12 @@ function isClubAccount(){
 }
 
 function getMaxSavedProjects(){
+  if(!featureEnabled('monetization')) return Infinity;
   return isClubAccount() ? Infinity : STORAGE_LIMITS.freeMaxProjects;
 }
 
 function getMaxAnimationFrames(){
+  if(!featureEnabled('monetization')) return Infinity;
   return isClubAccount() ? Infinity : STORAGE_LIMITS.freeMaxFrames;
 }
 
@@ -1176,14 +1180,19 @@ function formatLimit(value){
 }
 
 function showClubComingSoon(plan='monthly'){
-  const labels={monthly:'Monthly Plus',annual:'Annual Plus',lifetime:'Lifetime Plus'};
-  toast(`${labels[plan]||'LavenderCare Plus'} will unlock after Apple In-App Purchase is connected.`);
+  if(!featureEnabled('monetization')){
+    toast('All launch tools are available in this build.');
+    return;
+  }
+  const labels={monthly:'Creator tools',annual:'Creator tools',lifetime:'Creator tools'};
+  toast(`${labels[plan]||'Creator tools'} are available in this build.`);
 }
 
 function requireClubFeature(feature='this feature'){
+  if(!featureEnabled('monetization')) return true;
   if(isClubAccount()) return true;
   openProInfo('feature');
-  toast(`LavenderCare Plus unlocks ${feature}.`);
+  toast(`Creator tools include ${feature}.`);
   return false;
 }
 
@@ -1228,6 +1237,7 @@ function startFreeSessionClock(){
 }
 
 function freeSessionLimitReached(){
+  if(!featureEnabled('monetization')) return false;
   tickFreeSessionTime();
   return !isClubAccount() && (ST.freeSessionUsedMs||0)>=FREE_SESSION_LIMIT_MS;
 }
@@ -1239,6 +1249,7 @@ function canStartCreativeSession(){
 }
 
 function maybeShowSuccessUpgradePrompt(reason='success'){
+  if(!featureEnabled('monetization')) return;
   if(isClubAccount() || freeSessionLimitReached()) return;
   if((ST.freeSessionUsedMs||0)<5*60*1000) return;
   try{
@@ -1272,9 +1283,10 @@ function loadLocalAccountTier(){
 }
 
 function refreshPlanUI(){
+  const monetization=featureEnabled('monetization');
   const pro=isClubAccount();
-  const label=pro?'Club Creator':'Free Creator';
-  const shortLabel=pro?'Club':'Free';
+  const label=monetization ? (pro?'Creator':'Free Creator') : 'Creator';
+  const shortLabel=monetization ? (pro?'Ready':'Free') : 'Ready';
   const badge=document.getElementById('prof-plan-badge');
   const pill=document.getElementById('account-plan-pill');
   const proSection=document.getElementById('profile-pro-section');
@@ -1286,29 +1298,33 @@ function refreshPlanUI(){
     pill.textContent=shortLabel;
     pill.classList.toggle('pro',pro);
   }
-  if(proSection) proSection.hidden=pro;
+  if(proSection) proSection.hidden=!monetization || pro;
 }
 
 function openProInfo(reason='default'){
+  if(!featureEnabled('monetization')){
+    toast('All launch tools are available in this build.');
+    return;
+  }
   const modal=document.getElementById('pro-info-modal');
   const badge=document.getElementById('pro-info-badge');
   const title=document.getElementById('pro-info-title');
   const copy=document.getElementById('pro-info-copy');
   const primary=document.getElementById('pro-info-primary');
-  if(badge) badge.textContent='LavenderCare Plus';
-  if(primary) primary.textContent='Upgrade';
+  if(badge) badge.textContent='Creator Tools';
+  if(primary) primary.textContent='Got it';
   if(title && copy){
     if(reason==='limit'){
       title.textContent='You’re on a roll!';
-      copy.textContent='Upgrade to LavenderCare Plus to unlock unlimited update hours and keep going. Free time is up, so new sessions pause here without Plus benefits like extended time, watermark-free animations, premium packs, and priority updates.';
+      copy.textContent='Creative tools are ready in this launch build. Keep creating, saving, and exporting from the studio.';
       if(primary) primary.textContent='Keep Going';
     }else if(reason==='success'){
       title.textContent='Nice work. Want to supercharge the next session?';
-      copy.textContent='Enjoying the speed? Unlock LavenderCare Plus for deeper creative insights, more update time, unlimited saves, and premium tools for your next creation.';
-      if(primary) primary.textContent='Unlock Plus';
+      copy.textContent='Enjoying the speed? Try animation frames, exports, effects, and templates for your next creation.';
+      if(primary) primary.textContent='View Tools';
     }else{
       title.textContent='More magic. More animation. More fun.';
-      copy.textContent=`Free includes ${formatFreeSessionTime(Math.max(0,FREE_SESSION_LIMIT_MS-(ST.freeSessionUsedMs||0)))} of update time, 10 saves, and 3-frame animation. LavenderCare Plus unlocks unlimited update hours, unlimited saves, premium packs, and priority updates.`;
+      copy.textContent='Drawing, saving, animation, exports, effects, templates, and palettes are available in this build.';
     }
   }
   if(modal) modal.style.display='flex';
@@ -1749,6 +1765,7 @@ async function signOutCloudAccount(){
     signOutAppReviewAccount();
     return;
   }
+  closeAccountSettings();
   const client=getSupabaseClient();
   if(!client) return;
   try{
@@ -1790,6 +1807,21 @@ async function updateCloudEmail(){
   toast('Check your inbox to confirm the email change.');
 }
 
+function openAccountSettings(){
+  const modal=document.getElementById('account-settings-modal');
+  const email=document.getElementById('account-settings-email');
+  const copy=document.getElementById('account-settings-copy');
+  const userEmail=AUTH_STATE.session?.user?.email || (isAppReviewSession() ? APP_REVIEW_PRO_ACCOUNT.email : '');
+  if(email) email.textContent=userEmail ? `Signed in as ${userEmail}` : 'Signed in on this device.';
+  if(copy) copy.textContent='Manage sign-in, password reset, and local account status.';
+  if(modal) modal.style.display='flex';
+}
+
+function closeAccountSettings(){
+  const modal=document.getElementById('account-settings-modal');
+  if(modal) modal.style.display='none';
+}
+
 async function handlePrimaryAuthAction(){
   if(hasCloudAccount()){
     signOutCloudAccount();
@@ -1801,7 +1833,7 @@ async function handlePrimaryAuthAction(){
 
 async function handleSecondaryAuthAction(){
   if(hasCloudAccount()){
-    updateCloudEmail();
+    openAccountSettings();
     return;
   }
   if(!(await ensureAuthReady())) return;
@@ -1837,6 +1869,7 @@ const RELEASE_FLAGS = {
   templateColoring: false,
   templateChallenges: false,
   premiumY2K: false,
+  monetization: false,
 };
 
 function featureEnabled(key){
@@ -6734,7 +6767,7 @@ function addFrame(){
   const maxFrames=getMaxAnimationFrames();
   if(maxFrames!==Infinity && ST.frames.length>=maxFrames){
     openProInfo('feature');
-    toast(`Free animations include ${maxFrames} frames. LavenderCare Plus unlocks unlimited frames.`);
+    toast(`This build supports ${maxFrames} animation frames.`);
     return;
   }
   ST.frames.push(new ImageData(ST.size,ST.size));ST.textFrames.push([]);ST.undoStacks.push([new ImageData(ST.size,ST.size)]);ST.undoTextStacks.push([[]]);ST.undoIdx.push(0);switchFrame(ST.frames.length-1);buildFramesUI();Economy.track('frame:add');addXP(3);SFX.click();
@@ -6809,7 +6842,7 @@ function dupFrame(){
   const maxFrames=getMaxAnimationFrames();
   if(maxFrames!==Infinity && ST.frames.length>=maxFrames){
     openProInfo('feature');
-    toast(`Free animations include ${maxFrames} frames. LavenderCare Plus unlocks unlimited frames.`);
+    toast(`This build supports ${maxFrames} animation frames.`);
     return;
   }
   if(ST.playing)stopPlay();captureFrame();const src=ST.frames[ST.currentFrame];const copy=cloneImageData(src);const textCopy=cloneTextObjectArray(getFrameTextObjects(ST.currentFrame));const at=ST.currentFrame+1;ST.frames.splice(at,0,copy);ST.textFrames.splice(at,0,textCopy);ST.undoStacks.splice(at,0,[cloneImageData(copy)]);ST.undoTextStacks.splice(at,0,[cloneTextObjectArray(textCopy)]);ST.undoIdx.splice(at,0,0);buildFramesUI();switchFrame(at);toast('⧉ Frame duplicated!');SFX.click();
@@ -7557,7 +7590,7 @@ function _buildGIF(source=getExportSource()){
   const sz=exportSourceSize(source);
   const frameCanvases=source.project.frames.map((_,idx)=>createExportSourceCanvas(source,idx));
   const frames=frameCanvases.map(canvas=>canvas.getContext('2d').getImageData(0,0,sz,sz));
-  if(!isClubAccount()) frames.forEach(frame=>drawFreeGifWatermark(frame,sz));
+  if(featureEnabled('monetization') && !isClubAccount()) frames.forEach(frame=>drawFreeGifWatermark(frame,sz));
   const fps=Math.max(1, ST.fps||8);
   const delay=Math.max(2, Math.round(100/fps));
   const prog=document.getElementById('gif-progress');
@@ -7678,7 +7711,7 @@ function _buildGIF(source=getExportSource()){
         }
       }).catch(err=>console.warn('[Supabase GIF upload]', err));
       if(prog) prog.classList.remove('show');
-      toast(isClubAccount()?'Your animation is ready. Ideas: digital stickers, creative videos, sharing with friends.':'Your animation is ready with a Pixel Sprite Vibes mark. Club removes the mark.');trackExport('gif',15);confetti();
+      toast('Your animation is ready. Ideas: digital stickers, creative videos, sharing with friends.');trackExport('gif',15);confetti();
       return;
     }
     try {
@@ -7799,8 +7832,8 @@ function openSaveProjectModal(){
   if(note){
     const saveLimit=getMaxSavedProjects();
     const limitText=saveLimit===Infinity
-      ? 'LavenderCare Plus includes unlimited saved creations.'
-      : `Free includes ${saveLimit} save slots. LavenderCare Plus unlocks unlimited saves.`;
+      ? 'This build supports saved creations.'
+      : `This build supports ${saveLimit} save slots.`;
     note.textContent=hasCloudAccount()
       ? `Saved creations sync to your account. ${limitText} Public Gallery posting is free.`
       : `Saved creations stay on this device until you sign in. ${limitText}`;
@@ -8736,6 +8769,7 @@ function applyReleaseVisibility(){
   const profileLevelChip=document.getElementById('profile-level-chip');
   const profileXpStat=document.getElementById('profile-xp-stat');
   const profileBadgesSection=document.getElementById('profile-badges-section');
+  const profileProSection=document.getElementById('profile-pro-section');
 
   if(challengeHome) challengeHome.hidden = !featureEnabled('challenges');
   if(levelCard) levelCard.hidden = !featureEnabled('progression');
@@ -8749,6 +8783,7 @@ function applyReleaseVisibility(){
   if(profileLevelChip) profileLevelChip.hidden = !featureEnabled('progression');
   if(profileXpStat) profileXpStat.hidden = !featureEnabled('progression');
   if(profileBadgesSection) profileBadgesSection.hidden = !featureEnabled('progression');
+  if(profileProSection) profileProSection.hidden = !featureEnabled('monetization') || isClubAccount();
   if(profileStorageNote){
     profileStorageNote.textContent = featureEnabled('challenges')
       ? 'Profile, streak, and challenge saves stay on this device.'
@@ -10107,7 +10142,7 @@ function upsertProject(proj,{reward=true,silent=false}={}){
   const maxProjects=getMaxSavedProjects();
   if(idx<0 && maxProjects!==Infinity && ST.projects.length>=maxProjects){
     openProInfo('feature');
-    toast(`Free includes ${maxProjects} save slots. Upgrade to LavenderCare Plus for unlimited saves.`);
+    toast(`This build supports ${maxProjects} save slots.`);
     return false;
   }
   if(idx>=0) ST.projects[idx]={...ST.projects[idx],...proj}; else ST.projects.push(proj);
@@ -10889,7 +10924,7 @@ function boot(){
   document.getElementById('save-project-name')?.addEventListener('keydown',e=>{
     if(e.key==='Enter'){ e.preventDefault(); confirmSaveProject(); }
   });
-  ['color-modal','text-modal','save-project-modal','profile-name-modal','auth-modal','pro-info-modal'].forEach(id=>{
+  ['color-modal','text-modal','save-project-modal','profile-name-modal','auth-modal','account-settings-modal','pro-info-modal'].forEach(id=>{
     const modal=document.getElementById(id);
     if(!modal) return;
     modal.addEventListener('click',e=>{
@@ -10899,6 +10934,7 @@ function boot(){
       else if(id==='save-project-modal') closeSaveProjectModal();
       else if(id==='profile-name-modal') closeProfileNameModal();
       else if(id==='auth-modal') closeAuthModal();
+      else if(id==='account-settings-modal') closeAccountSettings();
       else if(id==='pro-info-modal') closeProInfo();
     });
   });
