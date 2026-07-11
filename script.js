@@ -722,6 +722,15 @@ const SUPABASE_CONFIG = {
   oauthProviders: [],
 };
 
+const IAP_PRODUCTS = {
+  monthly: {
+    id: 'Monthly',
+    label: 'Monthly LavenderCare Plus',
+    price: '$1.99',
+    type: 'auto-renewable subscription',
+  },
+};
+
 const AUTH_STATE = {
   client: null,
   session: null,
@@ -1166,12 +1175,10 @@ function isClubAccount(){
 }
 
 function getMaxSavedProjects(){
-  if(!featureEnabled('monetization')) return Infinity;
   return isClubAccount() ? Infinity : STORAGE_LIMITS.freeMaxProjects;
 }
 
 function getMaxAnimationFrames(){
-  if(!featureEnabled('monetization')) return Infinity;
   return isClubAccount() ? Infinity : STORAGE_LIMITS.freeMaxFrames;
 }
 
@@ -1180,19 +1187,36 @@ function formatLimit(value){
 }
 
 function showClubComingSoon(plan='monthly'){
-  if(!featureEnabled('monetization')){
-    toast('All launch tools are available in this build.');
-    return;
+  startIAPPurchase(plan);
+}
+
+async function startIAPPurchase(plan='monthly'){
+  const product=IAP_PRODUCTS[plan] || IAP_PRODUCTS.monthly;
+  const plugins=window.Capacitor?.Plugins || {};
+  const purchasePlugin=plugins.InAppPurchase || plugins.InAppPurchases || plugins.StoreKit || plugins.Purchases;
+  if(!purchasePlugin){
+    toast(`${product.label} (${product.price}) is submitted in App Store Connect. App Store purchasing is unavailable in this preview build.`);
+    return {ok:false,reason:'iap-plugin-missing',product};
   }
-  const labels={monthly:'Creator tools',annual:'Creator tools',lifetime:'Creator tools'};
-  toast(`${labels[plan]||'Creator tools'} are available in this build.`);
+  try{
+    const purchaseFn=purchasePlugin.purchaseProduct || purchasePlugin.purchase || purchasePlugin.buy || purchasePlugin.order;
+    if(typeof purchaseFn!=='function') throw new Error('The App Store purchase bridge is unavailable.');
+    const result=await purchaseFn.call(purchasePlugin,{ productId:product.id, id:product.id });
+    saveLocalAccountTier('pro', new Date().toISOString());
+    syncAuthUI();
+    buildProfile();
+    toast(`${product.label} unlocked.`);
+    return {ok:true,result,product};
+  }catch(error){
+    toast(error?.message || `Could not start purchase for ${product.label}.`);
+    return {ok:false,error,product};
+  }
 }
 
 function requireClubFeature(feature='this feature'){
-  if(!featureEnabled('monetization')) return true;
   if(isClubAccount()) return true;
   openProInfo('feature');
-  toast(`Creator tools include ${feature}.`);
+  toast(`LavenderCare Plus unlocks ${feature}.`);
   return false;
 }
 
@@ -1237,7 +1261,6 @@ function startFreeSessionClock(){
 }
 
 function freeSessionLimitReached(){
-  if(!featureEnabled('monetization')) return false;
   tickFreeSessionTime();
   return !isClubAccount() && (ST.freeSessionUsedMs||0)>=FREE_SESSION_LIMIT_MS;
 }
@@ -1249,7 +1272,6 @@ function canStartCreativeSession(){
 }
 
 function maybeShowSuccessUpgradePrompt(reason='success'){
-  if(!featureEnabled('monetization')) return;
   if(isClubAccount() || freeSessionLimitReached()) return;
   if((ST.freeSessionUsedMs||0)<5*60*1000) return;
   try{
@@ -1285,8 +1307,8 @@ function loadLocalAccountTier(){
 function refreshPlanUI(){
   const monetization=featureEnabled('monetization');
   const pro=isClubAccount();
-  const label=monetization ? (pro?'Creator':'Free Creator') : 'Creator';
-  const shortLabel=monetization ? (pro?'Ready':'Free') : 'Ready';
+  const label=pro?'Club Creator':'Free Creator';
+  const shortLabel=pro?'Club':'Free';
   const badge=document.getElementById('prof-plan-badge');
   const pill=document.getElementById('account-plan-pill');
   const proSection=document.getElementById('profile-pro-section');
@@ -1302,29 +1324,25 @@ function refreshPlanUI(){
 }
 
 function openProInfo(reason='default'){
-  if(!featureEnabled('monetization')){
-    toast('All launch tools are available in this build.');
-    return;
-  }
   const modal=document.getElementById('pro-info-modal');
   const badge=document.getElementById('pro-info-badge');
   const title=document.getElementById('pro-info-title');
   const copy=document.getElementById('pro-info-copy');
   const primary=document.getElementById('pro-info-primary');
-  if(badge) badge.textContent='Creator Tools';
-  if(primary) primary.textContent='Got it';
+  if(badge) badge.textContent='LavenderCare Plus';
+  if(primary) primary.textContent='Upgrade';
   if(title && copy){
     if(reason==='limit'){
       title.textContent='You’re on a roll!';
-      copy.textContent='Creative tools are ready in this launch build. Keep creating, saving, and exporting from the studio.';
+      copy.textContent='Upgrade to LavenderCare Plus to unlock unlimited update hours and keep going. Free time is up, so new sessions pause here without Plus benefits like extended time, watermark-free animations, premium packs, and priority updates.';
       if(primary) primary.textContent='Keep Going';
     }else if(reason==='success'){
       title.textContent='Nice work. Want to supercharge the next session?';
-      copy.textContent='Enjoying the speed? Try animation frames, exports, effects, and templates for your next creation.';
-      if(primary) primary.textContent='View Tools';
+      copy.textContent='Enjoying the speed? Unlock LavenderCare Plus for deeper creative insights, more update time, unlimited saves, and premium tools for your next creation.';
+      if(primary) primary.textContent='Unlock Plus';
     }else{
       title.textContent='More magic. More animation. More fun.';
-      copy.textContent='Drawing, saving, animation, exports, effects, templates, and palettes are available in this build.';
+      copy.textContent=`Submitted App Store product: ${IAP_PRODUCTS.monthly.label} ${IAP_PRODUCTS.monthly.price}.`;
     }
   }
   if(modal) modal.style.display='flex';
@@ -1869,7 +1887,7 @@ const RELEASE_FLAGS = {
   templateColoring: false,
   templateChallenges: false,
   premiumY2K: false,
-  monetization: false,
+  monetization: true,
 };
 
 function featureEnabled(key){
@@ -6767,7 +6785,7 @@ function addFrame(){
   const maxFrames=getMaxAnimationFrames();
   if(maxFrames!==Infinity && ST.frames.length>=maxFrames){
     openProInfo('feature');
-    toast(`This build supports ${maxFrames} animation frames.`);
+    toast(`Free animations include ${maxFrames} frames. LavenderCare Plus unlocks unlimited frames.`);
     return;
   }
   ST.frames.push(new ImageData(ST.size,ST.size));ST.textFrames.push([]);ST.undoStacks.push([new ImageData(ST.size,ST.size)]);ST.undoTextStacks.push([[]]);ST.undoIdx.push(0);switchFrame(ST.frames.length-1);buildFramesUI();Economy.track('frame:add');addXP(3);SFX.click();
@@ -6842,7 +6860,7 @@ function dupFrame(){
   const maxFrames=getMaxAnimationFrames();
   if(maxFrames!==Infinity && ST.frames.length>=maxFrames){
     openProInfo('feature');
-    toast(`This build supports ${maxFrames} animation frames.`);
+    toast(`Free animations include ${maxFrames} frames. LavenderCare Plus unlocks unlimited frames.`);
     return;
   }
   if(ST.playing)stopPlay();captureFrame();const src=ST.frames[ST.currentFrame];const copy=cloneImageData(src);const textCopy=cloneTextObjectArray(getFrameTextObjects(ST.currentFrame));const at=ST.currentFrame+1;ST.frames.splice(at,0,copy);ST.textFrames.splice(at,0,textCopy);ST.undoStacks.splice(at,0,[cloneImageData(copy)]);ST.undoTextStacks.splice(at,0,[cloneTextObjectArray(textCopy)]);ST.undoIdx.splice(at,0,0);buildFramesUI();switchFrame(at);toast('⧉ Frame duplicated!');SFX.click();
@@ -7832,8 +7850,8 @@ function openSaveProjectModal(){
   if(note){
     const saveLimit=getMaxSavedProjects();
     const limitText=saveLimit===Infinity
-      ? 'This build supports saved creations.'
-      : `This build supports ${saveLimit} save slots.`;
+      ? 'LavenderCare Plus includes unlimited saved creations.'
+      : `Free includes ${saveLimit} save slots. LavenderCare Plus unlocks unlimited saves.`;
     note.textContent=hasCloudAccount()
       ? `Saved creations sync to your account. ${limitText} Public Gallery posting is free.`
       : `Saved creations stay on this device until you sign in. ${limitText}`;
@@ -10142,7 +10160,7 @@ function upsertProject(proj,{reward=true,silent=false}={}){
   const maxProjects=getMaxSavedProjects();
   if(idx<0 && maxProjects!==Infinity && ST.projects.length>=maxProjects){
     openProInfo('feature');
-    toast(`This build supports ${maxProjects} save slots.`);
+    toast(`Free includes ${maxProjects} save slots. Upgrade to LavenderCare Plus for unlimited saves.`);
     return false;
   }
   if(idx>=0) ST.projects[idx]={...ST.projects[idx],...proj}; else ST.projects.push(proj);

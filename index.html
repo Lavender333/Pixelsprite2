@@ -500,14 +500,14 @@
       <button class="auth-link-btn" id="auth-reset-btn" onclick="sendPasswordResetEmail()" hidden>Send password reset email</button>
     </div>
   </div>
-  <div class="prof-section" id="profile-pro-section" hidden>
-    <div class="prof-sec-title">Creator Tools</div>
+  <div class="prof-section" id="profile-pro-section">
+    <div class="prof-sec-title">LavenderCare Plus</div>
     <div class="pro-card">
       <div class="pro-card-main">
-        <div class="pro-card-title">Launch tools are ready.</div>
-        <div class="pro-card-copy">Drawing, saving, animation, exports, and creative effects are available in this build.</div>
+        <div class="pro-card-title">Free to create. Upgrade for more magic.</div>
+        <div class="pro-card-copy">Unlimited update hours, saves, animation frames, watermark-free animations, premium packs, and advanced creation tools.</div>
       </div>
-      <button class="pro-card-btn" onclick="openProInfo()">View Tools</button>
+      <button class="pro-card-btn" onclick="openProInfo()">View Plus</button>
     </div>
   </div>
   <div class="ptoggle-list" id="ptog-list"></div>
@@ -675,24 +675,14 @@
 
 <div id="pro-info-modal" class="modal-bg centered" style="display:none">
   <div class="name-modal-card pro-modal-card">
-    <div class="name-modal-badge" id="pro-info-badge">Creator Tools</div>
+    <div class="name-modal-badge" id="pro-info-badge">LavenderCare Plus</div>
     <div class="name-modal-title" id="pro-info-title">More magic. More animation. More fun.</div>
-    <p class="name-modal-copy" id="pro-info-copy">Launch tools are available in this build.</p>
-    <div class="club-price-row" aria-label="Creator tool options" hidden>
-      <button class="club-price-card featured" type="button" onclick="showClubComingSoon('launch')">
-        <span class="club-price-kicker">Launch</span>
-        <strong>Ready</strong>
-        <span>Available now</span>
-      </button>
-      <button class="club-price-card" type="button" onclick="showClubComingSoon('creative')">
-        <span class="club-price-kicker">Creative</span>
-        <strong>Tools</strong>
-        <span>Available now</span>
-      </button>
-      <button class="club-price-card" type="button" onclick="showClubComingSoon('studio')">
-        <span class="club-price-kicker">Studio</span>
-        <strong>Ready</strong>
-        <span>Available now</span>
+    <p class="name-modal-copy" id="pro-info-copy">Choose one of the App Store products submitted with this build.</p>
+    <div class="club-price-row" aria-label="LavenderCare Plus App Store product">
+      <button class="club-price-card featured" type="button" onclick="startIAPPurchase('monthly')">
+        <span class="club-price-kicker">Monthly</span>
+        <strong>$1.99</strong>
+        <span>Submitted App Store subscription</span>
       </button>
     </div>
     <div class="club-plan-grid">
@@ -700,8 +690,8 @@
         <div class="club-plan-title">Free</div>
         <ul>
           <li>Full drawing experience</li>
-          <li>Saved creations</li>
-          <li>Frame animation</li>
+          <li>10 save slots</li>
+          <li>3-frame animation</li>
           <li>Basic artwork image</li>
           <li>Watermarked animated sticker</li>
           <li>Daily challenges</li>
@@ -709,21 +699,21 @@
         </ul>
       </div>
       <div class="club-plan-card club">
-        <div class="club-plan-title">Creator Tools</div>
+        <div class="club-plan-title">LavenderCare Plus</div>
         <ul>
-          <li>Drawing and editing tools</li>
-          <li>Saved gallery projects</li>
-          <li>Animation frames</li>
-          <li>Animation exports</li>
+          <li>Unlimited update hours</li>
+          <li>Unlimited saves</li>
+          <li>Unlimited animation frames</li>
+          <li>Watermark-free animations</li>
           <li>Cutout art and sticker creation</li>
-          <li>Templates and palettes</li>
+          <li>Premium templates and palettes</li>
           <li>Glow and particle effects</li>
-          <li>Sprite sheets, badges, and seasonal creative updates</li>
+          <li>Priority updates, seasonal packs, sprite sheets, exclusive badges, and early access</li>
         </ul>
       </div>
     </div>
     <div class="name-modal-actions">
-      <button class="name-modal-save" id="pro-info-primary" onclick="closeProInfo()">Got it</button>
+      <button class="name-modal-save" id="pro-info-primary" onclick="startIAPPurchase('monthly')">Upgrade</button>
       <button class="name-modal-skip" onclick="closeProInfo()">Maybe later</button>
     </div>
   </div>
@@ -790,7 +780,7 @@
       </button>
       <button class="exp-card" onclick="exportTransparentPNG();closeExportModal()">
         <div class="exp-icon">🖼</div>
-        <div class="exp-fmt">Cutout Art <span class="club-mini">Tool</span></div>
+        <div class="exp-fmt">Cutout Art <span class="club-mini">Plus</span></div>
         <div class="exp-desc">Transparent art for stickers, videos, and creative projects.</div>
       </button>
       <button class="exp-card" type="button" onclick="useCreationForProjectCopy()">
@@ -812,7 +802,7 @@
       </button>
       <button class="exp-card" type="button" onclick="useCreationForBlockResourcePack()">
         <div class="exp-icon">🗂️</div>
-        <div class="exp-fmt">Block Resource Pack <span class="club-mini">Tool</span></div>
+        <div class="exp-fmt">Block Resource Pack <span class="club-mini">Plus</span></div>
         <div class="exp-desc">Saves a starter pack with manifest, folders, metadata, and texture files.</div>
       </button>
       <button class="exp-card" type="button" onclick="useCreationForFrontShirtImage()">
@@ -822,12 +812,12 @@
       </button>
       <button class="exp-card" type="button" onclick="useCreationForFullShirtTemplate()">
         <div class="exp-icon">🧥</div>
-        <div class="exp-fmt">Full Shirt Template <span class="club-mini">Tool</span></div>
+        <div class="exp-fmt">Full Shirt Template <span class="club-mini">Plus</span></div>
         <div class="exp-desc">Classic avatar shirt layout. Preview it first so arms and body wrap correctly.</div>
       </button>
       <button class="exp-card" type="button" onclick="useCreationForFullPantsTemplate()">
         <div class="exp-icon">👖</div>
-        <div class="exp-fmt">Full Pants Template <span class="club-mini">Tool</span></div>
+        <div class="exp-fmt">Full Pants Template <span class="club-mini">Plus</span></div>
         <div class="exp-desc">Classic avatar pants layout. Preview it first so legs wrap correctly.</div>
       </button>
       <button class="exp-card" onclick="exportGameIcon();closeExportModal()">
@@ -844,19 +834,19 @@
       </button>
       <button class="exp-card" type="button" onclick="useCreationForSpriteSheet()">
         <div class="exp-icon">🗃️</div>
-        <div class="exp-fmt">2D Game Animation Sheet <span class="club-mini">Tool</span></div>
+        <div class="exp-fmt">2D Game Animation Sheet <span class="club-mini">Plus</span></div>
         <div class="exp-desc">Sprite sheet package for image assets, frame settings, and 2D animation logic.</div>
       </button>
       <button class="exp-card" type="button" onclick="useCreationForPlayable3DSetup()">
         <div class="exp-icon">🧊</div>
-        <div class="exp-fmt">Playable 3D Setup <span class="club-mini">Tool</span></div>
+        <div class="exp-fmt">Playable 3D Setup <span class="club-mini">Plus</span></div>
         <div class="exp-desc">Advanced setup package for a rigged 3D character workflow. Not a normal PNG.</div>
       </button>
 
       <div class="exp-section-label">Stickers & Creativity</div>
       <button class="exp-card" onclick="exportSticker();closeExportModal()">
         <div class="exp-icon">🏷️</div>
-        <div class="exp-fmt">Printable Sticker <span class="club-mini">Tool</span></div>
+        <div class="exp-fmt">Printable Sticker <span class="club-mini">Plus</span></div>
         <div class="exp-desc">Decorate journals, notebooks, and crafts.</div>
       </button>
       <button class="exp-card" onclick="exportWallpaper();closeExportModal()">
@@ -866,7 +856,7 @@
       </button>
       <button class="exp-card" onclick="exportPlannerSticker();closeExportModal()">
         <div class="exp-icon">📒</div>
-        <div class="exp-fmt">Digital Planner Sticker <span class="club-mini">Tool</span></div>
+        <div class="exp-fmt">Digital Planner Sticker <span class="club-mini">Plus</span></div>
         <div class="exp-desc">Use in planners, journals, and creative notes.</div>
       </button>
     </div>

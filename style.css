@@ -956,8 +956,10 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .pro-card-copy{margin-top:5px;font-size:11px;line-height:1.45;color:var(--text2)}
 .pro-card-btn{flex-shrink:0;padding:10px 12px;border-radius:999px;border:1px solid rgba(255,209,102,.32);background:rgba(255,209,102,.13);color:#FFE69B;font-size:11px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;cursor:pointer}
 .pro-card-btn:active{transform:scale(.97)}
-.pro-modal-card{max-width:380px}
-.club-price-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
+.pro-modal-card{width:min(calc(100vw - 32px),380px);max-width:380px;overflow:hidden}
+.pro-modal-card .name-modal-title,
+.pro-modal-card .name-modal-copy{max-width:100%;overflow-wrap:anywhere}
+.club-price-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(98px,1fr));gap:8px;margin-top:14px}
 .club-price-card{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-height:86px;padding:10px;border-radius:14px;border:1px solid var(--border2);background:rgba(255,255,255,.04);color:var(--text2);font-family:var(--ff-body);text-align:left;cursor:pointer}
 .club-price-card.featured{border-color:rgba(255,209,102,.44);background:linear-gradient(180deg,rgba(255,209,102,.16),rgba(108,99,255,.08));box-shadow:0 12px 24px rgba(255,209,102,.08)}
 .club-price-card strong{font-size:17px;color:#FFE69B;line-height:1}
