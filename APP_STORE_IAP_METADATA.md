@@ -10,14 +10,14 @@
 
 ## Localization: English (U.S.)
 
-- Display Name: LavenderCare Plus Monthly
+- Display Name: Pixel Sprite Vibe Plus Monthly
 - Description: Unlock more saves, frames, exports, and packs.
 
 ## App Review Information
 
 - Screenshot: `app-store-screenshots/iap-monthly-lavendercare-plus-review-portrait.jpg`
 - Review Notes:
-  - The monthly subscription is shown in the Me tab under LavenderCare Plus.
+  - The monthly subscription is shown in the Me tab as Pixel Sprite Vibe Plus Monthly.
   - Product ID in the app code is `Monthly`.
   - The purchase button opens the app's in-app purchase flow for the submitted Monthly product.
   - Reviewer sign-in is available with the App Review account listed in `APP_REVIEW_NOTES.md`.

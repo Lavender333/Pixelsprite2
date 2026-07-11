@@ -725,7 +725,7 @@ const SUPABASE_CONFIG = {
 const IAP_PRODUCTS = {
   monthly: {
     id: 'Monthly',
-    label: 'Monthly LavenderCare Plus',
+    label: 'Pixel Sprite Vibe Plus Monthly',
     price: '$1.99',
     type: 'auto-renewable subscription',
   },
