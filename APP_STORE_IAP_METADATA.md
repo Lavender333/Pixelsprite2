@@ -15,7 +15,7 @@
 
 ## App Review Information
 
-- Screenshot: `app-store-screenshots/iap-monthly-lavendercare-plus-review-portrait.jpg`
+- Screenshot: `app-store-screenshots/iap-monthly-pixel-sprite-vibe-plus-review.png`
 - Review Notes:
   - The monthly subscription is shown in the Me tab as Pixel Sprite Vibe Plus Monthly.
   - Product ID in the app code is `Monthly`.
