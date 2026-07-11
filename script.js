@@ -1216,7 +1216,7 @@ async function startIAPPurchase(plan='monthly'){
 function requireClubFeature(feature='this feature'){
   if(isClubAccount()) return true;
   openProInfo('feature');
-  toast(`LavenderCare Plus unlocks ${feature}.`);
+  toast(`Pixel Sprite Vibe Plus Monthly unlocks ${feature}.`);
   return false;
 }
 
@@ -1329,16 +1329,16 @@ function openProInfo(reason='default'){
   const title=document.getElementById('pro-info-title');
   const copy=document.getElementById('pro-info-copy');
   const primary=document.getElementById('pro-info-primary');
-  if(badge) badge.textContent='LavenderCare Plus';
+  if(badge) badge.textContent='Pixel Sprite Vibe Plus Monthly';
   if(primary) primary.textContent='Upgrade';
   if(title && copy){
     if(reason==='limit'){
       title.textContent='You’re on a roll!';
-      copy.textContent='Upgrade to LavenderCare Plus to unlock unlimited update hours and keep going. Free time is up, so new sessions pause here without Plus benefits like extended time, watermark-free animations, premium packs, and priority updates.';
+      copy.textContent='Upgrade to Pixel Sprite Vibe Plus Monthly to unlock unlimited update hours and keep going. Free time is up, so new sessions pause here without Plus benefits like extended time, watermark-free animations, premium packs, and priority updates.';
       if(primary) primary.textContent='Keep Going';
     }else if(reason==='success'){
       title.textContent='Nice work. Want to supercharge the next session?';
-      copy.textContent='Enjoying the speed? Unlock LavenderCare Plus for deeper creative insights, more update time, unlimited saves, and premium tools for your next creation.';
+      copy.textContent='Enjoying the speed? Unlock Pixel Sprite Vibe Plus Monthly for deeper creative insights, more update time, unlimited saves, and premium tools for your next creation.';
       if(primary) primary.textContent='Unlock Plus';
     }else{
       title.textContent='More magic. More animation. More fun.';
@@ -6785,7 +6785,7 @@ function addFrame(){
   const maxFrames=getMaxAnimationFrames();
   if(maxFrames!==Infinity && ST.frames.length>=maxFrames){
     openProInfo('feature');
-    toast(`Free animations include ${maxFrames} frames. LavenderCare Plus unlocks unlimited frames.`);
+    toast(`Free animations include ${maxFrames} frames. Pixel Sprite Vibe Plus Monthly unlocks unlimited frames.`);
     return;
   }
   ST.frames.push(new ImageData(ST.size,ST.size));ST.textFrames.push([]);ST.undoStacks.push([new ImageData(ST.size,ST.size)]);ST.undoTextStacks.push([[]]);ST.undoIdx.push(0);switchFrame(ST.frames.length-1);buildFramesUI();Economy.track('frame:add');addXP(3);SFX.click();
@@ -6860,7 +6860,7 @@ function dupFrame(){
   const maxFrames=getMaxAnimationFrames();
   if(maxFrames!==Infinity && ST.frames.length>=maxFrames){
     openProInfo('feature');
-    toast(`Free animations include ${maxFrames} frames. LavenderCare Plus unlocks unlimited frames.`);
+    toast(`Free animations include ${maxFrames} frames. Pixel Sprite Vibe Plus Monthly unlocks unlimited frames.`);
     return;
   }
   if(ST.playing)stopPlay();captureFrame();const src=ST.frames[ST.currentFrame];const copy=cloneImageData(src);const textCopy=cloneTextObjectArray(getFrameTextObjects(ST.currentFrame));const at=ST.currentFrame+1;ST.frames.splice(at,0,copy);ST.textFrames.splice(at,0,textCopy);ST.undoStacks.splice(at,0,[cloneImageData(copy)]);ST.undoTextStacks.splice(at,0,[cloneTextObjectArray(textCopy)]);ST.undoIdx.splice(at,0,0);buildFramesUI();switchFrame(at);toast('⧉ Frame duplicated!');SFX.click();
@@ -7850,8 +7850,8 @@ function openSaveProjectModal(){
   if(note){
     const saveLimit=getMaxSavedProjects();
     const limitText=saveLimit===Infinity
-      ? 'LavenderCare Plus includes unlimited saved creations.'
-      : `Free includes ${saveLimit} save slots. LavenderCare Plus unlocks unlimited saves.`;
+      ? 'Pixel Sprite Vibe Plus Monthly includes unlimited saved creations.'
+      : `Free includes ${saveLimit} save slots. Pixel Sprite Vibe Plus Monthly unlocks unlimited saves.`;
     note.textContent=hasCloudAccount()
       ? `Saved creations sync to your account. ${limitText} Public Gallery posting is free.`
       : `Saved creations stay on this device until you sign in. ${limitText}`;
@@ -10160,7 +10160,7 @@ function upsertProject(proj,{reward=true,silent=false}={}){
   const maxProjects=getMaxSavedProjects();
   if(idx<0 && maxProjects!==Infinity && ST.projects.length>=maxProjects){
     openProInfo('feature');
-    toast(`Free includes ${maxProjects} save slots. Upgrade to LavenderCare Plus for unlimited saves.`);
+    toast(`Free includes ${maxProjects} save slots. Upgrade to Pixel Sprite Vibe Plus Monthly for unlimited saves.`);
     return false;
   }
   if(idx>=0) ST.projects[idx]={...ST.projects[idx],...proj}; else ST.projects.push(proj);
