@@ -1305,3 +1305,12 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .birthday-policy-link:hover {
   color: #fff7ed;
 }
+
+/* Subscription disclosures — App Store Guideline 3.1.2 */
+.club-terms{margin:16px 0 4px;padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.03);border:1px solid var(--border2)}
+.club-terms-line{margin:0 0 8px;font-size:13px;font-weight:700;color:var(--text)}
+.club-terms-copy{margin:0 0 10px;font-size:11px;line-height:1.55;color:var(--text2)}
+.club-terms-links{margin:0;font-size:11px;color:var(--text2);display:flex;gap:8px;align-items:center}
+.club-terms-links a{color:var(--ind2);text-decoration:none}
+.club-terms-links a:hover{text-decoration:underline}
+.club-price-card.featured{cursor:default}

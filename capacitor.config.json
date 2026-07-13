@@ -5,5 +5,8 @@
   "bundledWebRuntime": false,
   "server": {
     "iosScheme": "https"
+  },
+  "ios": {
+    "packageClassList": ["StoreKitPlugin"]
   }
 }

@@ -711,7 +711,7 @@ const DAILY_PIXEL_SURPRISES=[
 ];
 
 const FREE_SESSION_LIMIT_MS = 90 * 60 * 1000;
-const APP_STORE_IAP_ENABLED = false;
+const APP_STORE_IAP_ENABLED = true;
 
 const APP_REVIEW_PRO_ACCOUNT = {
   email: 'appreview@pixelspirite.com',
@@ -724,6 +724,20 @@ const SUPABASE_CONFIG = {
   publishableKey: 'sb_publishable_pNozt3QXGax9Uppt0-TFAw_9PbfZURE',
   appUrl: 'https://pixelspirite.com/',
   oauthProviders: [],
+};
+
+// REQUIRED BEFORE BUILDING:
+// `id` must match the Product ID field in App Store Connect byte for byte.
+// If this string is wrong, StoreKit returns an empty product list and the
+// purchase sheet never opens.
+const IAP_PRODUCTS = {
+  monthly: {
+    id: 'Monthly',
+    label: 'Pixel Sprite Vibe Plus',
+    price: '$1.99',
+    period: 'month',
+    type: 'auto-renewable subscription',
+  },
 };
 
 const AUTH_STATE = {
@@ -1187,17 +1201,118 @@ function formatLimit(value){
 }
 
 function showClubComingSoon(plan='monthly'){
-  if(!APP_STORE_IAP_ENABLED){
-    openProInfo('unavailable');
-    toast('Premium purchases are not available in this release build.');
+  openProInfo('feature');
+}
+
+// StoreKit 2 bridge: ios/App/CapApp-SPM/Sources/CapApp-SPM/StoreKitPlugin.swift
+function getStoreKit(){
+  return window.Capacitor?.Plugins?.StoreKit || null;
+}
+
+function setIAPBusy(busy){
+  ['pro-info-primary','pro-restore-btn','me-restore-btn'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.disabled=busy;
+    el.style.opacity=busy?'0.6':'';
+  });
+  const primary=document.getElementById('pro-info-primary');
+  if(primary) primary.textContent=busy?'Working...':'Subscribe';
+}
+
+async function syncTierToSupabase(pro, {productId, expiresAt, transactionId}={}){
+  const client=getSupabaseClient();
+  if(!client || !hasCloudAccount()) return;
+  try{
+    await client.rpc('sync_apple_entitlement',{
+      p_product_id: productId || IAP_PRODUCTS.monthly.id,
+      p_active: !!pro,
+      p_expires_at: expiresAt || null,
+      p_original_transaction_id: transactionId || null,
+      p_environment: 'Production',
+    });
+  }catch(err){
+    console.warn('[tier sync]', err);
+  }
+}
+
+async function refreshEntitlements({silent=true}={}){
+  const sk=getStoreKit();
+  if(!sk) return isProAccount();
+  try{
+    const {productIds=[]}=await sk.currentEntitlements();
+    const pro=productIds.includes(IAP_PRODUCTS.monthly.id);
+    saveLocalAccountTier(pro?'pro':'free', new Date().toISOString());
+    await syncTierToSupabase(pro);
+    syncAuthUI();
+    buildProfile();
+    return pro;
+  }catch(err){
+    console.warn('[StoreKit] entitlement check failed', err);
+    if(!silent) toast('Could not check your subscription status.');
+    return isProAccount();
+  }
+}
+
+async function startIAPPurchase(plan='monthly'){
+  const product=IAP_PRODUCTS[plan] || IAP_PRODUCTS.monthly;
+  const sk=getStoreKit();
+  if(!sk){
+    toast('Subscriptions are available in the Pixel Sprite Vibe app on iPhone and iPad.');
+    return {ok:false,reason:'no-storekit',product};
+  }
+  setIAPBusy(true);
+  try{
+    const result=await sk.purchaseProduct({productId:product.id});
+    if(result.status==='cancelled') return {ok:false,reason:'cancelled',product};
+    if(result.status==='pending'){
+      toast('Your purchase needs approval. Plus unlocks once it is approved.');
+      return {ok:false,reason:'pending',product};
+    }
+    if(result.status==='purchased'){
+      await refreshEntitlements({silent:true});
+      closeProInfo();
+      toast(`${product.label} unlocked. Welcome to the club!`);
+      return {ok:true,result,product};
+    }
+    toast('The purchase did not complete. Please try again.');
+    return {ok:false,reason:result.status,product};
+  }catch(error){
+    toast(error?.message || `Could not start the purchase for ${product.label}.`);
+    return {ok:false,error,product};
+  }finally{
+    setIAPBusy(false);
+  }
+}
+
+async function restorePurchases(){
+  const sk=getStoreKit();
+  if(!sk){
+    toast('Restore is available in the Pixel Sprite Vibe app on iPhone and iPad.');
     return;
   }
-  const labels={
-    monthly:'Monthly subscription',
-    annual:'Annual subscription',
-    forever:'Forever Access one-time purchase',
-  };
-  toast(`${labels[plan]||'Premium purchase'} is submitted in App Store Connect before release.`);
+  setIAPBusy(true);
+  try{
+    const {productIds=[]}=await sk.restorePurchases();
+    const pro=productIds.includes(IAP_PRODUCTS.monthly.id);
+    saveLocalAccountTier(pro?'pro':'free', new Date().toISOString());
+    await syncTierToSupabase(pro);
+    syncAuthUI();
+    buildProfile();
+    toast(pro
+      ? 'Your Pixel Sprite Vibe Plus subscription was restored.'
+      : 'No active subscription was found for this Apple ID.');
+  }catch(error){
+    toast(error?.message || 'Could not restore purchases. Please try again.');
+  }finally{
+    setIAPBusy(false);
+  }
+}
+
+function watchEntitlements(){
+  const sk=getStoreKit();
+  if(!sk?.addListener) return;
+  sk.addListener('entitlementsChanged', ()=>{ refreshEntitlements({silent:true}); });
 }
 
 function requireClubFeature(feature='this feature'){
@@ -1325,8 +1440,8 @@ function openProInfo(reason='default'){
   if(badge) badge.textContent='Premium Features';
   if(priceRow) priceRow.hidden=!APP_STORE_IAP_ENABLED;
   if(primary){
-    primary.textContent=APP_STORE_IAP_ENABLED?'Upgrade':'Close';
-    primary.onclick=APP_STORE_IAP_ENABLED ? ()=>showClubComingSoon('monthly') : closeProInfo;
+    primary.textContent=APP_STORE_IAP_ENABLED?'Subscribe':'Close';
+    primary.onclick=APP_STORE_IAP_ENABLED ? ()=>startIAPPurchase('monthly') : closeProInfo;
   }
   if(title && copy){
     if(!APP_STORE_IAP_ENABLED || reason==='unavailable'){
@@ -1334,7 +1449,7 @@ function openProInfo(reason='default'){
       copy.textContent='This App Store release is free to use. Purchase options are hidden until in-app purchases are fully enabled and tested.';
     }else if(reason==='limit'){
       title.textContent='You’re on a roll!';
-      copy.textContent='Upgrade with a Monthly or Annual subscription, or unlock Forever Access with a one-time purchase, to keep creating with unlimited update hours, watermark-free animations, premium packs, and priority updates.';
+      copy.textContent='Subscribe monthly to keep creating with unlimited update hours, watermark-free animations, premium packs, and priority updates.';
       if(primary) primary.textContent='Keep Going';
     }else if(reason==='success'){
       title.textContent='Nice work. Want to supercharge the next session?';
@@ -1342,7 +1457,7 @@ function openProInfo(reason='default'){
       if(primary) primary.textContent='Unlock Premium';
     }else{
       title.textContent='More magic. More animation. More fun.';
-      copy.textContent='Start creating for free with generous features. Upgrade with a Monthly or Annual subscription for ongoing premium benefits, or unlock Forever Access with a one-time purchase.';
+      copy.textContent='Unlock everything in the studio.';
     }
   }
   if(modal) modal.style.display='flex';
@@ -1366,50 +1481,10 @@ function setAuthBusy(busy){
   syncAuthProviders();
 }
 
-async function continueWithOAuth(provider){
-  if(!authProviderEnabled(provider)){
-    toast(`${authProviderLabel(provider)} sign-in is still loading. Email sign-in is ready.`);
-    showEmailAuthFields();
-    return;
-  }
-  const client=getSupabaseClient();
-  if(!client){
-    await ensureAuthReady();
-  }
-  const readyClient=getSupabaseClient();
-  if(!readyClient){
-    toast('Cloud sign-in is unavailable right now. Email sign-in remains available for App Review.');
-    showEmailAuthFields();
-    return;
-  }
-  setAuthBusy(true);
-  try{
-    toast(`Opening ${authProviderLabel(provider)} sign-in...`);
-    const gamename=sanitizeGameName(document.getElementById('auth-gamename-input')?.value||getSavedProfileName());
-    if(gamename) await saveProfileName(gamename,{silent:true,skipAvailability:true});
-    const {data,error}=await readyClient.auth.signInWithOAuth({
-      provider,
-      options:{
-        redirectTo:authRedirectURL(),
-        skipBrowserRedirect:false,
-        queryParams:provider==='google' ? { access_type:'offline', prompt:'select_account' } : undefined,
-      },
-    });
-    if(error) throw error;
-    if(data?.url) window.location.assign(data.url);
-  }catch(error){
-    setAuthBusy(false);
-    toast(error.message || 'Could not start sign-in.');
-  }
-}
-
-function continueWithApple(){
-  continueWithOAuth('apple');
-}
-
-function continueWithGoogle(){
-  continueWithOAuth('google');
-}
+// Apple/Google OAuth removed. signInWithOAuth() does a top-level
+// window.location redirect, which cannot complete inside the Capacitor
+// WKWebView without a native/deep-link callback path. Email sign-in is the
+// supported auth path in this build.
 
 function bindTapAction(id, handler){
   const element=document.getElementById(id);
@@ -10944,6 +11019,8 @@ function boot(){
   loadLocalAccountTier();
   restoreAppReviewSession();
   startFreeSessionClock();
+  watchEntitlements();
+  refreshEntitlements({silent:true});
   loadDailyVibeState();
   loadAppSettings();
   loadProjects();

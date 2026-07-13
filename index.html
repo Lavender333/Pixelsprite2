@@ -498,14 +498,15 @@
         <button class="auth-btn auth-btn-secondary" id="auth-secondary-btn" onclick="handleSecondaryAuthAction()">Sign in</button>
       </div>
       <button class="auth-link-btn" id="auth-reset-btn" onclick="sendPasswordResetEmail()" hidden>Send password reset email</button>
+      <button class="auth-link-btn" id="me-restore-btn" type="button" onclick="restorePurchases()">Restore Purchases</button>
     </div>
   </div>
   <div class="prof-section" id="profile-pro-section" hidden>
     <div class="prof-sec-title">Premium Features</div>
     <div class="pro-card">
       <div class="pro-card-main">
-        <div class="pro-card-title">Free to create.</div>
-        <div class="pro-card-copy">Premium features are not available in this release build.</div>
+        <div class="pro-card-title">Pixel Sprite Vibe Plus</div>
+        <div class="pro-card-copy">Unlock unlimited update hours, saves, animation frames, and watermark-free exports.</div>
       </div>
       <button class="pro-card-btn" onclick="openProInfo()">Premium Info</button>
     </div>
@@ -684,9 +685,16 @@
 
 <div id="pro-info-modal" class="modal-bg centered" style="display:none">
   <div class="name-modal-card pro-modal-card">
-    <div class="name-modal-badge" id="pro-info-badge">Premium Features</div>
+    <div class="name-modal-badge" id="pro-info-badge">Pixel Sprite Vibe Plus Monthly</div>
     <div class="name-modal-title" id="pro-info-title">More magic. More animation. More fun.</div>
-    <p class="name-modal-copy" id="pro-info-copy">Start creating for free with generous features. Premium purchases are not available in this release build.</p>
+    <p class="name-modal-copy" id="pro-info-copy">Unlock everything in the studio.</p>
+    <div class="club-price-row" id="club-price-row" aria-label="Pixel Sprite Vibe Plus Monthly App Store product">
+      <div class="club-price-card featured">
+        <span class="club-price-kicker">Monthly</span>
+        <strong>$1.99</strong>
+        <span>Auto-renewing subscription</span>
+      </div>
+    </div>
     <div class="club-plan-grid">
       <div class="club-plan-card">
         <div class="club-plan-title">Free</div>
@@ -714,10 +722,26 @@
         </ul>
       </div>
     </div>
-    <div class="name-modal-actions">
-      <button class="name-modal-save" id="pro-info-primary" onclick="closeProInfo()">Close</button>
-      <button class="name-modal-skip" onclick="closeProInfo()">Maybe later</button>
+    <div class="club-terms">
+      <p class="club-terms-line"><strong>Pixel Sprite Vibe Plus</strong> &mdash; $1.99 per month, billed monthly.</p>
+      <p class="club-terms-copy">
+        Payment is charged to your Apple ID account at confirmation of purchase. The subscription
+        renews automatically unless it is cancelled at least 24 hours before the end of the current
+        period. Your account is charged for renewal within 24 hours before the end of the current
+        period. You can manage or cancel your subscription in your Apple ID Account Settings after
+        purchase.
+      </p>
+      <p class="club-terms-links">
+        <a href="privacy-policy.html">Privacy Policy</a>
+        <span aria-hidden="true">&middot;</span>
+        <a href="terms.html">Terms of Use</a>
+      </p>
     </div>
+    <div class="name-modal-actions">
+      <button class="name-modal-save" id="pro-info-primary" type="button" onclick="startIAPPurchase('monthly')">Subscribe</button>
+      <button class="name-modal-skip" type="button" onclick="closeProInfo()">Maybe later</button>
+    </div>
+    <button class="auth-link-btn" id="pro-restore-btn" type="button" onclick="restorePurchases()">Restore Purchases</button>
   </div>
 </div>
 
@@ -876,7 +900,7 @@
 </div>
 <!-- Antiwash Palette Upgrade System -->
 <script src="antiwash-upgrade-extended.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="vendor/supabase-js.min.js"></script>
 <script src="script.js?v=19"></script>
 </body>
 </html>
