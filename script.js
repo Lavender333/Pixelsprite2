@@ -722,7 +722,7 @@ const SUPABASE_CONFIG = {
   url: 'https://xqltgcxqlzchrnulomkv.supabase.co',
   publishableKey: 'sb_publishable_pNozt3QXGax9Uppt0-TFAw_9PbfZURE',
   appUrl: 'https://pixelspirite.com/',
-  oauthProviders: ['apple', 'google'],
+  oauthProviders: [],
 };
 
 const AUTH_STATE = {
@@ -961,27 +961,11 @@ function authProviderEnabled(provider){
 }
 
 function syncAuthProviders(){
-  const apple=document.querySelector('.auth-provider.apple');
-  const google=document.querySelector('.auth-provider.google');
   const email=document.querySelector('.auth-provider.email');
   const emailFields=document.getElementById('email-auth-fields');
   const resettingPassword=AUTH_STATE.mode==='reset';
   const emailReady=authProviderEnabled('email');
-  const appleReady=authProviderEnabled('apple');
-  const googleReady=authProviderEnabled('google');
   const emailFormOpen=!!emailFields && !emailFields.hidden;
-  if(apple){
-    apple.hidden=resettingPassword || !appleReady;
-    apple.disabled=AUTH_STATE.busy;
-    apple.removeAttribute('aria-disabled');
-    apple.textContent='Continue with Apple';
-  }
-  if(google){
-    google.hidden=resettingPassword || !googleReady;
-    google.disabled=AUTH_STATE.busy;
-    google.removeAttribute('aria-disabled');
-    google.textContent='Continue with Google';
-  }
   if(email){
     email.hidden=resettingPassword || !emailReady || emailFormOpen;
     email.disabled=AUTH_STATE.busy || !emailReady;
@@ -990,25 +974,29 @@ function syncAuthProviders(){
 }
 
 async function loadAuthProviderSettings(){
+  const fallbackSettings={
+    email:true,
+    apple:false,
+    google:false,
+  };
   try{
+    const controller=typeof AbortController==='function' ? new AbortController() : null;
+    const timeout=controller ? setTimeout(()=>controller.abort(),3500) : null;
     const response=await fetch(`${SUPABASE_CONFIG.url}/auth/v1/settings`, {
       headers:{ apikey:SUPABASE_CONFIG.publishableKey },
-    });
+      signal:controller?.signal,
+    }).finally(()=>{ if(timeout) clearTimeout(timeout); });
     if(!response.ok) throw new Error(`Auth settings request failed: ${response.status}`);
     const settings=await response.json();
     const external=settings?.external || {};
     AUTH_STATE.authSettings={
       email:external.email !== false,
-      apple:external.apple === true,
-      google:external.google === true,
+      apple:false,
+      google:false,
     };
   }catch(err){
     console.warn('[Supabase auth settings]', err);
-    AUTH_STATE.authSettings={
-      email:true,
-      apple:authProviderAllowed('apple'),
-      google:authProviderAllowed('google'),
-    };
+    AUTH_STATE.authSettings=fallbackSettings;
   }
   syncAuthProviders();
 }
@@ -1360,13 +1348,18 @@ function setAuthBusy(busy){
 
 async function continueWithOAuth(provider){
   if(!authProviderEnabled(provider)){
-    toast(`${authProviderLabel(provider)} sign-in is unavailable in this build. Email sign-in is ready.`);
+    toast(`${authProviderLabel(provider)} sign-in is still loading. Email sign-in is ready.`);
     showEmailAuthFields();
     return;
   }
   const client=getSupabaseClient();
   if(!client){
-    toast('Account sign-in is still loading. Try again in a moment.');
+    await ensureAuthReady();
+  }
+  const readyClient=getSupabaseClient();
+  if(!readyClient){
+    toast('Cloud sign-in is unavailable right now. Email sign-in remains available for App Review.');
+    showEmailAuthFields();
     return;
   }
   setAuthBusy(true);
@@ -1374,7 +1367,7 @@ async function continueWithOAuth(provider){
     toast(`Opening ${authProviderLabel(provider)} sign-in...`);
     const gamename=sanitizeGameName(document.getElementById('auth-gamename-input')?.value||getSavedProfileName());
     if(gamename) await saveProfileName(gamename,{silent:true,skipAvailability:true});
-    const {error}=await client.auth.signInWithOAuth({
+    const {data,error}=await readyClient.auth.signInWithOAuth({
       provider,
       options:{
         redirectTo:authRedirectURL(),
@@ -1383,6 +1376,7 @@ async function continueWithOAuth(provider){
       },
     });
     if(error) throw error;
+    if(data?.url) window.location.assign(data.url);
   }catch(error){
     setAuthBusy(false);
     toast(error.message || 'Could not start sign-in.');
@@ -1397,6 +1391,30 @@ function continueWithGoogle(){
   continueWithOAuth('google');
 }
 
+function bindTapAction(id, handler){
+  const element=document.getElementById(id);
+  if(!element || element.dataset.tapBound==='true') return;
+  element.dataset.tapBound='true';
+  element.onclick=null;
+  element.addEventListener('click', event=>{
+    event.preventDefault();
+    handler();
+  });
+  element.addEventListener('touchend', event=>{
+    event.preventDefault();
+    handler();
+  }, {passive:false});
+}
+
+function bindAuthTapActions(){
+  bindTapAction('splash-auth-primary', handleSplashAuthPrimary);
+  bindTapAction('splash-auth-secondary', handleSplashAuthSecondary);
+  bindTapAction('home-auth-primary', handleHomeAuthPrimary);
+  bindTapAction('home-auth-secondary', handleHomeAuthSecondary);
+  bindTapAction('auth-primary-btn', handlePrimaryAuthAction);
+  bindTapAction('auth-secondary-btn', handleSecondaryAuthAction);
+}
+
 function openAuthModal(mode='signin'){
   dismissBirthdaySplash();
   AUTH_STATE.mode=mode==='reset'?'reset':mode==='signup'?'signup':'signin';
@@ -1409,7 +1427,8 @@ function openAuthModal(mode='signin'){
   if(password) password.value='';
   if(gamename && AUTH_STATE.mode==='signup') gamename.value=getSavedProfileName();
   const emailFields=document.getElementById('email-auth-fields');
-  if(emailFields) emailFields.hidden=AUTH_STATE.mode!=='reset';
+  const hasOAuth=authProviderEnabled('apple') || authProviderEnabled('google');
+  if(emailFields) emailFields.hidden=AUTH_STATE.mode!=='reset' && hasOAuth;
   syncAuthProviders();
   if(modal) modal.style.display='flex';
   if(AUTH_STATE.mode==='reset') setTimeout(()=>password?.focus(),20);
@@ -1842,11 +1861,18 @@ function openAccountSettings(){
   const email=document.getElementById('account-settings-email');
   const plan=document.getElementById('account-settings-plan');
   const copy=document.getElementById('account-settings-copy');
+  const changeEmail=document.getElementById('account-change-email-btn');
+  const resetPassword=document.getElementById('account-reset-password-btn');
   const userEmail=AUTH_STATE.session?.user?.email || (isAppReviewSession() ? APP_REVIEW_PRO_ACCOUNT.email : 'Connected');
+  const reviewSession=isAppReviewSession() || String(userEmail).toLowerCase()===APP_REVIEW_PRO_ACCOUNT.email;
   const planLabel=isClubAccount() ? 'Premium' : 'Free';
   if(email) email.textContent=userEmail;
   if(plan) plan.textContent=planLabel;
-  if(copy) copy.textContent='Your account settings are ready. You can update email, reset your password, or sign out.';
+  if(copy) copy.textContent=reviewSession
+    ? 'The App Review account is active. You can close settings or sign out when testing is complete.'
+    : 'Your account settings are ready. You can update email, reset your password, or sign out.';
+  if(changeEmail) changeEmail.hidden=reviewSession;
+  if(resetPassword) resetPassword.hidden=reviewSession;
   if(modal) modal.style.display='flex';
 }
 
@@ -10882,6 +10908,7 @@ captureFrame = function(){
 // ── BOOT ──────────────────────────────────────────────
 function boot(){
   initStore();
+  bindAuthTapActions();
   initSupabaseAuth();
   applyReleaseVisibility();
   buildPalRow();

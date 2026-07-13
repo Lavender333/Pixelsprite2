@@ -544,8 +544,6 @@
     <h2 class="name-modal-title" id="auth-modal-title">Save Your PixelVerse</h2>
     <p class="name-modal-copy" id="auth-modal-copy">Create an account to sync your username, streaks, badges, and creations across devices.</p>
     <div class="auth-provider-stack">
-      <button class="auth-provider apple" type="button" onclick="continueWithApple()">Continue with Apple</button>
-      <button class="auth-provider google" type="button" onclick="continueWithGoogle()">Continue with Google</button>
       <button class="auth-provider email" type="button" onclick="showEmailAuthFields()">Continue with Email</button>
     </div>
     <div id="email-auth-fields" class="email-auth-fields" hidden>
@@ -581,8 +579,8 @@
       </div>
     </div>
     <div class="name-modal-actions account-settings-actions">
-      <button class="name-modal-save" type="button" onclick="updateCloudEmail()">Change email</button>
-      <button class="name-modal-skip" type="button" onclick="sendPasswordResetEmail()">Reset password</button>
+      <button class="name-modal-save" id="account-change-email-btn" type="button" onclick="updateCloudEmail()">Change email</button>
+      <button class="name-modal-skip" id="account-reset-password-btn" type="button" onclick="sendPasswordResetEmail()">Reset password</button>
     </div>
     <div class="name-modal-actions account-settings-actions">
       <button class="name-modal-skip" type="button" onclick="closeAccountSettings()">Close</button>
@@ -896,6 +894,6 @@
 <!-- Antiwash Palette Upgrade System -->
 <script src="antiwash-upgrade-extended.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="script.js?v=17"></script>
+<script src="script.js?v=18"></script>
 </body>
 </html>

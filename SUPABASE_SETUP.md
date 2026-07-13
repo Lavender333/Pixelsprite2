@@ -71,13 +71,14 @@ Passwords are **not** stored by this app. They are handled by Supabase Auth only
 In Supabase, open **Authentication → URL Configuration** and add:
 
 - Site URL: `https://pixelspirite.com/`
-- Redirect URL: `https://pixelspirite.com/`
+- Redirect URLs:
+  - `https://pixelspirite.com/`
 - Redirect URL: `http://localhost:3000/`
 - Redirect URL: `http://127.0.0.1:5500/`
 
 If you use a different local dev URL, add that too.
 
-Important: the app now forces all auth emails to redirect to `https://pixelspirite.com/` instead of localhost. If your real production domain changes, update [script.js](script.js) and Supabase URL Configuration together.
+Important: the release app uses email/password auth only. Apple and Google social sign-in are intentionally disabled for App Review simplicity. If your real production domain changes, update [script.js](script.js) and Supabase URL Configuration together.
 
 ## Email templates and delivery
 
@@ -96,13 +97,7 @@ To fully connect this app to your Supabase project, do these remaining steps:
 
 1. Run [supabase/schema.sql](supabase/schema.sql) in the Supabase SQL editor.
 2. Run [supabase/storage.sql](supabase/storage.sql) in the Supabase SQL editor.
-3. In **Authentication → Providers**, turn on **Apple**, **Google**, and **Email**.
-   - Make **Apple** the primary iOS sign-in option. It supports Hide My Email and avoids password friction for families.
-   - Use **Google** for Android, Chromebook, and web families.
-   - Keep **Email** as the fallback option, not the primary button.
-   - Supabase callback URL for both OAuth providers: `https://xqltgcxqlzchrnulomkv.supabase.co/auth/v1/callback`
-   - Google needs an OAuth client ID and client secret from Google Cloud Console.
-   - Apple needs a Services ID, Team ID, Key ID, and private key from Apple Developer.
+3. In **Authentication → Providers**, turn on **Email**. Apple and Google should remain off unless the app UI is updated and retested for social sign-in.
 4. In **Authentication → URL Configuration**, add `https://pixelspirite.com/` as an allowed redirect URL. Keep the local dev URLs only for testing.
 5. Decide whether to keep **Confirm email** on:
    - keep it **on** for stricter account verification
