@@ -500,14 +500,14 @@
       <button class="auth-link-btn" id="auth-reset-btn" onclick="sendPasswordResetEmail()" hidden>Send password reset email</button>
     </div>
   </div>
-  <div class="prof-section" id="profile-pro-section">
+  <div class="prof-section" id="profile-pro-section" hidden>
     <div class="prof-sec-title">Premium Features</div>
     <div class="pro-card">
       <div class="pro-card-main">
-        <div class="pro-card-title">Free to create. Upgrade for more magic.</div>
-        <div class="pro-card-copy">Monthly and Annual subscriptions or Forever Access unlock unlimited update hours, saves, animation frames, watermark-free animations, premium packs, and advanced creation tools.</div>
+        <div class="pro-card-title">Free to create.</div>
+        <div class="pro-card-copy">Premium features are not available in this release build.</div>
       </div>
-      <button class="pro-card-btn" onclick="openProInfo()">View Premium</button>
+      <button class="pro-card-btn" onclick="openProInfo()">Premium Info</button>
     </div>
   </div>
   <div class="ptoggle-list" id="ptog-list"></div>
@@ -686,24 +686,7 @@
   <div class="name-modal-card pro-modal-card">
     <div class="name-modal-badge" id="pro-info-badge">Premium Features</div>
     <div class="name-modal-title" id="pro-info-title">More magic. More animation. More fun.</div>
-    <p class="name-modal-copy" id="pro-info-copy">Start creating for free with generous features. Upgrade with a Monthly or Annual subscription for ongoing premium benefits, or unlock Forever Access with a one-time purchase.</p>
-    <div class="club-price-row" aria-label="Club price options">
-      <button class="club-price-card featured" type="button" onclick="showClubComingSoon('monthly')">
-        <span class="club-price-kicker">Monthly</span>
-        <strong>$1.99</strong>
-        <span>Billed monthly</span>
-      </button>
-      <button class="club-price-card" type="button" onclick="showClubComingSoon('annual')">
-        <span class="club-price-kicker">Annual</span>
-        <strong>$19.99</strong>
-        <span>Save about 16%</span>
-      </button>
-      <button class="club-price-card" type="button" onclick="showClubComingSoon('forever')">
-        <span class="club-price-kicker">Forever Access</span>
-        <strong>$29.99</strong>
-        <span>One-time purchase</span>
-      </button>
-    </div>
+    <p class="name-modal-copy" id="pro-info-copy">Start creating for free with generous features. Premium purchases are not available in this release build.</p>
     <div class="club-plan-grid">
       <div class="club-plan-card">
         <div class="club-plan-title">Free</div>
@@ -732,7 +715,7 @@
       </div>
     </div>
     <div class="name-modal-actions">
-      <button class="name-modal-save" id="pro-info-primary" onclick="showClubComingSoon('monthly')">Upgrade</button>
+      <button class="name-modal-save" id="pro-info-primary" onclick="closeProInfo()">Close</button>
       <button class="name-modal-skip" onclick="closeProInfo()">Maybe later</button>
     </div>
   </div>
@@ -894,6 +877,6 @@
 <!-- Antiwash Palette Upgrade System -->
 <script src="antiwash-upgrade-extended.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="script.js?v=18"></script>
+<script src="script.js?v=19"></script>
 </body>
 </html>

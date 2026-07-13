@@ -711,6 +711,7 @@ const DAILY_PIXEL_SURPRISES=[
 ];
 
 const FREE_SESSION_LIMIT_MS = 90 * 60 * 1000;
+const APP_STORE_IAP_ENABLED = false;
 
 const APP_REVIEW_PRO_ACCOUNT = {
   email: 'appreview@pixelspirite.com',
@@ -1186,6 +1187,11 @@ function formatLimit(value){
 }
 
 function showClubComingSoon(plan='monthly'){
+  if(!APP_STORE_IAP_ENABLED){
+    openProInfo('unavailable');
+    toast('Premium purchases are not available in this release build.');
+    return;
+  }
   const labels={
     monthly:'Monthly subscription',
     annual:'Annual subscription',
@@ -1196,8 +1202,12 @@ function showClubComingSoon(plan='monthly'){
 
 function requireClubFeature(feature='this feature'){
   if(isClubAccount()) return true;
-  openProInfo('feature');
-  toast(`Premium Features unlock ${feature}.`);
+  if(APP_STORE_IAP_ENABLED){
+    openProInfo('feature');
+    toast(`Premium Features unlock ${feature}.`);
+  }else{
+    toast(`${feature} is not available in this release build.`);
+  }
   return false;
 }
 
@@ -1247,12 +1257,14 @@ function freeSessionLimitReached(){
 }
 
 function canStartCreativeSession(){
+  if(!APP_STORE_IAP_ENABLED) return true;
   if(!freeSessionLimitReached()) return true;
   openProInfo('limit');
   return false;
 }
 
 function maybeShowSuccessUpgradePrompt(reason='success'){
+  if(!APP_STORE_IAP_ENABLED) return;
   if(isClubAccount() || freeSessionLimitReached()) return;
   if((ST.freeSessionUsedMs||0)<5*60*1000) return;
   try{
@@ -1300,7 +1312,7 @@ function refreshPlanUI(){
     pill.textContent=shortLabel;
     pill.classList.toggle('pro',pro);
   }
-  if(proSection) proSection.hidden=pro;
+  if(proSection) proSection.hidden=pro || !APP_STORE_IAP_ENABLED;
 }
 
 function openProInfo(reason='default'){
@@ -1309,10 +1321,18 @@ function openProInfo(reason='default'){
   const title=document.getElementById('pro-info-title');
   const copy=document.getElementById('pro-info-copy');
   const primary=document.getElementById('pro-info-primary');
+  const priceRow=document.getElementById('club-price-row');
   if(badge) badge.textContent='Premium Features';
-  if(primary) primary.textContent='Upgrade';
+  if(priceRow) priceRow.hidden=!APP_STORE_IAP_ENABLED;
+  if(primary){
+    primary.textContent=APP_STORE_IAP_ENABLED?'Upgrade':'Close';
+    primary.onclick=APP_STORE_IAP_ENABLED ? ()=>showClubComingSoon('monthly') : closeProInfo;
+  }
   if(title && copy){
-    if(reason==='limit'){
+    if(!APP_STORE_IAP_ENABLED || reason==='unavailable'){
+      title.textContent='Premium features are unavailable in this build';
+      copy.textContent='This App Store release is free to use. Purchase options are hidden until in-app purchases are fully enabled and tested.';
+    }else if(reason==='limit'){
       title.textContent='You’re on a roll!';
       copy.textContent='Upgrade with a Monthly or Annual subscription, or unlock Forever Access with a one-time purchase, to keep creating with unlimited update hours, watermark-free animations, premium packs, and priority updates.';
       if(primary) primary.textContent='Keep Going';
@@ -6811,8 +6831,10 @@ function updateThumb(i){const t=document.getElementById('ft-'+i);if(!t||!ST.fram
 function addFrame(){
   const maxFrames=getMaxAnimationFrames();
   if(maxFrames!==Infinity && ST.frames.length>=maxFrames){
-    openProInfo('feature');
-    toast(`Free animations include ${maxFrames} frames. Premium Features unlock unlimited frames.`);
+    if(APP_STORE_IAP_ENABLED) openProInfo('feature');
+    toast(APP_STORE_IAP_ENABLED
+      ? `Free animations include ${maxFrames} frames. Premium Features unlock unlimited frames.`
+      : `This release supports up to ${maxFrames} animation frames.`);
     return;
   }
   ST.frames.push(new ImageData(ST.size,ST.size));ST.textFrames.push([]);ST.undoStacks.push([new ImageData(ST.size,ST.size)]);ST.undoTextStacks.push([[]]);ST.undoIdx.push(0);switchFrame(ST.frames.length-1);buildFramesUI();Economy.track('frame:add');addXP(3);SFX.click();
@@ -6886,8 +6908,10 @@ function updatePlayButton(){
 function dupFrame(){
   const maxFrames=getMaxAnimationFrames();
   if(maxFrames!==Infinity && ST.frames.length>=maxFrames){
-    openProInfo('feature');
-    toast(`Free animations include ${maxFrames} frames. Premium Features unlock unlimited frames.`);
+    if(APP_STORE_IAP_ENABLED) openProInfo('feature');
+    toast(APP_STORE_IAP_ENABLED
+      ? `Free animations include ${maxFrames} frames. Premium Features unlock unlimited frames.`
+      : `This release supports up to ${maxFrames} animation frames.`);
     return;
   }
   if(ST.playing)stopPlay();captureFrame();const src=ST.frames[ST.currentFrame];const copy=cloneImageData(src);const textCopy=cloneTextObjectArray(getFrameTextObjects(ST.currentFrame));const at=ST.currentFrame+1;ST.frames.splice(at,0,copy);ST.textFrames.splice(at,0,textCopy);ST.undoStacks.splice(at,0,[cloneImageData(copy)]);ST.undoTextStacks.splice(at,0,[cloneTextObjectArray(textCopy)]);ST.undoIdx.splice(at,0,0);buildFramesUI();switchFrame(at);toast('⧉ Frame duplicated!');SFX.click();
@@ -7878,7 +7902,9 @@ function openSaveProjectModal(){
     const saveLimit=getMaxSavedProjects();
     const limitText=saveLimit===Infinity
       ? 'Premium Features include unlimited saved creations.'
-      : `Free includes ${saveLimit} save slots. Premium Features unlock unlimited saves.`;
+      : APP_STORE_IAP_ENABLED
+        ? `Free includes ${saveLimit} save slots. Premium Features unlock unlimited saves.`
+        : `This release supports ${saveLimit} save slots.`;
     note.textContent=hasCloudAccount()
       ? `Saved creations sync to your account. ${limitText} Public Gallery posting is free.`
       : `Saved creations stay on this device until you sign in. ${limitText}`;
@@ -10184,8 +10210,10 @@ function upsertProject(proj,{reward=true,silent=false}={}){
   const idx=ST.projects.findIndex(p=>p.name===proj.name);
   const maxProjects=getMaxSavedProjects();
   if(idx<0 && maxProjects!==Infinity && ST.projects.length>=maxProjects){
-    openProInfo('feature');
-    toast(`Free includes ${maxProjects} save slots. Upgrade to Premium Features for unlimited saves.`);
+    if(APP_STORE_IAP_ENABLED) openProInfo('feature');
+    toast(APP_STORE_IAP_ENABLED
+      ? `Free includes ${maxProjects} save slots. Upgrade to Premium Features for unlimited saves.`
+      : `This release supports ${maxProjects} save slots. Delete an older save to continue.`);
     return false;
   }
   if(idx>=0) ST.projects[idx]={...ST.projects[idx],...proj}; else ST.projects.push(proj);
