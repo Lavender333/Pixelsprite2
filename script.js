@@ -676,6 +676,9 @@ const ST = {
   publicGallery: [],
   pixelVerseReactions: {},
   pixelVerseFollows: {},
+  pixelVerseBlocks: {},
+  pixelVerseReports: {},
+  storeKitEntitled: false,
   freeSessionUsedMs: 0,
   freeSessionLastTick: null,
 };
@@ -909,7 +912,7 @@ function signInAppReviewAccount({silent=false}={}){
     localStorage.setItem('pc2_profile_name', ST.profileName);
     localStorage.setItem('pc2_app_review_session', 'true');
   }catch(e){}
-  saveLocalAccountTier('pro', signedInAt);
+  resolveEntitlementTier();
   syncAuthUI();
   buildProfile();
   refreshProfileStats();
@@ -933,7 +936,8 @@ function signOutAppReviewAccount(){
   try{
     localStorage.removeItem('pc2_app_review_session');
   }catch(e){}
-  saveLocalAccountTier('free', null);
+  ST.storeKitEntitled=false;
+  resolveEntitlementTier();
   syncAuthUI();
   buildProfile();
   refreshProfileStats();
@@ -1217,7 +1221,10 @@ function setIAPBusy(busy){
     el.style.opacity=busy?'0.6':'';
   });
   const primary=document.getElementById('pro-info-primary');
-  if(primary) primary.textContent=busy?'Working...':'Subscribe';
+  if(primary){
+    if(busy) primary.dataset.idleText=primary.textContent||'Subscribe';
+    primary.textContent=busy?'Working...':(primary.dataset.idleText||'Subscribe');
+  }
 }
 
 async function syncTierToSupabase(pro, {productId, expiresAt, transactionId}={}){
@@ -1241,9 +1248,9 @@ async function refreshEntitlements({silent=true}={}){
   if(!sk) return isProAccount();
   try{
     const {productIds=[]}=await sk.currentEntitlements();
-    const pro=productIds.includes(IAP_PRODUCTS.monthly.id);
-    saveLocalAccountTier(pro?'pro':'free', new Date().toISOString());
-    await syncTierToSupabase(pro);
+    ST.storeKitEntitled=productIds.includes(IAP_PRODUCTS.monthly.id);
+    const pro=resolveEntitlementTier();
+    await syncTierToSupabase(ST.storeKitEntitled);
     syncAuthUI();
     buildProfile();
     return pro;
@@ -1294,12 +1301,12 @@ async function restorePurchases(){
   setIAPBusy(true);
   try{
     const {productIds=[]}=await sk.restorePurchases();
-    const pro=productIds.includes(IAP_PRODUCTS.monthly.id);
-    saveLocalAccountTier(pro?'pro':'free', new Date().toISOString());
-    await syncTierToSupabase(pro);
+    ST.storeKitEntitled=productIds.includes(IAP_PRODUCTS.monthly.id);
+    const pro=resolveEntitlementTier();
+    await syncTierToSupabase(ST.storeKitEntitled);
     syncAuthUI();
     buildProfile();
-    toast(pro
+    toast(ST.storeKitEntitled
       ? 'Your Pixel Sprite Vibe Plus subscription was restored.'
       : 'No active subscription was found for this Apple ID.');
   }catch(error){
@@ -1401,6 +1408,19 @@ function saveLocalAccountTier(tier=ST.accountTier, proSince=ST.proSince){
   refreshPlanUI();
 }
 
+function profileHasServerPro(){
+  return normalizeAccountTier(AUTH_STATE.profile?.account_tier)==='pro' || AUTH_STATE.profile?.is_pro===true;
+}
+
+function resolveEntitlementTier(){
+  const pro=!!(ST.storeKitEntitled || isAppReviewSession() || profileHasServerPro());
+  const proSince=pro
+    ? (AUTH_STATE.profile?.pro_since || ST.proSince || new Date().toISOString())
+    : null;
+  saveLocalAccountTier(pro?'pro':'free', proSince);
+  return pro;
+}
+
 function loadLocalAccountTier(){
   try{
     ST.accountTier=normalizeAccountTier(localStorage.getItem('pc2_account_tier')||'free');
@@ -1441,6 +1461,7 @@ function openProInfo(reason='default'){
   if(priceRow) priceRow.hidden=!APP_STORE_IAP_ENABLED;
   if(primary){
     primary.textContent=APP_STORE_IAP_ENABLED?'Subscribe':'Close';
+    primary.dataset.idleText=primary.textContent;
     primary.onclick=APP_STORE_IAP_ENABLED ? ()=>startIAPPurchase('monthly') : closeProInfo;
   }
   if(title && copy){
@@ -1460,6 +1481,7 @@ function openProInfo(reason='default'){
       copy.textContent='Unlock everything in the studio.';
     }
   }
+  if(primary) primary.dataset.idleText=primary.textContent;
   if(modal) modal.style.display='flex';
 }
 
@@ -1557,7 +1579,7 @@ function applyRemoteProfile(profile){
   if(Number.isFinite(profile.creator_level) && profile.creator_level>0) ST.level=profile.creator_level;
   if(Number.isFinite(profile.xp) && profile.xp>=0) ST.xp=profile.xp;
   if(Number.isFinite(profile.xp_max) && profile.xp_max>0) ST.xpMax=profile.xp_max;
-  saveLocalAccountTier(profile.account_tier || (profile.is_pro ? 'pro' : 'free'), profile.pro_since || null);
+  resolveEntitlementTier();
   updateProfileIdentity();
   refreshProfileStats();
   refreshHomeStatusBadge();
@@ -1979,6 +2001,82 @@ function closeAccountSettings(){
 async function signOutFromAccountSettings(){
   closeAccountSettings();
   await signOutCloudAccount();
+}
+
+async function deleteProjectAssetFilesForAccount(){
+  const client=getSupabaseClient();
+  const userId=AUTH_STATE.session?.user?.id;
+  if(!client || !userId || isAppReviewSession()) return;
+  try{
+    const {data,error}=await client.from('project_assets')
+      .select('bucket_path')
+      .eq('owner_id', userId);
+    if(error) throw error;
+    const paths=(data||[]).map(row=>row.bucket_path).filter(Boolean);
+    if(paths.length){
+      const {error:removeError}=await client.storage.from('project-assets').remove(paths);
+      if(removeError) console.warn('[Account deletion storage cleanup]', removeError.message||removeError);
+    }
+  }catch(err){
+    console.warn('[Account deletion storage cleanup]', err);
+  }
+}
+
+function clearLocalAccountAfterDeletion(){
+  AUTH_STATE.session=null;
+  AUTH_STATE.profile=null;
+  AUTH_STATE.projectsLoaded=false;
+  AUTH_STATE.submissionsLoaded=false;
+  ST.storeKitEntitled=false;
+  try{
+    localStorage.removeItem('pc2_app_review_session');
+    localStorage.removeItem('pc2_account_tier');
+    localStorage.removeItem('pc2_pro_since');
+  }catch(e){}
+  resolveEntitlementTier();
+  syncAuthUI();
+  buildProfile();
+  buildHomeGallery();
+  renderCloset();
+}
+
+async function deleteAccountFromSettings(){
+  if(!hasCloudAccount()){
+    closeAccountSettings();
+    openAuthModal('signin');
+    return;
+  }
+  if(isAppReviewSession()){
+    const ok=confirm('Delete the App Review account from this device?');
+    if(!ok) return;
+    closeAccountSettings();
+    signOutAppReviewAccount();
+    toast('App Review account cleared from this device.');
+    return;
+  }
+  const client=getSupabaseClient();
+  if(!client){
+    toast('Cloud account deletion is unavailable right now.');
+    return;
+  }
+  const ok=confirm('Delete your Pixel Sprite Vibe account and cloud data? This cannot be undone.');
+  if(!ok) return;
+  const second=prompt('Type DELETE to permanently delete your account.');
+  if(String(second||'').trim().toUpperCase()!=='DELETE'){
+    toast('Account deletion cancelled.');
+    return;
+  }
+  closeAccountSettings();
+  toast('Deleting account...');
+  await deleteProjectAssetFilesForAccount();
+  const {error}=await client.rpc('delete_own_account');
+  if(error){
+    toast(error.message || 'Could not delete account right now.');
+    return;
+  }
+  try{ await client.auth.signOut(); }catch(e){}
+  clearLocalAccountAfterDeletion();
+  toast('Account deleted. Local-only artwork remains on this device.');
 }
 
 async function claimDailyStreakRemote(){
@@ -8141,9 +8239,13 @@ function loadPixelVerseState(){
   try{
     ST.pixelVerseReactions=JSON.parse(localStorage.getItem('pc2_pixelverse_reactions')||'{}')||{};
     ST.pixelVerseFollows=JSON.parse(localStorage.getItem('pc2_pixelverse_follows')||'{}')||{};
+    ST.pixelVerseBlocks=JSON.parse(localStorage.getItem('pc2_pixelverse_blocks')||'{}')||{};
+    ST.pixelVerseReports=JSON.parse(localStorage.getItem('pc2_pixelverse_reports')||'{}')||{};
   }catch(e){
     ST.pixelVerseReactions={};
     ST.pixelVerseFollows={};
+    ST.pixelVerseBlocks={};
+    ST.pixelVerseReports={};
   }
   refreshPixelVerseUI();
 }
@@ -8152,6 +8254,8 @@ function savePixelVerseState(){
   try{
     localStorage.setItem('pc2_pixelverse_reactions',JSON.stringify(ST.pixelVerseReactions||{}));
     localStorage.setItem('pc2_pixelverse_follows',JSON.stringify(ST.pixelVerseFollows||{}));
+    localStorage.setItem('pc2_pixelverse_blocks',JSON.stringify(ST.pixelVerseBlocks||{}));
+    localStorage.setItem('pc2_pixelverse_reports',JSON.stringify(ST.pixelVerseReports||{}));
   }catch(e){}
 }
 
@@ -8278,6 +8382,9 @@ function getPixelVerseDisplayProjects(){
     list.forEach((project,idx)=>{
       if(!project || project.pixelVerseSafe===false) return;
       const key=pixelVerseProjectKey(project,idx);
+      const creatorKey=sanitizeGameName(project.creator||'PixelCreator');
+      if(ST.pixelVerseReports?.[key]) return;
+      if(ST.pixelVerseBlocks?.[creatorKey]) return;
       if(seen.has(key)) return;
       seen.add(key);
       out.push(project);
@@ -8301,6 +8408,62 @@ function togglePixelVerseFollow(creator='creator'){
   savePixelVerseState();
   buildPublicGallery();
   toast(ST.pixelVerseFollows[key]?'Following for feed inspiration. No messages or friend requests.':'Creator removed from feed inspiration.');
+}
+
+async function reportPixelVerseProject(project, idx=0){
+  if(!project) return;
+  const projectKey=pixelVerseProjectKey(project,idx);
+  const reason=prompt('Report this PixelVerse creation. What should we review?','Inappropriate content');
+  const cleanReason=String(reason||'').trim();
+  if(cleanReason.length<3){
+    toast('Report cancelled.');
+    return;
+  }
+  ST.pixelVerseReports[projectKey]=true;
+  savePixelVerseState();
+  buildPublicGallery();
+  if(hasCloudAccount() && project.cloudId){
+    const client=getSupabaseClient();
+    const userId=AUTH_STATE.session?.user?.id;
+    const {error}=await client.from('pixelverse_reports').insert({
+      reporter_id:userId,
+      project_id:project.cloudId,
+      reported_owner_id:project.ownerId||null,
+      reason:cleanReason.slice(0,500),
+    });
+    if(error && !String(error.message||'').toLowerCase().includes('duplicate')){
+      console.warn('[PixelVerse report]', error.message||error);
+      toast('Report saved on this device. Cloud report could not be sent right now.');
+      return;
+    }
+  }else if(!hasCloudAccount()){
+    toast('Report hidden here. Sign in to send it for review.');
+    return;
+  }
+  toast('Reported. This creation is hidden while it is reviewed.');
+}
+
+async function blockPixelVerseCreator(projectOrCreator){
+  const creator=typeof projectOrCreator==='string'
+    ? projectOrCreator
+    : projectOrCreator?.creator;
+  const creatorKey=sanitizeGameName(creator||'PixelCreator');
+  if(!creatorKey) return;
+  const ok=confirm(`Block ${creatorKey}? Their public PixelVerse creations will be hidden from your feed.`);
+  if(!ok) return;
+  ST.pixelVerseBlocks[creatorKey]=true;
+  delete ST.pixelVerseFollows[creatorKey];
+  savePixelVerseState();
+  buildPublicGallery();
+  if(hasCloudAccount() && typeof projectOrCreator==='object' && projectOrCreator?.ownerId && projectOrCreator.ownerId!==AUTH_STATE.session?.user?.id){
+    const client=getSupabaseClient();
+    const {error}=await client.from('pixelverse_user_blocks').upsert({
+      blocker_id:AUTH_STATE.session.user.id,
+      blocked_id:projectOrCreator.ownerId,
+    });
+    if(error) console.warn('[PixelVerse block]', error.message||error);
+  }
+  toast(`${creatorKey} blocked.`);
 }
 
 function updateProfileIdentity(){
@@ -8726,6 +8889,20 @@ function buildPublicGallery(){
     follow.className='pixelverse-follow';
     follow.textContent=ST.pixelVerseFollows?.[creator]?'Following':'Follow Creator';
     follow.onclick=e=>{e.stopPropagation();togglePixelVerseFollow(creator);};
+    const safetyActions=document.createElement('div');
+    safetyActions.className='pixelverse-safety-actions';
+    const report=document.createElement('button');
+    report.type='button';
+    report.className='pixelverse-safety-btn';
+    report.textContent='Report';
+    report.onclick=e=>{e.stopPropagation();reportPixelVerseProject(proj,idx);};
+    const block=document.createElement('button');
+    block.type='button';
+    block.className='pixelverse-safety-btn';
+    block.textContent='Block';
+    block.onclick=e=>{e.stopPropagation();blockPixelVerseCreator(proj);};
+    safetyActions.appendChild(report);
+    safetyActions.appendChild(block);
     card.appendChild(chip);
     card.appendChild(safe);
     card.appendChild(previewEl);
@@ -8733,6 +8910,7 @@ function buildPublicGallery(){
     card.appendChild(sub);
     card.appendChild(reactions);
     card.appendChild(follow);
+    card.appendChild(safetyActions);
     wrap.appendChild(card);
   });
 }
@@ -8761,7 +8939,7 @@ async function loadPublicGalleryProjects(){
     return [];
   }
   const {data,error}=await client.from('projects')
-    .select('id,title,canvas_size,cover_frame,updated_at,visibility,is_gallery_item,metadata')
+    .select('id,owner_id,title,canvas_size,cover_frame,updated_at,visibility,is_gallery_item,metadata')
     .eq('visibility','public')
     .eq('is_gallery_item', true)
     .eq('is_archived', false)
@@ -8798,6 +8976,7 @@ async function loadPublicGalleryProjects(){
     const assets=assetsByProject.get(row.id)||{};
     return {
     cloudId:row.id,
+    ownerId:row.owner_id||null,
     name:row.title,
     size:row.canvas_size||16,
     frames:deserializeFrames(row.canvas_size||16,row.cover_frame?[row.cover_frame]:[]),
