@@ -17,6 +17,4 @@ This account unlocks the app's premium features for review.
 
 In-App Purchase products submitted for review:
 
-- Monthly: `$1.99`, auto-renewable subscription
-- Annual: `$19.99`, auto-renewable subscription
-- Forever Access: `$29.99`, Non-Consumable In-App Purchase
+- Monthly: `$2.99`, auto-renewable subscription

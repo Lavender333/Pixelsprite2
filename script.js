@@ -737,7 +737,7 @@ const IAP_PRODUCTS = {
   monthly: {
     id: 'Monthly',
     label: 'Pixel Sprite Vibe Plus',
-    price: '$1.99',
+    price: '$2.99',
     period: 'month',
     type: 'auto-renewable subscription',
   },
