@@ -1457,10 +1457,11 @@ function openProInfo(reason='default'){
   const copy=document.getElementById('pro-info-copy');
   const primary=document.getElementById('pro-info-primary');
   const priceRow=document.getElementById('club-price-row');
-  if(badge) badge.textContent='Premium Features';
+  const subscribeText=`Subscribe for ${IAP_PRODUCTS.monthly.price}/${IAP_PRODUCTS.monthly.period}`;
+  if(badge) badge.textContent='Free app with one upgrade';
   if(priceRow) priceRow.hidden=!APP_STORE_IAP_ENABLED;
   if(primary){
-    primary.textContent=APP_STORE_IAP_ENABLED?'Subscribe':'Close';
+    primary.textContent=APP_STORE_IAP_ENABLED?subscribeText:'Close';
     primary.dataset.idleText=primary.textContent;
     primary.onclick=APP_STORE_IAP_ENABLED ? ()=>startIAPPurchase('monthly') : closeProInfo;
   }
@@ -1470,15 +1471,15 @@ function openProInfo(reason='default'){
       copy.textContent='This App Store release is free to use. Purchase options are hidden until in-app purchases are fully enabled and tested.';
     }else if(reason==='limit'){
       title.textContent='You’re on a roll!';
-      copy.textContent='Subscribe monthly to keep creating with unlimited update hours, watermark-free animations, premium packs, and priority updates.';
-      if(primary) primary.textContent='Keep Going';
+      copy.textContent='The app stays free to download. Plus is the single optional upgrade for unlimited saves, bigger animations, and watermark-free exports.';
+      if(primary) primary.textContent=subscribeText;
     }else if(reason==='success'){
-      title.textContent='Nice work. Want to supercharge the next session?';
-      copy.textContent='Enjoying the speed? Premium Features unlock more update time, unlimited saves, and advanced tools for your next creation.';
-      if(primary) primary.textContent='Unlock Premium';
+      title.textContent='Ready for more room to create?';
+      copy.textContent='Plus is the only paid upgrade: one monthly subscription for premium tools, unlimited saves, and watermark-free animations.';
+      if(primary) primary.textContent=subscribeText;
     }else{
-      title.textContent='More magic. More animation. More fun.';
-      copy.textContent='Unlock everything in the studio.';
+      title.textContent='Pixel Sprite Vibe Plus';
+      copy.textContent='Download and draw for free. Upgrade only if you want unlimited projects, bigger animations, and watermark-free exports.';
     }
   }
   if(primary) primary.dataset.idleText=primary.textContent;
