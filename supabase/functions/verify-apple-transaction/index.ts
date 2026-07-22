@@ -30,6 +30,35 @@ function requireEnv(name: string) {
   return value;
 }
 
+function firstSecretValue(json: string | undefined, label: string) {
+  if (!json?.trim()) return '';
+  try {
+    const parsed = JSON.parse(json) as Record<string, unknown>;
+    for (const value of Object.values(parsed)) {
+      if (typeof value === 'string' && value.trim()) return value.trim();
+      if (value && typeof value === 'object') {
+        const record = value as Record<string, unknown>;
+        for (const key of ['secret', 'key', 'value', 'api_key']) {
+          if (typeof record[key] === 'string' && record[key].trim()) return record[key].trim();
+        }
+      }
+    }
+  } catch (_err) {
+    throw new Error(`${label} is not valid JSON`);
+  }
+  return '';
+}
+
+function supabaseAnonKey() {
+  return Deno.env.get('SUPABASE_ANON_KEY')?.trim()
+    || firstSecretValue(Deno.env.get('SUPABASE_PUBLISHABLE_KEYS'), 'SUPABASE_PUBLISHABLE_KEYS');
+}
+
+function supabaseServiceKey() {
+  return Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.trim()
+    || firstSecretValue(Deno.env.get('SUPABASE_SECRET_KEYS'), 'SUPABASE_SECRET_KEYS');
+}
+
 function base64Url(bytes: Uint8Array | string) {
   const binary = typeof bytes === 'string'
     ? bytes
@@ -137,7 +166,8 @@ async function currentUser(req: Request, supabaseUrl: string, anonKey: string) {
 
 async function supabaseFetch(path: string, init: RequestInit = {}) {
   const supabaseUrl = requireEnv('SUPABASE_URL');
-  const serviceKey = requireEnv('SUPABASE_SERVICE_ROLE_KEY');
+  const serviceKey = supabaseServiceKey();
+  if (!serviceKey) throw new Error('Supabase service key is not configured');
   const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
     ...init,
     headers: {
@@ -214,7 +244,8 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = requireEnv('SUPABASE_URL');
-    const anonKey = requireEnv('SUPABASE_ANON_KEY');
+    const anonKey = supabaseAnonKey();
+    if (!anonKey) throw new Error('Supabase publishable key is not configured');
     const user = await currentUser(req, supabaseUrl, anonKey);
     const body = await req.json().catch(() => ({}));
     const transactionId = typeof body.transactionId === 'string' ? body.transactionId.trim() : '';
