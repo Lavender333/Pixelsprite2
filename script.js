@@ -1286,6 +1286,25 @@ async function syncTierToSupabase(pro, {productId, expiresAt, transactionId}={})
   const client=getSupabaseClient();
   if(!client || !hasCloudAccount()) return;
   try{
+    if(pro && transactionId && client.functions?.invoke){
+      try{
+        const {data,error}=await client.functions.invoke('verify-apple-transaction',{
+          body:{transactionId, productId:productId || IAP_PRODUCTS.monthly.id},
+        });
+        if(error) throw error;
+        if(data?.ok){
+          AUTH_STATE.profile={
+            ...(AUTH_STATE.profile||{}),
+            account_tier:data.entitlement?.active?'pro':'free',
+            is_pro:!!data.entitlement?.active,
+          };
+          return;
+        }
+        throw new Error(data?.error || 'Apple transaction verification failed');
+      }catch(verifyErr){
+        console.warn('[apple verification]', verifyErr);
+      }
+    }
     await client.rpc('sync_apple_entitlement',{
       p_product_id: productId || IAP_PRODUCTS.monthly.id,
       p_active: !!pro,
