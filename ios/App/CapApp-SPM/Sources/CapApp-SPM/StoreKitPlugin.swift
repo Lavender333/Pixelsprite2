@@ -103,13 +103,8 @@ public class StoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
                         return
                     }
                     await transaction.finish()
-                    var payload: [String: Any] = [
-                        "status": "purchased",
-                        "productId": transaction.productID
-                    ]
-                    if let expires = transaction.expirationDate {
-                        payload["expiresAt"] = ISO8601DateFormatter().string(from: expires)
-                    }
+                    var payload = self.transactionPayload(transaction)
+                    payload["status"] = "purchased"
                     call.resolve(payload)
 
                 case .userCancelled:
@@ -139,7 +134,7 @@ public class StoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
             } catch {
                 // A cancelled password prompt lands here. Still report what we know.
             }
-            call.resolve(["productIds": await activeProductIds()])
+            call.resolve(await activeEntitlementsPayload())
         }
     }
 
@@ -147,21 +142,45 @@ public class StoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func currentEntitlements(_ call: CAPPluginCall) {
         Task {
-            call.resolve(["productIds": await activeProductIds()])
+            call.resolve(await activeEntitlementsPayload())
         }
     }
 
     // MARK: - Helpers
 
     private func activeProductIds() async -> [String] {
-        var ids: [String] = []
+        await activeTransactions().map { $0.productID }
+    }
+
+    private func activeEntitlementsPayload() async -> [String: Any] {
+        let transactions = await activeTransactions()
+        return [
+            "productIds": transactions.map { $0.productID },
+            "entitlements": transactions.map { transactionPayload($0) }
+        ]
+    }
+
+    private func activeTransactions() async -> [Transaction] {
+        var transactions: [Transaction] = []
         for await result in Transaction.currentEntitlements {
             guard case .verified(let transaction) = result else { continue }
             guard transaction.revocationDate == nil else { continue }
             if let expires = transaction.expirationDate, expires < Date() { continue }
-            ids.append(transaction.productID)
+            transactions.append(transaction)
         }
-        return ids
+        return transactions
+    }
+
+    private func transactionPayload(_ transaction: Transaction) -> [String: Any] {
+        var payload: [String: Any] = [
+            "productId": transaction.productID,
+            "transactionId": String(transaction.id),
+            "originalTransactionId": String(transaction.originalID)
+        ]
+        if let expires = transaction.expirationDate {
+            payload["expiresAt"] = ISO8601DateFormatter().string(from: expires)
+        }
+        return payload
     }
 
     private func emitEntitlements() async {

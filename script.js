@@ -738,10 +738,13 @@ const IAP_PRODUCTS = {
     id: 'Monthly',
     label: 'Pixel Sprite Vibe Plus',
     price: '$1.99',
+    displayPrice: '$1.99',
     period: 'month',
     type: 'auto-renewable subscription',
   },
 };
+
+const IAP_PRODUCT_LOADS = {};
 
 const AUTH_STATE = {
   client: null,
@@ -1213,6 +1216,58 @@ function getStoreKit(){
   return window.Capacitor?.Plugins?.StoreKit || null;
 }
 
+function iapPriceLabel(product=IAP_PRODUCTS.monthly){
+  return product.displayPrice || product.price || '$1.99';
+}
+
+function iapSubscribeText(product=IAP_PRODUCTS.monthly){
+  return `Subscribe for ${iapPriceLabel(product)}/${product.period || 'month'}`;
+}
+
+function updateIAPProductUI(product=IAP_PRODUCTS.monthly){
+  const price=iapPriceLabel(product);
+  const value=document.getElementById('club-price-value');
+  const detail=document.getElementById('club-price-detail');
+  const terms=document.getElementById('club-terms-line');
+  const primary=document.getElementById('pro-info-primary');
+  if(value) value.innerHTML=`${price} <small>/ ${product.period || 'month'}</small>`;
+  if(detail) detail.textContent=`${product.type || 'Auto-renewing subscription'}. Cancel anytime in Apple ID settings.`;
+  if(terms) terms.innerHTML=`<strong>${product.label || 'Pixel Sprite Vibe Plus'}</strong> &mdash; ${price} per ${product.period || 'month'}, billed monthly.`;
+  if(primary && APP_STORE_IAP_ENABLED && !primary.disabled){
+    primary.textContent=iapSubscribeText(product);
+    primary.dataset.idleText=primary.textContent;
+  }
+}
+
+async function loadIAPProduct(plan='monthly', {silent=true}={}){
+  const product=IAP_PRODUCTS[plan] || IAP_PRODUCTS.monthly;
+  const sk=getStoreKit();
+  updateIAPProductUI(product);
+  if(!sk?.getProducts) return {ok:false,reason:'no-storekit',product};
+  if(!IAP_PRODUCT_LOADS[plan]){
+    IAP_PRODUCT_LOADS[plan]=sk.getProducts({productIds:[product.id]})
+      .then(({products=[]}={})=>{
+        const storeProduct=products.find(item=>item.id===product.id);
+        if(!storeProduct) return {ok:false,reason:'not-found',product};
+        product.label=storeProduct.title || product.label;
+        product.description=storeProduct.description || product.description;
+        product.displayPrice=storeProduct.price || product.displayPrice || product.price;
+        product.period=storeProduct.period || product.period;
+        updateIAPProductUI(product);
+        return {ok:true,product,storeProduct};
+      })
+      .catch(error=>({ok:false,reason:'load-failed',error,product}));
+  }
+  const result=await IAP_PRODUCT_LOADS[plan];
+  if(!result.ok && !silent){
+    const msg=result.reason==='not-found'
+      ? `The ${product.id} subscription is not available yet. Check App Store Connect and try again later.`
+      : 'Could not load the App Store subscription. Please try again.';
+    toast(msg);
+  }
+  return result;
+}
+
 function setIAPBusy(busy){
   ['pro-info-primary','pro-restore-btn','me-restore-btn'].forEach(id=>{
     const el=document.getElementById(id);
@@ -1247,10 +1302,15 @@ async function refreshEntitlements({silent=true}={}){
   const sk=getStoreKit();
   if(!sk) return isProAccount();
   try{
-    const {productIds=[]}=await sk.currentEntitlements();
+    const {productIds=[],entitlements=[]}=await sk.currentEntitlements();
     ST.storeKitEntitled=productIds.includes(IAP_PRODUCTS.monthly.id);
     const pro=resolveEntitlementTier();
-    await syncTierToSupabase(ST.storeKitEntitled);
+    const entitlement=entitlements.find(item=>item.productId===IAP_PRODUCTS.monthly.id);
+    await syncTierToSupabase(ST.storeKitEntitled,{
+      productId:entitlement?.productId,
+      expiresAt:entitlement?.expiresAt,
+      transactionId:entitlement?.originalTransactionId || entitlement?.transactionId,
+    });
     syncAuthUI();
     buildProfile();
     return pro;
@@ -1268,6 +1328,8 @@ async function startIAPPurchase(plan='monthly'){
     toast('Subscriptions are available in the Pixel Sprite Vibe app on iPhone and iPad.');
     return {ok:false,reason:'no-storekit',product};
   }
+  const productLoad=await loadIAPProduct(plan,{silent:false});
+  if(!productLoad.ok) return productLoad;
   setIAPBusy(true);
   try{
     const result=await sk.purchaseProduct({productId:product.id});
@@ -1277,6 +1339,11 @@ async function startIAPPurchase(plan='monthly'){
       return {ok:false,reason:'pending',product};
     }
     if(result.status==='purchased'){
+      await syncTierToSupabase(true,{
+        productId:result.productId || product.id,
+        expiresAt:result.expiresAt,
+        transactionId:result.originalTransactionId || result.transactionId,
+      });
       await refreshEntitlements({silent:true});
       closeProInfo();
       toast(`${product.label} unlocked. Welcome to the club!`);
@@ -1300,10 +1367,15 @@ async function restorePurchases(){
   }
   setIAPBusy(true);
   try{
-    const {productIds=[]}=await sk.restorePurchases();
+    const {productIds=[],entitlements=[]}=await sk.restorePurchases();
     ST.storeKitEntitled=productIds.includes(IAP_PRODUCTS.monthly.id);
     const pro=resolveEntitlementTier();
-    await syncTierToSupabase(ST.storeKitEntitled);
+    const entitlement=entitlements.find(item=>item.productId===IAP_PRODUCTS.monthly.id);
+    await syncTierToSupabase(ST.storeKitEntitled,{
+      productId:entitlement?.productId,
+      expiresAt:entitlement?.expiresAt,
+      transactionId:entitlement?.originalTransactionId || entitlement?.transactionId,
+    });
     syncAuthUI();
     buildProfile();
     toast(ST.storeKitEntitled
@@ -1457,7 +1529,7 @@ function openProInfo(reason='default'){
   const copy=document.getElementById('pro-info-copy');
   const primary=document.getElementById('pro-info-primary');
   const priceRow=document.getElementById('club-price-row');
-  const subscribeText=`Subscribe for ${IAP_PRODUCTS.monthly.price}/${IAP_PRODUCTS.monthly.period}`;
+  const subscribeText=iapSubscribeText(IAP_PRODUCTS.monthly);
   if(badge) badge.textContent='Free app with one upgrade';
   if(priceRow) priceRow.hidden=!APP_STORE_IAP_ENABLED;
   if(primary){
@@ -1483,6 +1555,8 @@ function openProInfo(reason='default'){
     }
   }
   if(primary) primary.dataset.idleText=primary.textContent;
+  updateIAPProductUI(IAP_PRODUCTS.monthly);
+  if(APP_STORE_IAP_ENABLED) loadIAPProduct('monthly',{silent:true});
   if(modal) modal.style.display='flex';
 }
 
