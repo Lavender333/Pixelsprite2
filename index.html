@@ -94,32 +94,17 @@
     </div>
     <div class="hero-eyebrow">Pixel Sprite Vibe</div>
     <h1 class="hero-title">What would you like to do?</h1>
-    <p class="hero-sub">Choose one path. You can switch anytime.</p>
+    <p class="hero-sub">Start drawing, or pick something saved when you need it.</p>
     <div class="hero-cta">
       <button class="btn-primary" onclick="openStudio()">
         <span class="action-title">Create</span>
-        <span class="action-copy">Start drawing</span>
-      </button>
-      <button class="btn-secondary" onclick="showTab('closet')">
-        <span class="action-title">Gallery</span>
-        <span class="action-copy">Open saved art</span>
-      </button>
-      <button class="btn-pixelverse" onclick="openPixelVerse()">
-        <span class="action-title">PixelVerse</span>
-        <span class="action-copy">See public creations</span>
+        <span class="action-copy">Open the studio</span>
       </button>
     </div>
-    <details class="home-blank-card" aria-label="Start a blank canvas">
-      <summary class="home-blank-summary">
-        <div class="home-blank-title">Start blank</div>
-        <div class="home-blank-sub">Choose a canvas size when you already know what you want.</div>
-      </summary>
-      <div class="home-blank-actions">
-        <button class="blank-size-btn home-blank-btn" onclick="startBlank(16)">16×16</button>
-        <button class="blank-size-btn home-blank-btn" onclick="startBlank(32)">32×32</button>
-        <button class="blank-size-btn home-blank-btn" onclick="startBlank(64)">64×64</button>
-      </div>
-    </details>
+    <div class="home-quick-links" aria-label="Secondary home actions">
+      <button class="home-link-btn" type="button" onclick="showTab('closet')">Gallery</button>
+      <button class="home-link-btn" type="button" onclick="openPixelVerse()">PixelVerse</button>
+    </div>
     <div class="home-auth-cta" id="home-auth-cta">
       <button class="home-auth-primary" id="home-auth-primary" onclick="handleHomeAuthPrimary()">Create account</button>
       <button class="home-auth-secondary" id="home-auth-secondary" onclick="handleHomeAuthSecondary()">Sign in</button>
@@ -135,28 +120,23 @@
       <button class="cc-btn" onclick="event.stopPropagation();showTab('challenges')">Enter challenge ↗</button>
     </div>
   </div>
-  <div class="xp-card" id="home-level-card">
-    <div class="xp-top">
-      <span class="xp-label">⚡ Level <span id="xp-lvl">1</span> Creator</span>
-      <span class="xp-val"><span id="xp-cur">0</span> / <span id="xp-max">600</span> XP</span>
+  <div class="home-progress-strip" id="home-level-card">
+    <div class="home-progress-main">
+      <div class="xp-top">
+        <span class="xp-label">Level <span id="xp-lvl">1</span></span>
+        <span class="xp-val"><span id="xp-cur">0</span>/<span id="xp-max">600</span> XP</span>
+      </div>
+      <div class="xp-track"><div class="xp-fill" id="xp-fill" style="width:0%"></div></div>
+      <div class="xp-next" id="xp-next">Level 2 unlock: Pastel Palettes</div>
     </div>
-    <div class="xp-track"><div class="xp-fill" id="xp-fill" style="width:0%"></div></div>
-    <div class="xp-next" id="xp-next">600 XP to unlock: Glow Brush</div>
-    <div class="xp-badges">
-      <div class="badge">🎨</div><div class="badge">⚡</div><div class="badge">🔥</div>
-      <div class="badge locked">👑</div><div class="badge locked">💎</div>
+    <div class="home-streak-mini">
+      <span class="streak-fire">🔥</span>
+      <span class="streak-n" id="streak-n">0</span>
+      <span class="streak-l">day streak</span>
+      <button class="streak-claim" id="streak-claim" type="button" disabled>Auto daily</button>
     </div>
   </div>
   <div class="home-meta-row">
-    <div class="streak-bar">
-      <div class="streak-fire">🔥</div>
-      <div class="streak-info">
-        <div class="streak-n" id="streak-n">0</div>
-        <div class="streak-l">Day streak</div>
-        <div class="streak-note">On this device</div>
-      </div>
-      <button class="streak-claim" id="streak-claim" type="button" disabled>Auto daily</button>
-    </div>
     <button class="daily-vibe-card" id="daily-vibe-card" type="button" onclick="startDailyPrompt()">
       <div class="daily-vibe-kicker">Today’s vibe</div>
       <div class="daily-vibe-title" id="daily-vibe-title">Draw a magical pet</div>
@@ -164,10 +144,10 @@
       <div class="daily-vibe-action">Start prompt</div>
     </button>
   </div>
-  <div class="home-section" id="home-gallery-section">
+  <div class="home-section" id="home-gallery-section" hidden>
     <div class="gallery-strip" id="home-gallery-strip"></div>
   </div>
-  <div class="home-section" id="public-gallery-section">
+  <div class="home-section" id="public-gallery-section" hidden>
     <div class="sec-header">
       <span class="sec-title">PixelVerse</span>
       <span class="sec-link-static">Create. Share. Inspire.</span>
@@ -187,7 +167,7 @@
   </div>
   <div class="home-section">
     <div class="sec-header">
-      <span class="sec-title">Quick start</span>
+      <span class="sec-title">Templates</span>
       <button class="sec-link" onclick="showTab('studio')">See all →</button>
     </div>
     <div class="templates-scroll" id="home-templates"></div>
