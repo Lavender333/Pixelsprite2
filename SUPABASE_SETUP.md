@@ -99,9 +99,9 @@ To fully connect this app to your Supabase project, do these remaining steps:
 2. Run [supabase/storage.sql](supabase/storage.sql) in the Supabase SQL editor.
 3. In **Authentication → Providers**, turn on **Email**. Apple and Google should remain off unless the app UI is updated and retested for social sign-in.
 4. In **Authentication → URL Configuration**, add `https://pixelspirite.com/` as an allowed redirect URL. Keep the local dev URLs only for testing.
-5. Decide whether to keep **Confirm email** on:
-   - keep it **on** for stricter account verification
-   - turn it **off** if you want instant sign-in right after signup
+5. Keep **Confirm email** on. Pixel Sprite Vibe requires new accounts to verify
+   their email before signing in. The app also provides a resend-verification
+   action when confirmation is still pending.
 6. In **Storage**, confirm the `project-assets` bucket exists.
 7. In **Authentication → Email Templates / SMTP**, connect a real sender for:
    - signup confirmation

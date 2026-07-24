@@ -31,6 +31,7 @@ async function exportTransparentPNG() {
 function dismissBirthdaySplash(){
   const splash = document.getElementById('birthday-splash');
   if(!splash || splash.classList.contains('hidden')) return;
+  markSplashSeen();
   splash.classList.add('hidden');
   // Prevent Safari from letting a hidden fixed overlay intercept taps.
   splash.style.pointerEvents = 'none';
@@ -42,6 +43,33 @@ function dismissBirthdaySplash(){
 
 function startCreating(){
   dismissBirthdaySplash();
+}
+
+function splashSeenKey(){
+  return `pc2_splash_seen_${dayStamp()}`;
+}
+
+function markSplashSeen(){
+  try{ localStorage.setItem(splashSeenKey(), 'true'); }catch(e){}
+}
+
+function shouldShowBirthdaySplash(){
+  try{
+    if(localStorage.getItem(splashSeenKey())==='true') return false;
+  }catch(e){}
+  return true;
+}
+
+function syncBirthdaySplashVisibility(){
+  const splash=document.getElementById('birthday-splash');
+  if(!splash) return;
+  if(!shouldShowBirthdaySplash()){
+    splash.classList.add('hidden');
+    splash.style.pointerEvents='none';
+    splash.style.zIndex='-1';
+    splash.setAttribute('aria-hidden','true');
+    setTimeout(()=>{ splash.remove(); }, 50);
+  }
 }
 
 // ╔══════════════════════════════════════════════════════════════════════╗
@@ -715,6 +743,7 @@ const DAILY_PIXEL_SURPRISES=[
 
 const FREE_SESSION_LIMIT_MS = 90 * 60 * 1000;
 const APP_STORE_IAP_ENABLED = true;
+const PIXELVERSE_ADMIN_EMAILS = ['antoinetteqwilliams@gmail.com'];
 
 const APP_REVIEW_PRO_ACCOUNT = {
   email: 'appreview@pixelspirite.com',
@@ -760,6 +789,7 @@ const AUTH_STATE = {
   syncingProjects: false,
   syncingProjectsPromise: null,
   syncingSubmissions: false,
+  pendingConfirmationEmail: '',
 };
 
 let cloudProfileSyncTimer = null;
@@ -889,6 +919,25 @@ function hasCloudAccount(){
   return !!AUTH_STATE.session?.user;
 }
 
+function setPendingConfirmationEmail(email=''){
+  AUTH_STATE.pendingConfirmationEmail=String(email||'').trim().toLowerCase();
+  try{
+    if(AUTH_STATE.pendingConfirmationEmail){
+      localStorage.setItem('pc2_pending_confirmation_email', AUTH_STATE.pendingConfirmationEmail);
+    }else{
+      localStorage.removeItem('pc2_pending_confirmation_email');
+    }
+  }catch(e){}
+}
+
+function loadPendingConfirmationEmail(){
+  try{
+    AUTH_STATE.pendingConfirmationEmail=localStorage.getItem('pc2_pending_confirmation_email')||'';
+  }catch(e){
+    AUTH_STATE.pendingConfirmationEmail='';
+  }
+}
+
 function signInAppReviewAccount({silent=false}={}){
   const signedInAt=new Date().toISOString();
   AUTH_STATE.session={
@@ -983,6 +1032,7 @@ function authProviderEnabled(provider){
 }
 
 function syncAuthProviders(){
+  const stack=document.querySelector('.auth-provider-stack');
   const email=document.querySelector('.auth-provider.email');
   const emailFields=document.getElementById('email-auth-fields');
   const resettingPassword=AUTH_STATE.mode==='reset';
@@ -993,6 +1043,7 @@ function syncAuthProviders(){
     email.disabled=AUTH_STATE.busy || !emailReady;
     email.textContent=AUTH_STATE.mode==='signup' ? 'Continue with Email' : 'Sign in with Email';
   }
+  if(stack) stack.hidden=!email || email.hidden;
 }
 
 async function loadAuthProviderSettings(){
@@ -1053,26 +1104,29 @@ function syncAuthUI(){
   const splashWrap=document.getElementById('splash-auth-cta');
   const storageNote=document.getElementById('profile-storage-note');
   const signedIn=hasCloudAccount();
+  const awaitingConfirmation=!signedIn && !!AUTH_STATE.pendingConfirmationEmail;
   const userEmail=AUTH_STATE.session?.user?.email || '';
 
-  if(title) title.textContent=signedIn?'Signed in to PixelVerse':'Save Your PixelVerse';
+  if(title) title.textContent=signedIn?'Signed in to PixelVerse':awaitingConfirmation?'Account created — check your email':'Save Your PixelVerse';
   if(copy) copy.textContent=signedIn
     ? 'Your account is connected. Your username, streaks, badges, creations, and plan are ready on this device.'
+    : awaitingConfirmation
+      ? `Confirm ${AUTH_STATE.pendingConfirmationEmail}, then sign in to connect your PixelVerse account.`
     : 'Create an account to sync your username, streaks, badges, and creations across devices.';
   if(email){
     email.hidden=!signedIn;
     email.textContent=userEmail?'Email connected':'';
   }
-  if(primary) primary.textContent=signedIn?'Sign out':'Create account';
+  if(primary) primary.textContent=signedIn?'Sign out':awaitingConfirmation?'Resend verification email':'Create account';
   if(secondary) secondary.textContent=signedIn?'Account settings':'Sign in';
   if(reset) reset.hidden=!signedIn;
-  if(homePrimary) homePrimary.textContent=signedIn?'Manage account':'Create account';
+  if(homePrimary) homePrimary.textContent=signedIn?'Manage account':awaitingConfirmation?'Resend verification email':'Create account';
   if(homeSecondary){
     homeSecondary.textContent=signedIn?'Open Me tab':'Sign in';
     homeSecondary.hidden=false;
   }
   if(homeWrap) homeWrap.hidden=false;
-  if(splashPrimary) splashPrimary.textContent=signedIn?'Manage account':'Create account';
+  if(splashPrimary) splashPrimary.textContent=signedIn?'Manage account':awaitingConfirmation?'Resend verification email':'Create account';
   if(splashSecondary){
     splashSecondary.textContent=signedIn?'Open gallery':'Sign in';
     splashSecondary.hidden=false;
@@ -1080,9 +1134,12 @@ function syncAuthUI(){
   if(splashWrap) splashWrap.hidden=false;
   if(storageNote) storageNote.textContent=signedIn
     ? 'PixelVerse account connected. You stay signed in unless you sign out.'
+    : awaitingConfirmation
+      ? 'Your account was created. Confirm your email, then sign in to sync and share.'
     : 'Play now. Create an account later when you want to sync or share to PixelVerse.';
   syncAuthProviders();
   refreshPlanUI();
+  syncAdminControls();
 }
 
 async function handleHomeAuthPrimary(){
@@ -1092,6 +1149,10 @@ async function handleHomeAuthPrimary(){
     return;
   }
   if(!(await ensureAuthReady())) return;
+  if(AUTH_STATE.pendingConfirmationEmail){
+    await resendSignupVerification();
+    return;
+  }
   openAuthModal('signup');
 }
 
@@ -1112,6 +1173,10 @@ async function handleSplashAuthPrimary(){
     return;
   }
   if(!(await ensureAuthReady())) return;
+  if(AUTH_STATE.pendingConfirmationEmail){
+    await resendSignupVerification();
+    return;
+  }
   openAuthModal('signup');
 }
 
@@ -1128,6 +1193,7 @@ async function handleSplashAuthSecondary(){
 function syncAuthModal(){
   const isSignup=AUTH_STATE.mode==='signup';
   const isReset=AUTH_STATE.mode==='reset';
+  const card=document.getElementById('auth-modal-card');
   const badge=document.getElementById('auth-modal-badge');
   const title=document.getElementById('auth-modal-title');
   const copy=document.getElementById('auth-modal-copy');
@@ -1135,23 +1201,28 @@ function syncAuthModal(){
   const submit=document.getElementById('auth-submit-btn');
   const switchBtn=document.getElementById('auth-switch-btn');
   const resetBtn=document.querySelector('.modal-auth-reset');
+  const fieldLinks=document.querySelector('.auth-field-links');
   const gamenameWrap=document.getElementById('auth-gamename-wrap');
   const emailInput=document.getElementById('auth-email-input');
   const password=document.getElementById('auth-password-input');
   const gamenameInput=document.getElementById('auth-gamename-input');
   const hasOAuth=authProviderEnabled('apple') || authProviderEnabled('google');
-  if(badge) badge.textContent=isReset?'Password reset':isSignup?'Account':'Welcome back';
-  if(title) title.textContent=isReset?'Choose a New Password':'Save Your PixelVerse';
+  if(card){
+    card.classList.toggle('auth-reset-mode', isReset);
+    card.classList.toggle('auth-signup-mode', isSignup);
+  }
+  if(badge) badge.textContent=isReset?'Password reset':isSignup?'New account':'Account';
+  if(title) title.textContent=isReset?'Reset password':isSignup?'Create account':'Sign in';
   if(copy) copy.textContent=isReset
-    ? 'Enter a new password for your PixelVerse account.'
+    ? 'Choose a new password. You will stay signed in after saving.'
     : isSignup
-      ? 'Create an account to sync creations and keep your progress.'
+      ? 'Save your art, streaks, and progress across devices.'
       : hasOAuth
         ? 'Choose a sign-in option to reconnect.'
-        : 'Sign in with email to reconnect.';
+        : 'Use your email and password to reconnect.';
   if(help){
     help.textContent=isReset
-      ? 'Use at least 6 characters.'
+      ? 'Use at least 6 characters for your new password.'
       : isSignup
       ? hasOAuth
         ? 'Email is available as a backup.'
@@ -1162,7 +1233,8 @@ function syncAuthModal(){
   if(submit) submit.textContent=isReset?'Save new password':isSignup?'Create account':'Sign in';
   if(switchBtn) switchBtn.textContent=isSignup?'Already have an account? Sign in':'Need an account? Sign up';
   if(switchBtn) switchBtn.hidden=isReset;
-  if(resetBtn) resetBtn.hidden=isReset;
+  if(resetBtn) resetBtn.hidden=isReset || isSignup;
+  if(fieldLinks) fieldLinks.hidden=isReset || isSignup;
   if(gamenameWrap) gamenameWrap.hidden=!isSignup;
   if(emailInput) emailInput.hidden=isReset;
   if(password){
@@ -1269,7 +1341,7 @@ async function loadIAPProduct(plan='monthly', {silent=true}={}){
 }
 
 function setIAPBusy(busy){
-  ['pro-info-primary','pro-restore-btn','me-restore-btn'].forEach(id=>{
+  ['pro-info-primary','pro-restore-btn','account-restore-btn'].forEach(id=>{
     const el=document.getElementById(id);
     if(!el) return;
     el.disabled=busy;
@@ -1539,6 +1611,25 @@ function refreshPlanUI(){
     pill.classList.toggle('pro',pro);
   }
   if(proSection) proSection.hidden=pro || !APP_STORE_IAP_ENABLED;
+  syncRestorePurchaseButtons();
+}
+
+function syncRestorePurchaseButtons(){
+  const canRestore=APP_STORE_IAP_ENABLED && !!getStoreKit();
+  ['account-restore-btn','pro-restore-btn'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.hidden=!canRestore;
+  });
+}
+
+function isPixelVerseAdmin(){
+  const email=String(AUTH_STATE.session?.user?.email||'').trim().toLowerCase();
+  return PIXELVERSE_ADMIN_EMAILS.includes(email);
+}
+
+function syncAdminControls(){
+  const adminReports=document.getElementById('admin-reports-btn');
+  if(adminReports) adminReports.hidden=!isPixelVerseAdmin();
 }
 
 function openProInfo(reason='default'){
@@ -1576,6 +1667,7 @@ function openProInfo(reason='default'){
   if(primary) primary.dataset.idleText=primary.textContent;
   updateIAPProductUI(IAP_PRODUCTS.monthly);
   if(APP_STORE_IAP_ENABLED) loadIAPProduct('monthly',{silent:true});
+  syncRestorePurchaseButtons();
   if(modal) modal.style.display='flex';
 }
 
@@ -1765,6 +1857,7 @@ function scheduleCloudSettingsSync(delay=450){
 
 async function handleAuthSession(session){
   AUTH_STATE.session=session||null;
+  if(AUTH_STATE.session?.user) setPendingConfirmationEmail('');
   try{
     if(AUTH_STATE.session?.user){
       syncAuthUI();
@@ -1943,10 +2036,16 @@ async function submitAuthForm(){
       if(error) throw error;
       closeAuthModal();
       if(data.session){
+        AUTH_STATE.session=data.session;
+        setPendingConfirmationEmail('');
+        syncAuthUI();
         await syncCloudProfile();
         await syncCloudSettings();
+        await handleAuthSession(data.session);
         toast('Cloud account created and connected.');
       }else{
+        setPendingConfirmationEmail(email);
+        syncAuthUI();
         toast('Account created. Check your email to confirm sign-up.');
       }
       return;
@@ -1989,6 +2088,29 @@ async function sendPasswordResetEmail(){
     return;
   }
   toast('Password reset email sent.');
+}
+
+async function resendSignupVerification(){
+  const client=getSupabaseClient();
+  const email=AUTH_STATE.pendingConfirmationEmail;
+  if(!client || !email){
+    toast('Create an account first, then you can resend its verification email.');
+    return;
+  }
+  setAuthBusy(true);
+  try{
+    const {error}=await client.auth.resend({
+      type:'signup',
+      email,
+      options:{ emailRedirectTo:authRedirectURL() },
+    });
+    if(error) throw error;
+    toast(`Verification email resent to ${email}. Check your inbox and spam folder.`);
+  }catch(err){
+    toast(err?.message || 'Could not resend the verification email right now.');
+  }finally{
+    setAuthBusy(false);
+  }
 }
 
 function openPasswordResetModal(){
@@ -2054,6 +2176,10 @@ async function handlePrimaryAuthAction(){
     return;
   }
   if(!(await ensureAuthReady())) return;
+  if(AUTH_STATE.pendingConfirmationEmail){
+    await resendSignupVerification();
+    return;
+  }
   openAuthModal('signup');
 }
 
@@ -2074,6 +2200,8 @@ function openAccountSettings(){
   const copy=document.getElementById('account-settings-copy');
   const changeEmail=document.getElementById('account-change-email-btn');
   const resetPassword=document.getElementById('account-reset-password-btn');
+  const restore=document.getElementById('account-restore-btn');
+  const adminReports=document.getElementById('admin-reports-btn');
   const userEmail=AUTH_STATE.session?.user?.email || (isAppReviewSession() ? APP_REVIEW_PRO_ACCOUNT.email : 'Connected');
   const reviewSession=isAppReviewSession() || String(userEmail).toLowerCase()===APP_REVIEW_PRO_ACCOUNT.email;
   const planLabel=isClubAccount() ? 'Premium' : 'Free';
@@ -2084,12 +2212,148 @@ function openAccountSettings(){
     : 'Your account settings are ready. You can update email, reset your password, or sign out.';
   if(changeEmail) changeEmail.hidden=reviewSession;
   if(resetPassword) resetPassword.hidden=reviewSession;
+  if(restore) restore.hidden=!APP_STORE_IAP_ENABLED || !getStoreKit();
+  if(adminReports) adminReports.hidden=!isPixelVerseAdmin();
   if(modal) modal.style.display='flex';
 }
 
 function closeAccountSettings(){
   const modal=document.getElementById('account-settings-modal');
   if(modal) modal.style.display='none';
+}
+
+function closeAdminReports(){
+  const modal=document.getElementById('admin-reports-modal');
+  if(modal) modal.style.display='none';
+}
+
+function adminReportStatusLabel(status='pending'){
+  if(status==='actioned') return 'Hidden';
+  if(status==='dismissed') return 'Dismissed';
+  if(status==='reviewing') return 'Reviewing';
+  return 'Pending';
+}
+
+function renderAdminReports(reports=[], projectsById={}){
+  const list=document.getElementById('admin-report-list');
+  if(!list) return;
+  list.innerHTML='';
+  if(!reports.length){
+    list.innerHTML='<div class="admin-report-empty">No reports to review.</div>';
+    return;
+  }
+  reports.forEach(report=>{
+    const project=projectsById[report.project_id]||{};
+    const item=document.createElement('div');
+    item.className='admin-report-item';
+    const title=document.createElement('div');
+    title.className='admin-report-title';
+    title.textContent=project.title || 'Reported creation';
+    const meta=document.createElement('div');
+    meta.className='admin-report-meta';
+    meta.textContent=`${adminReportStatusLabel(report.status)} · ${new Date(report.created_at).toLocaleDateString()} · ${report.reason}`;
+    const ids=document.createElement('div');
+    ids.className='admin-report-ids';
+    ids.textContent=`Report ${String(report.id).slice(0,8)} · Project ${String(report.project_id||'local').slice(0,8)}`;
+    const actions=document.createElement('div');
+    actions.className='admin-report-actions';
+    const dismiss=document.createElement('button');
+    dismiss.className='name-modal-skip';
+    dismiss.type='button';
+    dismiss.textContent='Dismiss';
+    dismiss.disabled=report.status==='dismissed';
+    dismiss.onclick=()=>updateAdminReportStatus(report,'dismissed');
+    const hide=document.createElement('button');
+    hide.className='name-modal-save danger';
+    hide.type='button';
+    hide.textContent='Hide creation';
+    hide.disabled=report.status==='actioned';
+    hide.onclick=()=>hideReportedCreation(report);
+    actions.appendChild(dismiss);
+    actions.appendChild(hide);
+    item.appendChild(title);
+    item.appendChild(meta);
+    item.appendChild(ids);
+    item.appendChild(actions);
+    list.appendChild(item);
+  });
+}
+
+async function loadAdminReports(){
+  const list=document.getElementById('admin-report-list');
+  if(!isPixelVerseAdmin()){
+    toast('Admin access is only available to Antoinette.');
+    return;
+  }
+  const client=getSupabaseClient();
+  if(!client){
+    toast('Sign in first to review reports.');
+    return;
+  }
+  if(list) list.innerHTML='<div class="name-modal-help">Loading reports...</div>';
+  const {data:reports,error}=await client.from('pixelverse_reports')
+    .select('id,reporter_id,project_id,reported_owner_id,reason,status,created_at,reviewed_at')
+    .order('created_at',{ascending:false})
+    .limit(50);
+  if(error){
+    console.warn('[Admin reports]', error.message||error);
+    if(list) list.innerHTML='<div class="admin-report-empty">Reports could not load. Check Supabase admin policies.</div>';
+    return;
+  }
+  const projectIds=[...new Set((reports||[]).map(r=>r.project_id).filter(Boolean))];
+  const projectsById={};
+  if(projectIds.length){
+    const {data:projects,error:projectError}=await client.from('projects')
+      .select('id,title,owner_id,visibility,is_gallery_item,is_archived,updated_at')
+      .in('id', projectIds);
+    if(projectError) console.warn('[Admin report projects]', projectError.message||projectError);
+    (projects||[]).forEach(project=>{ projectsById[project.id]=project; });
+  }
+  renderAdminReports(reports||[], projectsById);
+}
+
+function openAdminReports(){
+  if(!isPixelVerseAdmin()){
+    toast('Admin access is only available to Antoinette.');
+    return;
+  }
+  closeAccountSettings();
+  const modal=document.getElementById('admin-reports-modal');
+  if(modal) modal.style.display='flex';
+  loadAdminReports();
+}
+
+async function updateAdminReportStatus(report,status){
+  const client=getSupabaseClient();
+  if(!client || !isPixelVerseAdmin()) return;
+  const payload={status};
+  if(status==='actioned' || status==='dismissed') payload.reviewed_at=new Date().toISOString();
+  const {error}=await client.from('pixelverse_reports')
+    .update(payload)
+    .eq('id', report.id);
+  if(error){
+    toast(error.message || 'Could not update report.');
+    return;
+  }
+  toast(status==='dismissed'?'Report dismissed.':'Report updated.');
+  await loadAdminReports();
+}
+
+async function hideReportedCreation(report){
+  const client=getSupabaseClient();
+  if(!client || !isPixelVerseAdmin()) return;
+  if(!confirm('Hide this creation from PixelVerse?')) return;
+  if(report.project_id){
+    const {error:projectError}=await client.from('projects')
+      .update({visibility:'private', is_gallery_item:false, is_archived:true})
+      .eq('id', report.project_id);
+    if(projectError){
+      toast(projectError.message || 'Could not hide creation.');
+      return;
+    }
+  }
+  await updateAdminReportStatus(report,'actioned');
+  loadPublicGalleryProjects().catch(err=>console.warn('[Supabase public gallery]', err));
 }
 
 async function signOutFromAccountSettings(){
@@ -9307,7 +9571,8 @@ function renderCloset(){
 
     const deleteBtn=document.createElement('button');
     deleteBtn.className='cc-act cc-del';
-    deleteBtn.textContent='🗑';
+    deleteBtn.textContent='Delete';
+    deleteBtn.title='Delete from gallery';
     deleteBtn.onclick=(e)=>{e.stopPropagation();deleteProject(idx);};
 
     acts.appendChild(publicBtn);
@@ -9341,16 +9606,40 @@ function loadProject(idx,{toastMessage=''}={}){
     if(toastMessage) toast(toastMessage);
   },50);
 }
-function deleteProject(idx){
-  if(!confirm(`Delete "${ST.projects[idx].name}"?`)) return;
-  const projectName=ST.projects[idx].name;
+async function deleteProjectFromCloud(project){
+  const client=getSupabaseClient();
+  const userId=AUTH_STATE.session?.user?.id;
+  if(!client || !userId || !project?.cloudId) return {ok:false,skipped:true};
+  const {error}=await client.from('projects')
+    .delete()
+    .eq('id', project.cloudId)
+    .eq('owner_id', userId);
+  if(error) throw error;
+  return {ok:true};
+}
+
+async function deleteProject(idx){
+  const project=ST.projects[idx];
+  if(!project) return;
+  const projectName=project.name;
+  if(!confirm(`Delete "${projectName}" from your gallery? This cannot be undone.`)) return;
   ST.projects.splice(idx,1);
   ST.challengeSubmissions=ST.challengeSubmissions.filter(item=>item.projectName!==projectName);
   saveProjects();
   saveChallengeSubmissions();
   refreshProfileStats();
   buildHomeGallery();
-  renderCloset();toast('Deleted');
+  renderCloset();
+  buildPublicGallery();
+  try{
+    await deleteProjectFromCloud(project);
+    await loadPublicGalleryProjects().catch(err=>console.warn('[Supabase public gallery]', err));
+    toast('Deleted from gallery.');
+  }catch(err){
+    console.warn('[Supabase project delete]', err.message||err);
+    toast('Deleted here. Cloud cleanup will retry when projects sync.');
+    syncCloudProjects().catch(error=>console.warn('[Supabase projects sync]', error));
+  }
 }
 function exportProject(idx){
   const p=ST.projects[idx];if(!p||!p.frames[0])return;
@@ -11284,7 +11573,9 @@ captureFrame = function(){
 // ── BOOT ──────────────────────────────────────────────
 function boot(){
   initStore();
+  syncBirthdaySplashVisibility();
   bindAuthTapActions();
+  loadPendingConfirmationEmail();
   initSupabaseAuth();
   applyReleaseVisibility();
   buildPalRow();
@@ -11293,6 +11584,7 @@ function boot(){
   restoreAppReviewSession();
   startFreeSessionClock();
   watchEntitlements();
+  syncRestorePurchaseButtons();
   refreshEntitlements({silent:true});
   loadDailyVibeState();
   loadAppSettings();
@@ -11347,7 +11639,7 @@ function boot(){
   document.getElementById('save-project-name')?.addEventListener('keydown',e=>{
     if(e.key==='Enter'){ e.preventDefault(); confirmSaveProject(); }
   });
-  ['color-modal','text-modal','save-project-modal','profile-name-modal','auth-modal','account-settings-modal','pro-info-modal'].forEach(id=>{
+  ['color-modal','text-modal','save-project-modal','profile-name-modal','auth-modal','account-settings-modal','admin-reports-modal','pro-info-modal'].forEach(id=>{
     const modal=document.getElementById(id);
     if(!modal) return;
     modal.addEventListener('click',e=>{
@@ -11358,6 +11650,7 @@ function boot(){
       else if(id==='profile-name-modal') closeProfileNameModal();
       else if(id==='auth-modal') closeAuthModal();
       else if(id==='account-settings-modal') closeAccountSettings();
+      else if(id==='admin-reports-modal') closeAdminReports();
       else if(id==='pro-info-modal') closeProInfo();
     });
   });

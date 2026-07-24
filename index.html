@@ -498,7 +498,6 @@
         <button class="auth-btn auth-btn-secondary" id="auth-secondary-btn" onclick="handleSecondaryAuthAction()">Sign in</button>
       </div>
       <button class="auth-link-btn" id="auth-reset-btn" onclick="sendPasswordResetEmail()" hidden>Send password reset email</button>
-      <button class="auth-link-btn" id="me-restore-btn" type="button" onclick="restorePurchases()">Restore Purchases</button>
     </div>
   </div>
   <div class="prof-section" id="profile-pro-section" hidden>
@@ -540,26 +539,30 @@
 </div>
 
 <div id="auth-modal" class="modal-bg centered" style="display:none">
-  <div class="name-modal-card auth-modal-card">
+  <div class="name-modal-card auth-modal-card" id="auth-modal-card">
     <div class="name-modal-badge" id="auth-modal-badge">Account</div>
-    <h2 class="name-modal-title" id="auth-modal-title">Save Your PixelVerse</h2>
-    <p class="name-modal-copy" id="auth-modal-copy">Create an account to sync your username, streaks, badges, and creations across devices.</p>
+    <h2 class="name-modal-title" id="auth-modal-title">Sign in</h2>
+    <p class="name-modal-copy" id="auth-modal-copy">Keep your saved art and progress connected.</p>
     <div class="auth-provider-stack">
       <button class="auth-provider email" type="button" onclick="showEmailAuthFields()">Continue with Email</button>
     </div>
     <div id="email-auth-fields" class="email-auth-fields" hidden>
-    <div id="auth-gamename-wrap" hidden>
-      <input id="auth-gamename-input" class="name-modal-input" type="text" maxlength="18" placeholder="Choose public gamename" autocomplete="nickname" spellcheck="false">
-    </div>
-    <input id="auth-email-input" class="name-modal-input" type="email" placeholder="Email address" autocomplete="email" spellcheck="false">
-    <input id="auth-password-input" class="name-modal-input" type="password" placeholder="Password" autocomplete="current-password" spellcheck="false">
-    <div class="name-modal-help" id="auth-modal-help">Passwords are handled by Supabase Auth and are never stored in this app.</div>
-    <div class="name-modal-actions">
-      <button class="name-modal-skip" onclick="closeAuthModal()">Cancel</button>
-      <button class="name-modal-save" id="auth-submit-btn" onclick="submitAuthForm()">Sign in</button>
-    </div>
-    <button class="auth-link-btn modal-auth-switch" id="auth-switch-btn" onclick="toggleAuthMode()">Need an account? Sign up</button>
-    <button class="auth-link-btn modal-auth-reset" onclick="sendPasswordResetEmail()">Forgot password?</button>
+      <div id="auth-gamename-wrap" hidden>
+        <input id="auth-gamename-input" class="name-modal-input" type="text" maxlength="18" placeholder="Choose public gamename" autocomplete="nickname" spellcheck="false">
+      </div>
+      <input id="auth-email-input" class="name-modal-input" type="email" placeholder="Email address" autocomplete="email" spellcheck="false">
+      <input id="auth-password-input" class="name-modal-input" type="password" placeholder="Password" autocomplete="current-password" spellcheck="false">
+      <div class="auth-field-links">
+        <button class="auth-link-btn modal-auth-reset" onclick="sendPasswordResetEmail()">Forgot password?</button>
+      </div>
+      <div class="name-modal-help" id="auth-modal-help">Passwords are handled by Supabase Auth and are never stored in this app.</div>
+      <div class="name-modal-actions">
+        <button class="name-modal-skip" onclick="closeAuthModal()">Cancel</button>
+        <button class="name-modal-save" id="auth-submit-btn" onclick="submitAuthForm()">Sign in</button>
+      </div>
+      <div class="auth-bottom-links">
+        <button class="auth-link-btn modal-auth-switch" id="auth-switch-btn" onclick="toggleAuthMode()">Need an account? Sign up</button>
+      </div>
     </div>
   </div>
 </div>
@@ -583,11 +586,28 @@
       <button class="name-modal-save" id="account-change-email-btn" type="button" onclick="updateCloudEmail()">Change email</button>
       <button class="name-modal-skip" id="account-reset-password-btn" type="button" onclick="sendPasswordResetEmail()">Reset password</button>
     </div>
+    <button class="name-modal-save admin-reports-btn" id="admin-reports-btn" type="button" onclick="openAdminReports()" hidden>Review reports</button>
+    <button class="auth-link-btn account-restore-btn" id="account-restore-btn" type="button" onclick="restorePurchases()" hidden>Restore Purchases</button>
     <div class="name-modal-actions account-settings-actions">
       <button class="name-modal-skip" type="button" onclick="closeAccountSettings()">Close</button>
       <button class="name-modal-save danger" type="button" onclick="signOutFromAccountSettings()">Sign out</button>
     </div>
     <button class="auth-link-btn account-delete-btn" id="account-delete-btn" type="button" onclick="deleteAccountFromSettings()">Delete account</button>
+  </div>
+</div>
+
+<div id="admin-reports-modal" class="modal-bg centered" style="display:none">
+  <div class="name-modal-card auth-modal-card admin-reports-card">
+    <div class="name-modal-badge">Admin</div>
+    <h2 class="name-modal-title">PixelVerse Reports</h2>
+    <p class="name-modal-copy">Review reported public creations and choose whether to hide or dismiss them.</p>
+    <div class="admin-report-list" id="admin-report-list">
+      <div class="name-modal-help">Loading reports...</div>
+    </div>
+    <div class="name-modal-actions">
+      <button class="name-modal-skip" type="button" onclick="closeAdminReports()">Close</button>
+      <button class="name-modal-save" type="button" onclick="loadAdminReports()">Refresh</button>
+    </div>
   </div>
 </div>
 
@@ -741,7 +761,7 @@
       <button class="name-modal-save" id="pro-info-primary" type="button" onclick="startIAPPurchase('monthly')">Subscribe for $1.99/month</button>
       <button class="name-modal-skip" type="button" onclick="closeProInfo()">Maybe later</button>
     </div>
-    <button class="auth-link-btn" id="pro-restore-btn" type="button" onclick="restorePurchases()">Restore Purchases</button>
+    <button class="auth-link-btn" id="pro-restore-btn" type="button" onclick="restorePurchases()" hidden>Restore Purchases</button>
   </div>
 </div>
 

@@ -235,6 +235,66 @@ before update on public.challenge_entries
 for each row
 execute function public.touch_updated_at();
 
+create table if not exists public.admin_users (
+  email text primary key check (email = lower(trim(email))),
+  created_at timestamptz not null default timezone('utc', now())
+);
+
+insert into public.admin_users (email)
+values ('antoinetteqwilliams@gmail.com')
+on conflict (email) do nothing;
+
+create table if not exists public.pixelverse_reports (
+  id uuid primary key default gen_random_uuid(),
+  reporter_id uuid references public.profiles (id) on delete set null,
+  project_id uuid references public.projects (id) on delete cascade,
+  reported_owner_id uuid references public.profiles (id) on delete set null,
+  reason text not null default 'inappropriate'
+    check (char_length(trim(reason)) between 3 and 500),
+  status text not null default 'pending'
+    check (status in ('pending', 'reviewing', 'actioned', 'dismissed')),
+  created_at timestamptz not null default timezone('utc', now()),
+  reviewed_at timestamptz
+);
+
+create index if not exists pixelverse_reports_project_status_idx
+  on public.pixelverse_reports (project_id, status, created_at desc);
+
+create index if not exists pixelverse_reports_reporter_idx
+  on public.pixelverse_reports (reporter_id, created_at desc);
+
+create unique index if not exists pixelverse_reports_one_open_per_user_project
+  on public.pixelverse_reports (reporter_id, project_id)
+  where status in ('pending', 'reviewing');
+
+create table if not exists public.pixelverse_user_blocks (
+  blocker_id uuid not null references public.profiles (id) on delete cascade,
+  blocked_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default timezone('utc', now()),
+  primary key (blocker_id, blocked_id),
+  check (blocker_id <> blocked_id)
+);
+
+create index if not exists pixelverse_user_blocks_blocked_idx
+  on public.pixelverse_user_blocks (blocked_id);
+
+create or replace function public.is_pixelverse_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.admin_users a
+    where a.email = lower(coalesce(auth.jwt() ->> 'email', ''))
+  );
+$$;
+
+revoke all on function public.is_pixelverse_admin() from public;
+grant execute on function public.is_pixelverse_admin() to authenticated;
+
 create or replace function public.refresh_profile_counts(target_profile_id uuid)
 returns void
 language plpgsql
@@ -376,6 +436,9 @@ alter table public.app_settings enable row level security;
 alter table public.projects enable row level security;
 alter table public.project_assets enable row level security;
 alter table public.challenge_entries enable row level security;
+alter table public.admin_users enable row level security;
+alter table public.pixelverse_reports enable row level security;
+alter table public.pixelverse_user_blocks enable row level security;
 
 drop policy if exists "profiles_select_own" on public.profiles;
 create policy "profiles_select_own"
@@ -415,11 +478,40 @@ for update
 using (auth.uid() = profile_id)
 with check (auth.uid() = profile_id);
 
+drop policy if exists "admin_users_select_self_admin" on public.admin_users;
+create policy "admin_users_select_self_admin"
+on public.admin_users
+for select
+using (public.is_pixelverse_admin());
+
 drop policy if exists "projects_select_own_or_public" on public.projects;
 create policy "projects_select_own_or_public"
 on public.projects
 for select
-using (auth.uid() = owner_id or (visibility = 'public' and is_gallery_item = true and is_archived = false));
+using (
+  auth.uid() = owner_id
+  or public.is_pixelverse_admin()
+  or (
+    visibility = 'public'
+    and is_gallery_item = true
+    and is_archived = false
+    and not exists (
+      select 1
+      from public.pixelverse_reports r
+      where r.project_id = projects.id
+        and r.status in ('pending', 'reviewing', 'actioned')
+    )
+    and (
+      auth.uid() is null
+      or not exists (
+        select 1
+        from public.pixelverse_user_blocks b
+        where b.blocker_id = auth.uid()
+          and b.blocked_id = projects.owner_id
+      )
+    )
+  )
+);
 
 drop policy if exists "projects_insert_own" on public.projects;
 create policy "projects_insert_own"
@@ -434,11 +526,61 @@ for update
 using (auth.uid() = owner_id)
 with check (auth.uid() = owner_id);
 
+drop policy if exists "projects_update_admin" on public.projects;
+create policy "projects_update_admin"
+on public.projects
+for update
+using (public.is_pixelverse_admin())
+with check (public.is_pixelverse_admin());
+
 drop policy if exists "projects_delete_own" on public.projects;
 create policy "projects_delete_own"
 on public.projects
 for delete
 using (auth.uid() = owner_id);
+
+drop policy if exists "pixelverse_reports_insert_own" on public.pixelverse_reports;
+create policy "pixelverse_reports_insert_own"
+on public.pixelverse_reports
+for insert
+with check (auth.uid() = reporter_id);
+
+drop policy if exists "pixelverse_reports_select_own" on public.pixelverse_reports;
+create policy "pixelverse_reports_select_own"
+on public.pixelverse_reports
+for select
+using (auth.uid() = reporter_id);
+
+drop policy if exists "pixelverse_reports_select_admin" on public.pixelverse_reports;
+create policy "pixelverse_reports_select_admin"
+on public.pixelverse_reports
+for select
+using (public.is_pixelverse_admin());
+
+drop policy if exists "pixelverse_reports_update_admin" on public.pixelverse_reports;
+create policy "pixelverse_reports_update_admin"
+on public.pixelverse_reports
+for update
+using (public.is_pixelverse_admin())
+with check (public.is_pixelverse_admin());
+
+drop policy if exists "pixelverse_user_blocks_select_own" on public.pixelverse_user_blocks;
+create policy "pixelverse_user_blocks_select_own"
+on public.pixelverse_user_blocks
+for select
+using (auth.uid() = blocker_id);
+
+drop policy if exists "pixelverse_user_blocks_insert_own" on public.pixelverse_user_blocks;
+create policy "pixelverse_user_blocks_insert_own"
+on public.pixelverse_user_blocks
+for insert
+with check (auth.uid() = blocker_id);
+
+drop policy if exists "pixelverse_user_blocks_delete_own" on public.pixelverse_user_blocks;
+create policy "pixelverse_user_blocks_delete_own"
+on public.pixelverse_user_blocks
+for delete
+using (auth.uid() = blocker_id);
 
 drop policy if exists "project_assets_select_own_or_public" on public.project_assets;
 create policy "project_assets_select_own_or_public"

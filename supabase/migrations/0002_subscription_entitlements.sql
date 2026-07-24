@@ -22,6 +22,25 @@
 
 
 -- ---------------------------------------------------------------------
+-- 0. Profile billing fields
+--
+-- Keep this migration safe for projects created from an older version of
+-- schema.sql where the subscription columns did not exist yet.
+-- ---------------------------------------------------------------------
+alter table public.profiles
+  add column if not exists account_tier text not null default 'free',
+  add column if not exists is_pro boolean not null default false,
+  add column if not exists pro_since timestamptz;
+
+alter table public.profiles
+  drop constraint if exists profiles_account_tier_check;
+
+alter table public.profiles
+  add constraint profiles_account_tier_check
+  check (account_tier in ('free', 'pro'));
+
+
+-- ---------------------------------------------------------------------
 -- 1. Subscription records
 -- ---------------------------------------------------------------------
 create table if not exists public.apple_subscriptions (
