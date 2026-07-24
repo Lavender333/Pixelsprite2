@@ -968,7 +968,6 @@ function signInAppReviewAccount({silent=false}={}){
   syncAuthUI();
   buildProfile();
   refreshProfileStats();
-  refreshHomeStatusBadge();
   closeAuthModal();
   if(!silent) toast('App Review Pro account signed in.');
   return true;
@@ -993,7 +992,6 @@ function signOutAppReviewAccount(){
   syncAuthUI();
   buildProfile();
   refreshProfileStats();
-  refreshHomeStatusBadge();
   toast('Signed out. Local saves stay on this device.');
 }
 
@@ -1768,7 +1766,6 @@ function applyRemoteProfile(profile){
   resolveEntitlementTier();
   updateProfileIdentity();
   refreshProfileStats();
-  refreshHomeStatusBadge();
   refreshStreakUI();
 }
 
@@ -8933,15 +8930,6 @@ function refreshProfileStats(){
   if(streakProfileEl) streakProfileEl.textContent=String(ST.streak||0);
 }
 
-function refreshHomeStatusBadge(){
-  const levelEl=document.getElementById('home-status-level-value');
-  if(levelEl) levelEl.textContent=String(ST.level||0);
-  const xpCurEl=document.getElementById('home-status-xp-cur');
-  if(xpCurEl) xpCurEl.textContent=String(ST.xp||0);
-  const xpMaxEl=document.getElementById('home-status-xp-max');
-  if(xpMaxEl) xpMaxEl.textContent=String(ST.xpMax||0);
-}
-
 function refreshStreakUI(){
   const streakEl=document.getElementById('streak-n');
   if(streakEl) streakEl.textContent=String(ST.streak||0);
@@ -11244,7 +11232,6 @@ function addXP(n){
   ['xp-cur','ps-xp'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent=ST.xp;});
   const xpm=document.getElementById('xp-max');if(xpm)xpm.textContent=ST.xpMax;
   const xpl=document.getElementById('xp-lvl');if(xpl)xpl.textContent=ST.level;
-  refreshHomeStatusBadge();
   updateXPNextUnlock();
   updateProgressionBadges();
   syncCanvasUnlockUI();
@@ -11617,7 +11604,6 @@ function boot(){
   buildProfile();
   updateStorageUI();
   refreshProfileStats();
-  refreshHomeStatusBadge();
   updateProgressionBadges();
   applyAutoZoom(16);
   initCanvas(16);

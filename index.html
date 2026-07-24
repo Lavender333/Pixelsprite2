@@ -10,14 +10,14 @@
 <meta name="keywords" content="pixel art, lavender pixel studio, coloring app, sprite maker, animation, kawaii, draw pixels, free art app">
 <meta name="author" content="Pixel Sprite Vibe">
 <meta name="robots" content="index, follow">
-<link rel="canonical" href="https://pixelcreator.app/">
+<link rel="canonical" href="https://pixelspirite.com/">
 
 <!-- Open Graph / Social -->
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://pixelcreator.app/">
+<meta property="og:url" content="https://pixelspirite.com/">
 <meta property="og:title" content="Pixel Sprite Vibe — Draw, Color & Animate Pixel Art">
 <meta property="og:description" content="Free pixel art studio for your phone. 30+ templates, color-in mode, animations, and creative ways to use your art. No account needed.">
-<meta property="og:image" content="https://pixelcreator.app/og-image.png">
+<meta property="og:image" content="https://pixelspirite.com/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 
@@ -25,7 +25,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Pixel Sprite Vibe — Draw, Color & Animate Pixel Art">
 <meta name="twitter:description" content="Free pixel art studio. 30+ templates, color-in mode, animations, and creative ways to use your art.">
-<meta name="twitter:image" content="https://pixelcreator.app/og-image.png">
+<meta name="twitter:image" content="https://pixelspirite.com/og-image.png">
 
 <!-- PWA / App -->
 <meta name="theme-color" content="#09090E">
@@ -43,7 +43,10 @@
 
 <!-- Service Worker registration -->
 
-<link rel="stylesheet" href="style.css?v=17">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=18">
 
 <script>
   const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
@@ -59,7 +62,7 @@
 
   if (canUseSW) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js?v=17').catch(() => {});
+      navigator.serviceWorker.register('/sw.js?v=18').catch(() => {});
     });
   }
 </script>
@@ -72,7 +75,7 @@
     <img class="birthday-logo" src="splash-logo.png" alt="Pixel Sprite Vibe logo" width="1536" height="1024">
     <h1 class="birthday-title">Build Your Pixel.</h1>
     <p class="birthday-subtitle">Create. Customize. Share.</p>
-    <button class="birthday-start-button" onclick="startCreating()">Start Creating</button>
+    <button class="birthday-start-button" onclick="startCreating()">Start creating</button>
     <div class="birthday-auth-cta" id="splash-auth-cta">
       <button class="birthday-auth-primary" id="splash-auth-primary" onclick="handleSplashAuthPrimary()">Create account</button>
       <button class="birthday-auth-secondary" id="splash-auth-secondary" onclick="handleSplashAuthSecondary()">Sign in</button>
@@ -108,7 +111,7 @@
     </div>
     <details class="home-blank-card" aria-label="Start a blank canvas">
       <summary class="home-blank-summary">
-        <div class="home-blank-title">Start Blank</div>
+        <div class="home-blank-title">Start blank</div>
         <div class="home-blank-sub">Choose a canvas size when you already know what you want.</div>
       </summary>
       <div class="home-blank-actions">
@@ -121,19 +124,15 @@
       <button class="home-auth-primary" id="home-auth-primary" onclick="handleHomeAuthPrimary()">Create account</button>
       <button class="home-auth-secondary" id="home-auth-secondary" onclick="handleHomeAuthSecondary()">Sign in</button>
     </div>
-    <div class="home-status-badge" id="home-status-badge">
-      <span class="home-status-level">Level <span id="home-status-level-value">1</span> Creator</span>
-      <span class="home-status-xp">XP: <span id="home-status-xp-cur">0</span> / <span id="home-status-xp-max">600</span></span>
-    </div>
   </div>
   <div class="home-section" id="home-challenge-section">
-    <div class="sec-header"><span class="sec-title">Weekly Drop</span></div>
+    <div class="sec-header"><span class="sec-title">Weekly drop</span></div>
     <div class="challenge-card" onclick="showTab('challenges')">
       <div class="cc-days" id="cc-days">3d left</div>
-      <div class="cc-label">Weekly Drop</div>
+      <div class="cc-label">Weekly drop</div>
       <div class="cc-title" id="cc-title">Cyber Sneaker</div>
       <div class="cc-meta" id="cc-meta">581 entries · +150 XP reward</div>
-      <button class="cc-btn" onclick="event.stopPropagation();showTab('challenges')">Enter Challenge ↗</button>
+      <button class="cc-btn" onclick="event.stopPropagation();showTab('challenges')">Enter challenge ↗</button>
     </div>
   </div>
   <div class="xp-card" id="home-level-card">
@@ -153,13 +152,13 @@
       <div class="streak-fire">🔥</div>
       <div class="streak-info">
         <div class="streak-n" id="streak-n">0</div>
-        <div class="streak-l">Day Streak</div>
+        <div class="streak-l">Day streak</div>
         <div class="streak-note">On this device</div>
       </div>
       <button class="streak-claim" id="streak-claim" type="button" disabled>Auto daily</button>
     </div>
     <button class="daily-vibe-card" id="daily-vibe-card" type="button" onclick="startDailyPrompt()">
-      <div class="daily-vibe-kicker">Today’s Vibe</div>
+      <div class="daily-vibe-kicker">Today’s vibe</div>
       <div class="daily-vibe-title" id="daily-vibe-title">Draw a magical pet</div>
       <div class="daily-vibe-reward" id="daily-vibe-reward">Save to reveal today’s Vibe Drop</div>
       <div class="daily-vibe-action">Start prompt</div>
@@ -175,21 +174,21 @@
     </div>
     <div class="pixelverse-hero">
       <div>
-        <div class="pixelverse-kicker">This Week</div>
+        <div class="pixelverse-kicker">This week</div>
         <div class="pixelverse-theme" id="pixelverse-theme">Pixel Pets</div>
         <div class="pixelverse-copy">A safe creative universe: emoji reactions only, no comments, no chat.</div>
       </div>
       <div class="pixelverse-actions">
-        <button class="pixelverse-join" type="button" onclick="openPixelVerseShare()">Share Creation</button>
-        <button class="pixelverse-surprise" type="button" onclick="claimDailyPixelSurprise()">Daily Surprise</button>
+        <button class="pixelverse-join" type="button" onclick="openPixelVerseShare()">Share creation</button>
+        <button class="pixelverse-surprise" type="button" onclick="claimDailyPixelSurprise()">Daily surprise</button>
       </div>
     </div>
     <div class="gallery-strip" id="public-gallery-strip"></div>
   </div>
   <div class="home-section">
     <div class="sec-header">
-      <span class="sec-title">Quick Start</span>
-      <button class="sec-link" onclick="showTab('studio')">See All →</button>
+      <span class="sec-title">Quick start</span>
+      <button class="sec-link" onclick="showTab('studio')">See all →</button>
     </div>
     <div class="templates-scroll" id="home-templates"></div>
   </div>
@@ -220,26 +219,26 @@
   <div class="text-edit-row" id="text-edit-row" style="display:none">
     <div class="text-edit-copy" id="text-edit-copy">Tap the canvas to place pixel text. Drag selected text to move it.</div>
     <div class="text-edit-actions">
-      <button class="text-mini-btn" id="text-edit-btn" onclick="openTextModalForSelection()">Edit Text</button>
+      <button class="text-mini-btn" id="text-edit-btn" onclick="openTextModalForSelection()">Edit text</button>
       <button class="text-mini-btn danger" id="text-delete-btn" onclick="deleteSelectedText()">Delete</button>
     </div>
   </div>
   <div class="challenge-submit-bar" id="challenge-submit-bar" style="display:none">
     <div class="challenge-submit-copy">
-      <div class="challenge-submit-kicker">Challenge Mode</div>
+      <div class="challenge-submit-kicker">Challenge mode</div>
       <div class="challenge-submit-title" id="challenge-submit-title">Weekly challenge</div>
       <div class="challenge-submit-status" id="challenge-submit-status">Finish your art, then submit it to the feed.</div>
     </div>
-    <button class="challenge-submit-btn" id="challenge-submit-btn" onclick="submitChallenge()">Submit Entry</button>
+    <button class="challenge-submit-btn" id="challenge-submit-btn" onclick="submitChallenge()">Submit entry</button>
   </div>
   <div id="fx-menu">
-    <button class="fx-item" id="fx-glow" onclick="runFX('glow');closeFXMenu()"><span class="fx-icon">✨</span>Add Glow</button>
-    <button class="fx-item" onclick="runFX('sparkle');closeFXMenu()"><span class="fx-icon">⭐</span>Add Sparkles</button>
-    <button class="fx-item" id="fx-outline" onclick="runFX('outline');closeFXMenu()"><span class="fx-icon">◻️</span>Clean Outline</button>
-    <button class="fx-item" id="fx-remix" onclick="runFX('remix');closeFXMenu()"><span class="fx-icon">🎲</span>Color Remix</button>
+    <button class="fx-item" id="fx-glow" onclick="runFX('glow');closeFXMenu()"><span class="fx-icon">✨</span>Add glow</button>
+    <button class="fx-item" id="fx-sparkle" onclick="runFX('sparkle');closeFXMenu()"><span class="fx-icon">⭐</span>Add sparkles</button>
+    <button class="fx-item" id="fx-outline" onclick="runFX('outline');closeFXMenu()"><span class="fx-icon">◻️</span>Clean outline</button>
+    <button class="fx-item" id="fx-remix" onclick="runFX('remix');closeFXMenu()"><span class="fx-icon">🎲</span>Color remix</button>
   </div>
   <div id="anim-menu">
-    <div style="font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;padding:0 2px 4px">Animation Presets</div>
+    <div class="menu-label">Animation presets</div>
     <button class="fx-item" onclick="animPreset('bounce');closeAnimMenu()"><span class="fx-icon">🏀</span>Bounce</button>
     <button class="fx-item" onclick="animPreset('float');closeAnimMenu()"><span class="fx-icon">🌊</span>Float</button>
     <button class="fx-item" onclick="animPreset('blink');closeAnimMenu()"><span class="fx-icon">👁️</span>Blink</button>
@@ -433,11 +432,11 @@
   <div class="chal-hero">
     <div class="chal-hero-main">
       <div class="chal-copy">
-        <div class="ch-eyebrow">This Week's Drop</div>
+        <div class="ch-eyebrow">This week's drop</div>
         <div class="ch-name" id="ch-name">Cyber Sneaker</div>
         <div class="ch-sub" id="ch-sub">581 entries · +150 XP · Ends in 3 days</div>
         <div class="ch-actions">
-          <button class="ch-go" onclick="startChallenge()">Start Creating ↗</button>
+          <button class="ch-go" onclick="startChallenge()">Start creating ↗</button>
           <span class="ch-timer" id="ch-timer">⏱ 3 days left</span>
         </div>
       </div>
@@ -448,14 +447,14 @@
     </div>
   </div>
   <div class="rank-card">
-    <div class="rank-title">🏅 This Week's Leaderboard</div>
+    <div class="rank-title">🏅 This week's leaderboard</div>
     <div class="rank-row" id="rank-row"></div>
   </div>
-  <div style="padding:0 16px 8px;font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.1em">Challenge Starters</div>
+  <div class="challenge-section-label">Challenge starters</div>
   <div class="challenge-starters" id="challenge-starters"></div>
-  <div style="padding:0 16px 8px;font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.1em">Upcoming Challenges</div>
+  <div class="challenge-section-label">Upcoming challenges</div>
   <div class="up-list" id="upcoming-list"></div>
-  <div style="padding:0 16px 8px;font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-top:8px">Featured Entries</div>
+  <div class="challenge-section-label challenge-section-label-spaced">Featured entries</div>
   <div class="chal-feed-grid" id="feed-grid"></div>
 </div>
 
