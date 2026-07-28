@@ -302,9 +302,16 @@ const ToolEngine = (() => {
     onMove(ctx, x, y, state) { this._paint(ctx, x, y, state); }
     _paint(ctx, x, y, state) {
       const b = state.brushSize;
+      const drawAt = (px, py) => {
+        for(let yy=py; yy<py+b; yy++) for(let xx=px; xx<px+b; xx++){
+          if(xx<0 || xx>=state.size || yy<0 || yy>=state.size) continue;
+          if(isLocked(xx, yy) || !isFillableColoringPixel(xx, yy)) continue;
+          ctx.fillRect(xx, yy, 1, 1);
+        }
+      };
       ctx.fillStyle = state.color;
-      ctx.fillRect(x, y, b, b);
-      if (state.mirror) ctx.fillRect(state.size - x - b, y, b, b);
+      drawAt(x, y);
+      if (state.mirror) drawAt(state.size - x - b, y);
       Economy.track('pixel:paint');
       EventBus.emit('tool:paint', { x, y, color: state.color, tool: 'pencil' });
     }
@@ -316,8 +323,15 @@ const ToolEngine = (() => {
     onMove(ctx, x, y, state) { this._erase(ctx, x, y, state); }
     _erase(ctx, x, y, state) {
       const b = state.eraserSize || state.brushSize;
-      ctx.clearRect(x, y, b, b);
-      if (state.mirror) ctx.clearRect(state.size - x - b, y, b, b);
+      const eraseAt = (px, py) => {
+        for(let yy=py; yy<py+b; yy++) for(let xx=px; xx<px+b; xx++){
+          if(xx<0 || xx>=state.size || yy<0 || yy>=state.size) continue;
+          if(isLocked(xx, yy) || !isFillableColoringPixel(xx, yy)) continue;
+          ctx.clearRect(xx, yy, 1, 1);
+        }
+      };
+      eraseAt(x, y);
+      if (state.mirror) eraseAt(state.size - x - b, y);
       EventBus.emit('tool:erase', { x, y });
     }
   }
@@ -325,25 +339,7 @@ const ToolEngine = (() => {
   class FillTool extends BaseTool {
     constructor() { super('fill'); }
     apply(ctx, x, y, state) {
-      const img = ctx.getImageData(0, 0, state.size, state.size);
-      const d = img.data;
-      const i0 = (y * state.size + x) * 4;
-      const tr = d[i0], tg = d[i0+1], tb = d[i0+2], ta = d[i0+3];
-      const rgb = hexToRGB(state.color);
-      if (!rgb) return;
-      if (tr === rgb.r && tg === rgb.g && tb === rgb.b && ta === 255) return;
-      const stk = [[x, y]], vis = new Uint8Array(state.size * state.size);
-      while (stk.length) {
-        const [cx, cy] = stk.pop();
-        if (cx < 0 || cx >= state.size || cy < 0 || cy >= state.size) continue;
-        const vi = cy * state.size + cx;
-        if (vis[vi]) continue; vis[vi] = 1;
-        const ii = vi * 4;
-        if (d[ii] !== tr || d[ii+1] !== tg || d[ii+2] !== tb || d[ii+3] !== ta) continue;
-        d[ii] = rgb.r; d[ii+1] = rgb.g; d[ii+2] = rgb.b; d[ii+3] = 255;
-        stk.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
-      }
-      ctx.putImageData(img, 0, 0);
+      floodFill(ctx, x, y, state.color);
       Economy.track('pixel:fill');
       EventBus.emit('tool:fill', { x, y, color: state.color });
     }
@@ -694,6 +690,8 @@ const ST = {
   coloringMode: false,   // true when a coloring template is active
   coloringTemplate: null,// reference to active COLORING_TEMPLATES entry
   fillRegionCount: 0,    // total colorable regions for completion detection
+  fillRegions: [],       // enclosed fill areas discovered from the locked outline
+  pixelToRegionId: null, // Int32Array(size²) — -1 = outside/no fill region
   challengeStarterKey: null,
   activeChallenge: null,
   challengeSubmissions: [],
@@ -707,8 +705,6 @@ const ST = {
   pixelVerseBlocks: {},
   pixelVerseReports: {},
   storeKitEntitled: false,
-  freeSessionUsedMs: 0,
-  freeSessionLastTick: null,
 };
 
 const APP_SETTINGS = {
@@ -717,6 +713,16 @@ const APP_SETTINGS = {
   reminderCustomTime: '16:00',
   soundEffects: true,
 };
+
+const FIRST_VIBE_DEFAULT = {
+  started: false,
+  picked: false,
+  fx: false,
+  saved: false,
+  dismissed: false,
+};
+
+let FIRST_VIBE = { ...FIRST_VIBE_DEFAULT };
 
 const GALLERY_CATEGORIES = ['Avatar','Items','Rooms','Closet'];
 
@@ -731,6 +737,33 @@ const PIXELVERSE_REACTIONS=[
   ['creative','🎨','Creative'],
   ['cute','✨','Cute'],
 ];
+const HERO_SHOWCASE_STEPS=[
+  {
+    drawer:'kawaii_bunny',
+    style:'kawaii',
+    reveal:.28,
+    title:'Sketch the shape',
+    sub:'Big ears first, then the cute little face starts showing up.',
+  },
+  {
+    drawer:'kawaii_bunny',
+    style:'kawaii',
+    reveal:.62,
+    title:'Fill it your way',
+    sub:'Tap the spaces, stack your colors, and make it feel like yours.',
+  },
+  {
+    drawer:'kawaii_bunny',
+    style:'kawaii',
+    reveal:1,
+    title:'Glow it up',
+    sub:'Add an effect, save it, then show it off in PixelVerse.',
+  },
+];
+let HERO_SHOWCASE_INDEX=0;
+let HERO_SHOWCASE_TIMER=null;
+const GALLERY_PREVIEW_REGISTRY=[];
+let GALLERY_PREVIEW_TIMER=null;
 
 const DAILY_PIXEL_SURPRISES=[
   {type:'Palette',label:'Cotton Candy Colors',colors:['#FFB7D5','#AEEBFF','#FFE69B']},
@@ -741,7 +774,6 @@ const DAILY_PIXEL_SURPRISES=[
   {type:'Template',label:'Tiny Pet Starter'},
 ];
 
-const FREE_SESSION_LIMIT_MS = 90 * 60 * 1000;
 const APP_STORE_IAP_ENABLED = true;
 const PIXELVERSE_ADMIN_EMAILS = ['antoinetteqwilliams@gmail.com'];
 
@@ -1105,36 +1137,36 @@ function syncAuthUI(){
   const awaitingConfirmation=!signedIn && !!AUTH_STATE.pendingConfirmationEmail;
   const userEmail=AUTH_STATE.session?.user?.email || '';
 
-  if(title) title.textContent=signedIn?'Signed in to PixelVerse':awaitingConfirmation?'Account created — check your email':'Save Your PixelVerse';
+  if(title) title.textContent=signedIn?'You are in':awaitingConfirmation?'Account made — check your email':'Save your vibe';
   if(copy) copy.textContent=signedIn
-    ? 'Your account is connected. Your username, streaks, badges, creations, and plan are ready on this device.'
+    ? 'Your account is connected. Your username, streaks, badges, creations, and plan are all ready here.'
     : awaitingConfirmation
-      ? `Confirm ${AUTH_STATE.pendingConfirmationEmail}, then sign in to connect your PixelVerse account.`
-    : 'Create an account to sync your username, streaks, badges, and creations across devices.';
+      ? `Confirm ${AUTH_STATE.pendingConfirmationEmail}, then log in to connect your PixelVerse account.`
+    : 'Make an account to sync your username, streaks, badges, and creations across devices.';
   if(email){
     email.hidden=!signedIn;
     email.textContent=userEmail?'Email connected':'';
   }
-  if(primary) primary.textContent=signedIn?'Sign out':awaitingConfirmation?'Resend verification email':'Create account';
-  if(secondary) secondary.textContent=signedIn?'Account settings':'Sign in';
+  if(primary) primary.textContent=signedIn?'Sign out':awaitingConfirmation?'Resend verification email':'Join free';
+  if(secondary) secondary.textContent=signedIn?'Account settings':'Log in';
   if(reset) reset.hidden=!signedIn;
-  if(homePrimary) homePrimary.textContent=signedIn?'Manage account':awaitingConfirmation?'Resend verification email':'Create account';
+  if(homePrimary) homePrimary.textContent=signedIn?'Manage account':awaitingConfirmation?'Resend verification email':'Join free';
   if(homeSecondary){
-    homeSecondary.textContent=signedIn?'Open Me tab':'Sign in';
+    homeSecondary.textContent=signedIn?'Open Me tab':'Log in';
     homeSecondary.hidden=false;
   }
   if(homeWrap) homeWrap.hidden=false;
-  if(splashPrimary) splashPrimary.textContent=signedIn?'Manage account':awaitingConfirmation?'Resend verification email':'Create account';
+  if(splashPrimary) splashPrimary.textContent=signedIn?'Manage account':awaitingConfirmation?'Resend verification email':'Join free';
   if(splashSecondary){
-    splashSecondary.textContent=signedIn?'Open gallery':'Sign in';
+    splashSecondary.textContent=signedIn?'Open gallery':'Log in';
     splashSecondary.hidden=false;
   }
   if(splashWrap) splashWrap.hidden=false;
   if(storageNote) storageNote.textContent=signedIn
-    ? 'PixelVerse account connected. You stay signed in unless you sign out.'
+    ? 'Your PixelVerse account is connected. You stay logged in unless you sign out.'
     : awaitingConfirmation
-      ? 'Your account was created. Confirm your email, then sign in to sync and share.'
-    : 'Play now. Create an account later when you want to sync or share to PixelVerse.';
+      ? 'Your account is ready. Confirm your email, then log in to sync and share.'
+    : 'Start making now. Make an account later when you want to sync or post to PixelVerse.';
   syncAuthProviders();
   refreshPlanUI();
   syncAdminControls();
@@ -1210,14 +1242,14 @@ function syncAuthModal(){
     card.classList.toggle('auth-signup-mode', isSignup);
   }
   if(badge) badge.textContent=isReset?'Password reset':isSignup?'New account':'Account';
-  if(title) title.textContent=isReset?'Reset password':isSignup?'Create account':'Sign in';
+  if(title) title.textContent=isReset?'Reset password':isSignup?'Create account':'Log in';
   if(copy) copy.textContent=isReset
     ? 'Choose a new password. You will stay signed in after saving.'
     : isSignup
       ? 'Save your art, streaks, and progress across devices.'
       : hasOAuth
-        ? 'Choose a sign-in option to reconnect.'
-        : 'Use your email and password to reconnect.';
+        ? 'Pick a login option to jump back in.'
+        : 'Use your email and password to jump back in.';
   if(help){
     help.textContent=isReset
       ? 'Use at least 6 characters for your new password.'
@@ -1228,8 +1260,8 @@ function syncAuthModal(){
       : '';
     help.hidden=!help.textContent;
   }
-  if(submit) submit.textContent=isReset?'Save new password':isSignup?'Create account':'Sign in';
-  if(switchBtn) switchBtn.textContent=isSignup?'Already have an account? Sign in':'Need an account? Sign up';
+  if(submit) submit.textContent=isReset?'Save new password':isSignup?'Create account':'Log in';
+  if(switchBtn) switchBtn.textContent=isSignup?'Already have an account? Log in':'Need an account? Sign up';
   if(switchBtn) switchBtn.hidden=isReset;
   if(resetBtn) resetBtn.hidden=isReset || isSignup;
   if(fieldLinks) fieldLinks.hidden=isReset || isSignup;
@@ -1487,75 +1519,19 @@ function requireClubFeature(feature='this feature'){
   if(isClubAccount()) return true;
   if(APP_STORE_IAP_ENABLED){
     openProInfo('feature');
-    toast(`Premium Features unlock ${feature}.`);
+    toast(`Plus adds ${feature}.`);
   }else{
     toast(`${feature} is not available in this release build.`);
   }
   return false;
 }
 
-function formatFreeSessionTime(ms){
-  const totalMinutes=Math.max(0,Math.ceil(ms/60000));
-  const hours=Math.floor(totalMinutes/60);
-  const minutes=totalMinutes%60;
-  if(hours && minutes) return `${hours}h ${minutes}m`;
-  if(hours) return `${hours}h`;
-  return `${minutes}m`;
-}
-
-function persistFreeSessionTime(){
-  try{localStorage.setItem('pc2_free_session_used_ms',String(Math.max(0,Math.floor(ST.freeSessionUsedMs||0))));}catch(e){}
-}
-
-function loadFreeSessionTime(){
-  try{
-    const used=Number(localStorage.getItem('pc2_free_session_used_ms')||0);
-    ST.freeSessionUsedMs=Number.isFinite(used) ? Math.max(0,used) : 0;
-  }catch(e){
-    ST.freeSessionUsedMs=0;
-  }
-  ST.freeSessionLastTick=Date.now();
-}
-
-function tickFreeSessionTime(){
-  const now=Date.now();
-  if(ST.freeSessionLastTick===null) ST.freeSessionLastTick=now;
-  if(!isClubAccount() && document.visibilityState!=='hidden'){
-    const delta=Math.max(0,Math.min(now-ST.freeSessionLastTick,60000));
-    ST.freeSessionUsedMs=Math.min(FREE_SESSION_LIMIT_MS,ST.freeSessionUsedMs+delta);
-    persistFreeSessionTime();
-  }
-  ST.freeSessionLastTick=now;
-}
-
-function startFreeSessionClock(){
-  loadFreeSessionTime();
-  document.addEventListener('visibilitychange',()=>tickFreeSessionTime());
-  setInterval(tickFreeSessionTime,15000);
-}
-
-function freeSessionLimitReached(){
-  tickFreeSessionTime();
-  return !isClubAccount() && (ST.freeSessionUsedMs||0)>=FREE_SESSION_LIMIT_MS;
-}
-
 function canStartCreativeSession(){
-  if(!APP_STORE_IAP_ENABLED) return true;
-  if(!freeSessionLimitReached()) return true;
-  openProInfo('limit');
-  return false;
+  return true;
 }
 
 function maybeShowSuccessUpgradePrompt(reason='success'){
-  if(!APP_STORE_IAP_ENABLED) return;
-  if(isClubAccount() || freeSessionLimitReached()) return;
-  if((ST.freeSessionUsedMs||0)<5*60*1000) return;
-  try{
-    const key='pc2_plus_success_prompt_day';
-    if(localStorage.getItem(key)===dayStamp()) return;
-    localStorage.setItem(key,dayStamp());
-  }catch(e){}
-  setTimeout(()=>openProInfo(reason),850);
+  return;
 }
 
 function saveLocalAccountTier(tier=ST.accountTier, proSince=ST.proSince){
@@ -1651,15 +1627,15 @@ function openProInfo(reason='default'){
       copy.textContent='This App Store release is free to use. Purchase options are hidden until in-app purchases are fully enabled and tested.';
     }else if(reason==='limit'){
       title.textContent='You’re on a roll!';
-      copy.textContent='The app stays free to download. Plus is the single optional upgrade for unlimited saves, bigger animations, and watermark-free exports.';
+      copy.textContent='Free includes the full drawing studio, templates, 10 save slots, 3-frame animation, PNG/JPG exports, watermarked animated stickers, challenges, XP, badges, and public posting. Plus adds more room and removes animation watermarks.';
       if(primary) primary.textContent=subscribeText;
     }else if(reason==='success'){
       title.textContent='Ready for more room to create?';
-      copy.textContent='Plus is the only paid upgrade: one monthly subscription for premium tools, unlimited saves, and watermark-free animations.';
+      copy.textContent='Plus is the optional upgrade for unlimited saves, unlimited animation frames, watermark-free animations, and extra packs.';
       if(primary) primary.textContent=subscribeText;
     }else{
       title.textContent='Pixel Sprite Vibe Plus';
-      copy.textContent='Download and draw for free. Upgrade only if you want unlimited projects, bigger animations, and watermark-free exports.';
+      copy.textContent='Draw for free with blank canvases, templates, exports, challenges, XP, badges, and public gallery posting. Upgrade only when you want unlimited saves, bigger animations, and no animation watermark.';
     }
   }
   if(primary) primary.dataset.idleText=primary.textContent;
@@ -2457,11 +2433,11 @@ const STORAGE_LIMITS = {
 };
 
 const RELEASE_FLAGS = {
-  challenges: false,
+  challenges: true,
   progression: true,
-  socialProof: false,
-  templateColoring: false,
-  templateChallenges: false,
+  socialProof: true,
+  templateColoring: true,
+  templateChallenges: true,
   premiumY2K: false,
 };
 
@@ -2564,19 +2540,19 @@ const CHALLENGES = [
     ],
   },
   {
-    name:'Ghost Pet', emoji:'👻', xp:120,
-    desc:'Create your spirit animal companion',
+    name:'Cozy Pet', emoji:'🐾', xp:120,
+    desc:'Create your dream pet sidekick',
     accent:['#8B5CF6','#60A5FA'],
     starters:[
-      {id:'ghost', kind:'template', name:'Ghost Pet'},
-      {id:'cat', kind:'template', name:'Ghost Cat'},
-      {id:'dog', kind:'template', name:'Ghost Pup'},
+      {id:'cat', kind:'template', name:'Cozy Cat'},
+      {id:'dog', kind:'template', name:'Cozy Pup'},
+      {id:'kawaii_bunny', kind:'template', name:'Cozy Bunny'},
     ],
     feed:[
-      {id:'ghost', kind:'template', creator:'MoonMochi', label:'Translucent sparkle pet'},
-      {id:'cat', kind:'template', creator:'NightPixel', label:'Haunted kitty glow'},
-      {id:'dog', kind:'template', creator:'CloudPaw', label:'Friendly spirit buddy'},
-      {id:'alien', kind:'template', creator:'NovaTail', label:'Eerie cosmic pet'},
+      {id:'cat', kind:'template', creator:'MoonMochi', label:'Sleepy star-cat remix'},
+      {id:'dog', kind:'template', creator:'NightPixel', label:'Cloud pup with glow collar'},
+      {id:'kawaii_bunny', kind:'template', creator:'CloudPaw', label:'Soft pastel bunny buddy'},
+      {id:'alien', kind:'template', creator:'NovaTail', label:'Cosmic pet pal remix'},
     ],
   },
   {
@@ -2617,12 +2593,12 @@ const CHALLENGES = [
     accent:['#10B981','#14B8A6'],
     starters:[
       {id:'dragon', kind:'template', name:'Pixel Dragon'},
-      {id:'ghost', kind:'template', name:'Spirit Dragon'},
+      {id:'alien', kind:'template', name:'Sky Dragon'},
       {id:'forest', kind:'template', name:'Dragon Forest'},
     ],
     feed:[
       {id:'dragon', kind:'template', creator:'ScaleSpark', label:'Emerald winged boss'},
-      {id:'ghost', kind:'template', creator:'RuneRay', label:'Spectral dragon hatchling'},
+      {id:'alien', kind:'template', creator:'RuneRay', label:'Sky dragon hatchling'},
       {id:'forest', kind:'template', creator:'MythMint', label:'Forest lair scene'},
       {id:'alien', kind:'template', creator:'CometClaw', label:'Galactic dragon remix'},
     ],
@@ -2672,7 +2648,7 @@ const CHALLENGES = [
       {id:'character', kind:'template', creator:'HeroHalo', label:'Lead character concept'},
       {id:'alien', kind:'template', creator:'BladeBloom', label:'Future arc redesign'},
       {id:'dragon', kind:'template', creator:'QuestQuartz', label:'Hero + summon duo'},
-      {id:'ghost', kind:'template', creator:'StudioSpark', label:'Spirit companion alt'},
+      {id:'cat', kind:'template', creator:'StudioSpark', label:'Sidekick companion alt'},
     ],
   },
 ];
@@ -3109,7 +3085,7 @@ const premiumBunnyTemplate = {
 // ║   The engine reads back those pixels to build the locked bitmask    ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-window.COLORING_TEMPLATES = [
+window.LEGACY_COLORING_TEMPLATES = [
 
 // ── KAWAII BUNNY ────────────────────────────────────────────────────────
 {
@@ -3355,6 +3331,89 @@ window.COLORING_TEMPLATES = [
   },
 },
 
+];
+
+window.COLORING_TEMPLATES = [
+  {
+    id: 'color_bunny',
+    name: 'Bunny Bestie',
+    ico: '🐰',
+    tag: 'new',
+    size: 96,
+    outlineSrc: 'assets/coloring/bunny-hearts.png',
+    palette: ['#FFF8F6','#F8B7CD','#FF6FA5','#FF9CB6','#BCA7FF','#7CE7D9','#FFD166','#FFFFFF'],
+    paletteNames: ['Cream','Blush','Pink','Rosy','Lavender','Mint','Gold','White'],
+  },
+  {
+    id: 'color_kitty',
+    name: 'Kitty Charm',
+    ico: '🐱',
+    tag: 'new',
+    size: 96,
+    outlineSrc: 'assets/coloring/kitty-hearts.png',
+    palette: ['#F7F3FF','#CBA8F7','#9ED8F4','#FF9CB6','#FFD166','#7CE7D9','#FFFFFF','#2B2422'],
+    paletteNames: ['Vanilla','Lilac','Sky','Pink','Gold','Mint','White','Outline'],
+  },
+  {
+    id: 'color_ribbon_heart',
+    name: 'Ribbon Heart',
+    ico: '💗',
+    tag: '',
+    size: 96,
+    outlineSrc: 'assets/coloring/ribbon-heart.png',
+    palette: ['#FF2D8B','#FF6FA5','#FFD6E8','#BCA7FF','#7CE7D9','#FFD166','#FFFFFF','#1E1E1E'],
+    paletteNames: ['Hot Pink','Candy','Soft Pink','Lavender','Mint','Gold','White','Outline'],
+  },
+  {
+    id: 'color_sleepy_star',
+    name: 'Sleepy Star',
+    ico: '⭐',
+    tag: '',
+    size: 96,
+    outlineSrc: 'assets/coloring/sleepy-star.png',
+    palette: ['#FFD700','#FFEC6E','#FFF4B2','#8ED7FF','#BCA7FF','#FF9CB6','#FFFFFF','#1E1E1E'],
+    paletteNames: ['Gold','Sunbeam','Pale','Sky','Lavender','Blush','White','Outline'],
+  },
+  {
+    id: 'color_dino_hero',
+    name: 'Dino Hero',
+    ico: '🦖',
+    tag: 'new',
+    size: 96,
+    outlineSrc: 'assets/coloring/dino-hero.png',
+    palette: ['#5CCF6F','#7ED957','#FFB703','#F77F00','#3A86FF','#BCA7FF','#FFFFFF','#222222'],
+    paletteNames: ['Leaf','Lime','Sun','Orange','Blue','Lilac','White','Outline'],
+  },
+  {
+    id: 'color_power_bot',
+    name: 'Power Bot',
+    ico: '🤖',
+    tag: 'new',
+    size: 96,
+    outlineSrc: 'assets/coloring/power-bot.png',
+    palette: ['#00B4D8','#3A86FF','#8338EC','#ADB5BD','#FFBE0B','#FB5607','#FFFFFF','#111111'],
+    paletteNames: ['Cyan','Blue','Purple','Steel','Bolt','Orange','White','Outline'],
+  },
+  {
+    id: 'color_monster_truck',
+    name: 'Monster Truck',
+    ico: '🚙',
+    tag: '',
+    size: 96,
+    outlineSrc: 'assets/coloring/monster-truck.png',
+    palette: ['#FF3B30','#FF9500','#FFD60A','#34C759','#007AFF','#5856D6','#FFFFFF','#111111'],
+    paletteNames: ['Red','Orange','Yellow','Green','Blue','Indigo','White','Outline'],
+  },
+  {
+    id: 'color_sky_dragon',
+    name: 'Sky Dragon',
+    ico: '🐉',
+    tag: '',
+    size: 96,
+    outlineSrc: 'assets/coloring/sky-dragon.png',
+    palette: ['#5E60CE','#64DFDF','#80ED99','#FF9F1C','#E76F51','#F4A261','#FFFFFF','#111111'],
+    paletteNames: ['Violet','Aqua','Mint','Amber','Coral','Peach','White','Outline'],
+  },
 ];
 
 // Animated multi-frame templates — each entry has frameDrawers array
@@ -6986,10 +7045,20 @@ function drawCanvasToolLineOverlay(ctx){
 }
 
 function paintPixel(ctx,x,y){
-  if(isLocked(x,y)) return; // never paint over outline
   const b=ST.tool==='eraser' ? eraserSize : ST.brushSize;
-  if(ST.tool==='eraser'){ ctx.clearRect(x,y,b,b); if(ST.mirror) ctx.clearRect(ST.size-x-b,y,b,b); }
-  else{ ctx.fillStyle=ST.color; ctx.fillRect(x,y,b,b); if(ST.mirror) ctx.fillRect(ST.size-x-b,y,b,b); }
+  const paintAt = (px, py) => {
+    for(let yy=py; yy<py+b; yy++) for(let xx=px; xx<px+b; xx++){
+      if(xx<0 || xx>=ST.size || yy<0 || yy>=ST.size) continue;
+      if(isLocked(xx,yy) || !isFillableColoringPixel(xx,yy)) continue;
+      if(ST.tool==='eraser') ctx.clearRect(xx,yy,1,1);
+      else{
+        ctx.fillStyle=ST.color;
+        ctx.fillRect(xx,yy,1,1);
+      }
+    }
+  };
+  paintAt(x,y);
+  if(ST.mirror) paintAt(ST.size-x-b,y);
 }
 
 function handleDraw([x,y], isDown){
@@ -7028,6 +7097,12 @@ function handleDraw([x,y], isDown){
 // ── FLOOD FILL ────────────────────────────────────────
 function floodFill(ctx,sx,sy,fc){
   if(isLocked(sx,sy)) return; // can't fill outline pixels
+  if(ST.coloringMode && ST.pixelToRegionId){
+    const regionId = ST.pixelToRegionId[sy * ST.size + sx];
+    if(regionId < 0) return;
+    fillColoringRegion(ctx, regionId, fc);
+    return;
+  }
   const img=ctx.getImageData(0,0,ST.size,ST.size),d=img.data;
   const i0=(sy*ST.size+sx)*4,tr=d[i0],tg=d[i0+1],tb=d[i0+2],ta=d[i0+3];
   const rgb=hexToRGB(fc); if(!rgb) return;
@@ -7090,8 +7165,158 @@ function isLocked(x,y){
   return i >= 0 && i < ST.locked.length && ST.locked[i] === 1;
 }
 
-// Load a coloring template: switch to 32×32, draw outline to overlay canvas,
-// build Uint8Array bitmask, push suggested palette, enter coloring mode
+function isFillableColoringPixel(x,y){
+  if(!ST.coloringMode || !ST.pixelToRegionId) return true;
+  const i = y * ST.size + x;
+  return i >= 0 && i < ST.pixelToRegionId.length && ST.pixelToRegionId[i] >= 0;
+}
+
+function discoverFillRegionsFromMask(locked, size, minRegionSize = 6){
+  const visited = new Uint8Array(size * size);
+  const pixelToRegionId = new Int32Array(size * size);
+  pixelToRegionId.fill(-1);
+  const regions = [];
+
+  for(let y=0;y<size;y++) for(let x=0;x<size;x++){
+    const start = y * size + x;
+    if(visited[start] || locked[start]) continue;
+
+    const pixels = [];
+    const stack = [start];
+    let touchesEdge = false;
+    let minX = x, maxX = x, minY = y, maxY = y;
+    visited[start] = 1;
+
+    while(stack.length){
+      const index = stack.pop();
+      const cx = index % size;
+      const cy = Math.floor(index / size);
+      pixels.push(index);
+
+      if(cx === 0 || cy === 0 || cx === size - 1 || cy === size - 1) touchesEdge = true;
+      if(cx < minX) minX = cx;
+      if(cx > maxX) maxX = cx;
+      if(cy < minY) minY = cy;
+      if(cy > maxY) maxY = cy;
+
+      const neighbors = [index + 1, index - 1, index + size, index - size];
+      for(const next of neighbors){
+        if(next < 0 || next >= locked.length || visited[next] || locked[next]) continue;
+        const nx = next % size;
+        const ny = Math.floor(next / size);
+        if(Math.abs(nx - cx) + Math.abs(ny - cy) !== 1) continue;
+        visited[next] = 1;
+        stack.push(next);
+      }
+    }
+
+    if(touchesEdge || pixels.length < minRegionSize) continue;
+    const id = regions.length;
+    pixels.forEach(index => { pixelToRegionId[index] = id; });
+    regions.push({ id, pixels, size: pixels.length, bounds: { minX, minY, maxX, maxY } });
+  }
+
+  return { regions, pixelToRegionId };
+}
+
+function fillColoringRegion(ctx, regionId, color){
+  const region = ST.fillRegions?.[regionId];
+  const rgb = hexToRGB(color);
+  if(!region || !rgb) return false;
+
+  const img = ctx.getImageData(0, 0, ST.size, ST.size);
+  const d = img.data;
+  let changed = false;
+  region.pixels.forEach(pixelIndex => {
+    const i = pixelIndex * 4;
+    if(d[i] === rgb.r && d[i+1] === rgb.g && d[i+2] === rgb.b && d[i+3] === 255) return;
+    d[i] = rgb.r;
+    d[i+1] = rgb.g;
+    d[i+2] = rgb.b;
+    d[i+3] = 255;
+    changed = true;
+  });
+  if(changed) ctx.putImageData(img, 0, 0);
+  return changed;
+}
+
+const coloringTemplateImageCache = new Map();
+
+function loadTemplateImage(src){
+  if(coloringTemplateImageCache.has(src)) return coloringTemplateImageCache.get(src);
+  const promise = new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Unable to load coloring template: ${src}`));
+    img.src = src;
+  });
+  coloringTemplateImageCache.set(src, promise);
+  return promise;
+}
+
+function normalizeOutlineImageData(ctx, size, { whiteThreshold = 226, outlineThreshold = 214, thicken = 1 } = {}){
+  const img = ctx.getImageData(0, 0, size, size);
+  const src = img.data;
+  const mask = new Uint8Array(size * size);
+
+  for(let i=0;i<mask.length;i++){
+    const offset = i * 4;
+    const alpha = src[offset + 3];
+    const r = src[offset];
+    const g = src[offset + 1];
+    const b = src[offset + 2];
+    const luminance = (r * 299 + g * 587 + b * 114) / 1000;
+    if(alpha > 10 && luminance < outlineThreshold && !(r > whiteThreshold && g > whiteThreshold && b > whiteThreshold)){
+      mask[i] = 1;
+    }
+  }
+
+  const strengthened = new Uint8Array(mask);
+  if(thicken > 0){
+    for(let y=0;y<size;y++) for(let x=0;x<size;x++){
+      const i = y * size + x;
+      if(!mask[i]) continue;
+      for(let dy=-thicken;dy<=thicken;dy++) for(let dx=-thicken;dx<=thicken;dx++){
+        if(Math.abs(dx) + Math.abs(dy) > thicken) continue;
+        const nx = x + dx;
+        const ny = y + dy;
+        if(nx<0 || nx>=size || ny<0 || ny>=size) continue;
+        strengthened[ny * size + nx] = 1;
+      }
+    }
+  }
+
+  const out = ctx.createImageData(size, size);
+  for(let i=0;i<strengthened.length;i++){
+    const offset = i * 4;
+    if(strengthened[i]){
+      out.data[offset] = 52;
+      out.data[offset + 1] = 39;
+      out.data[offset + 2] = 31;
+      out.data[offset + 3] = 255;
+    }
+  }
+  ctx.putImageData(out, 0, 0);
+}
+
+async function drawTemplateOutline(ctx, tmpl, size = tmpl.size){
+  ctx.clearRect(0, 0, size, size);
+  ctx.imageSmoothingEnabled = false;
+  if(tmpl.outlineSrc){
+    const img = await loadTemplateImage(tmpl.outlineSrc);
+    ctx.save();
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, size, size);
+    ctx.restore();
+    normalizeOutlineImageData(ctx, size, tmpl.outlineOptions);
+    return;
+  }
+  if(typeof tmpl.drawOutline === 'function') tmpl.drawOutline(ctx);
+}
+
+// Load a coloring template, draw a locked outline layer, discover fill regions,
+// push suggested palette, and enter coloring mode.
 function loadColoringTemplate(id){
   if(!canStartCreativeSession()) return;
   if(!isTemplateVisible(id)){
@@ -7100,29 +7325,32 @@ function loadColoringTemplate(id){
   }
   const tmpl = COLORING_TEMPLATES.find(t => t.id === id);
   if(!tmpl) return;
+  updateFirstVibeProgress('picked');
 
-  // Switch to correct canvas size
+  // Switch to correct canvas size and start the coloring page clean.
   if(ST.size !== tmpl.size){
     ST.size = tmpl.size;
-    ST.frames=[]; ST.undoStacks=[]; ST.undoIdx=[];
-    ['mc','oc','sel-canvas','grid-canvas','outline-canvas'].forEach(id=>{
-      const e=document.getElementById(id); if(!e) return;
-      e.width=ST.size; e.height=ST.size;
-    });
     document.querySelectorAll('.sz-btn').forEach(b=>b.classList.toggle('on',+b.dataset.sz===tmpl.size));
   }
+  ST.frames=[]; ST.textFrames=[]; ST.undoStacks=[]; ST.undoTextStacks=[]; ST.undoIdx=[]; ST.currentFrame=0; clearTextSelection();
+  ['mc','oc','text-canvas','sel-canvas','grid-canvas','outline-canvas'].forEach(id=>{
+    const e=document.getElementById(id); if(!e) return;
+    e.width=ST.size; e.height=ST.size;
+  });
 
   // Navigate to canvas
   showTab('create');
-  setTimeout(()=>{
+  setTimeout(async ()=>{
+    try{
     initCanvas();
+    document.getElementById('cvs-wrap')?.classList.add('coloring-active');
     document.getElementById('pname').textContent = tmpl.name.toLowerCase().replace(/ /g,'-')+'.px';
 
     // ── Draw outline onto the overlay canvas (always on top) ──
     const oc = document.getElementById('outline-canvas');
     const octx = oc.getContext('2d');
     octx.clearRect(0, 0, tmpl.size, tmpl.size);
-    tmpl.drawOutline(octx);
+    await drawTemplateOutline(octx, tmpl);
 
     // ── Build locked bitmask from what was just drawn ──
     const imgData = octx.getImageData(0, 0, tmpl.size, tmpl.size);
@@ -7133,10 +7361,14 @@ function loadColoringTemplate(id){
       ST.locked[i] = d[i*4+3] > 60 ? 1 : 0;
     }
 
-    // ── Count colorable fill regions (flood-fill based) ──
-    ST.fillRegionCount = countFillRegions();
+    // ── Discover enclosed fill regions, ignoring page background ──
+    const fillMap = discoverFillRegionsFromMask(ST.locked, tmpl.size);
+    ST.fillRegions = fillMap.regions;
+    ST.pixelToRegionId = fillMap.pixelToRegionId;
+    ST.fillRegionCount = ST.fillRegions.length;
     ST.coloringMode = true;
     ST.coloringTemplate = tmpl;
+    ST._completedThisSession = false;
 
     // ── Push suggested palette into palette bar ──
     applyColoringPalette(tmpl.palette);
@@ -7150,6 +7382,10 @@ function loadColoringTemplate(id){
     flash();
     Economy.track('template:load', { id: tmpl.id, type: 'coloring' });
     toast(`${tmpl.ico || '🎨'} ${tmpl.name} — color it in!`);
+    }catch(err){
+      console.warn(err);
+      toast('Could not load that coloring page.');
+    }
   }, 50);
 }
 
@@ -7170,6 +7406,7 @@ function applyColoringPalette(colors){
 
 // Count distinct colorable (non-locked) connected regions using flood fill
 function countFillRegions(){
+  if(ST.fillRegions?.length) return ST.fillRegions.length;
   const size = ST.size;
   const vis = new Uint8Array(size * size);
   // Mark all locked pixels as visited
@@ -7192,12 +7429,30 @@ function countFillRegions(){
   return count;
 }
 
-// Check if all colorable regions have been filled (no transparent pixels remain)
+// Check if all enclosed coloring regions have been filled.
 function checkCompletion(){
   if(!ST.coloringMode || !ST.locked) return;
   const ctx = document.getElementById('mc').getContext('2d');
   const img = ctx.getImageData(0,0,ST.size,ST.size);
   const d = img.data;
+
+  if(ST.pixelToRegionId && !ST.fillRegions?.length) return;
+
+  if(ST.fillRegions?.length){
+    let filledRegions = 0;
+    ST.fillRegions.forEach(region => {
+      let paintedPixels = 0;
+      region.pixels.forEach(pixelIndex => {
+        if(d[pixelIndex * 4 + 3] > 0) paintedPixels++;
+      });
+      if(paintedPixels / region.size >= 0.65) filledRegions++;
+    });
+    if(filledRegions >= ST.fillRegions.length){
+      triggerColoringComplete();
+    }
+    return;
+  }
+
   let emptyCount = 0;
   for(let i=0;i<ST.locked.length;i++){
     if(!ST.locked[i] && d[i*4+3] === 0) emptyCount++;
@@ -7268,7 +7523,10 @@ function clearColoringMode(){
   ST.coloringMode = false;
   ST.coloringTemplate = null;
   ST.fillRegionCount = 0;
+  ST.fillRegions = [];
+  ST.pixelToRegionId = null;
   ST._completedThisSession = false;
+  document.getElementById('cvs-wrap')?.classList.remove('coloring-active');
   // Clear outline overlay
   const oc = document.getElementById('outline-canvas');
   if(oc) oc.getContext('2d').clearRect(0,0,oc.width,oc.height);
@@ -7280,33 +7538,58 @@ function clearColoringMode(){
   toast('✏️ Free draw mode');
 }
 
+const COLORING_PAGE_META = {
+  color_bunny: { displayName:'Bunny Bestie', group:'Cute pets', difficulty:'Easy · 5 min' },
+  color_kitty: { displayName:'Kitty Charm', group:'Cute pets', difficulty:'Easy · 5 min' },
+  color_ribbon_heart: { displayName:'Ribbon Heart', group:'Sweet stickers', difficulty:'Medium · 8 min' },
+  color_sleepy_star: { displayName:'Sleepy Star', group:'Magic', difficulty:'Easy · 5 min' },
+  color_dino_hero: { displayName:'Dino Hero', group:'Adventure', difficulty:'Detailed · 12 min' },
+  color_power_bot: { displayName:'Power Bot', group:'Robots', difficulty:'Detailed · 12 min' },
+  color_monster_truck: { displayName:'Monster Truck', group:'Action', difficulty:'Detailed · 15 min' },
+  color_sky_dragon: { displayName:'Sky Dragon', group:'Fantasy', difficulty:'Detailed · 12 min' },
+};
+
+function coloringPageMeta(t){
+  return COLORING_PAGE_META[t.id] || { displayName:t.name, group:'Coloring page', difficulty:'Easy · 5 min' };
+}
+
+function renderColoringPreview(ctx, sz, t){
+  const tmp = document.createElement('canvas');
+  tmp.width = t.size; tmp.height = t.size;
+  const tc = tmp.getContext('2d');
+  const paint = () => {
+    const img = tc.getImageData(0,0,t.size,t.size);
+    for(let i=0;i<img.data.length;i+=4){
+      if(img.data[i+3]>60){
+        img.data[i]=62; img.data[i+1]=46; img.data[i+2]=54; img.data[i+3]=255;
+      }
+    }
+    tc.putImageData(img,0,0);
+    ctx.clearRect(0,0,sz,sz);
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(tmp,0,0,sz,sz);
+  };
+  if(t.outlineSrc){
+    drawTemplateOutline(tc, t).then(paint).catch(()=>{});
+  }else{
+    drawTemplateOutline(tc, t).then(paint);
+  }
+}
+
 // Build the Studio coloring templates grid
 function buildColoringGrid(){
   const el = document.getElementById('tmpl-coloring'); if(!el) return; el.innerHTML='';
   if(!featureEnabled('templateColoring')) return;
   COLORING_TEMPLATES.forEach(t=>{
+    const meta = coloringPageMeta(t);
     const card = makeTmplCard({
       badgeTag: t.tag,
-      name: t.name,
+      name: meta.displayName,
       coloringStyle: true,
-      previewFn: (ctx, sz) => {
-        // Draw outline preview in soft cocoa for kawaii line art
-        const tmp = document.createElement('canvas');
-        tmp.width = t.size; tmp.height = t.size;
-        const tc = tmp.getContext('2d');
-        t.drawOutline(tc);
-        // Recolor black pixels to soft cocoa for warm, friendly contrast
-        const img = tc.getImageData(0,0,t.size,t.size);
-        for(let i=0;i<img.data.length;i+=4){
-          if(img.data[i+3]>60){
-            img.data[i]=62;img.data[i+1]=46;img.data[i+2]=54;img.data[i+3]=255;
-          }
-        }
-        tc.putImageData(img,0,0);
-        ctx.imageSmoothingEnabled=false;
-        const scale=sz/t.size;
-        ctx.drawImage(tmp,0,0,sz,sz);
-      },
+      subtitle: meta.group,
+      cta: 'Open page',
+      previewSrc: t.outlineSrc || '',
+      previewFn: t.outlineSrc ? null : ((ctx, sz) => renderColoringPreview(ctx, sz, t)),
       onclick: ()=>loadColoringTemplate(t.id),
     });
     el.appendChild(card);
@@ -7344,6 +7627,7 @@ function buildFramesUI(){
 function startBlank(size){
   if(!canStartCreativeSession()) return;
   if(ST.coloringMode) clearColoringMode();
+  updateFirstVibeProgress('picked');
   ST.size=size; ST.frames=[]; ST.textFrames=[]; ST.undoStacks=[]; ST.undoTextStacks=[]; ST.undoIdx=[]; clearTextSelection();
   showTab('create');
   setTimeout(()=>{
@@ -7361,7 +7645,7 @@ function addFrame(){
   if(maxFrames!==Infinity && ST.frames.length>=maxFrames){
     if(APP_STORE_IAP_ENABLED) openProInfo('feature');
     toast(APP_STORE_IAP_ENABLED
-      ? `Free animations include ${maxFrames} frames. Premium Features unlock unlimited frames.`
+      ? `Free animations include ${maxFrames} frames. Plus adds unlimited animation frames.`
       : `This release supports up to ${maxFrames} animation frames.`);
     return;
   }
@@ -7438,7 +7722,7 @@ function dupFrame(){
   if(maxFrames!==Infinity && ST.frames.length>=maxFrames){
     if(APP_STORE_IAP_ENABLED) openProInfo('feature');
     toast(APP_STORE_IAP_ENABLED
-      ? `Free animations include ${maxFrames} frames. Premium Features unlock unlimited frames.`
+      ? `Free animations include ${maxFrames} frames. Plus adds unlimited animation frames.`
       : `This release supports up to ${maxFrames} animation frames.`);
     return;
   }
@@ -7628,6 +7912,7 @@ function runFX(type){
   const need=fxToUnlock[type];
   if(need&&!requireUnlock(need)) return;
   if(!ST.frames.length) return;
+  updateFirstVibeProgress('fx');
   captureFrame();
   const mc=document.getElementById('mc'), sz=ST.size;
   // Determine which frames to process: glow/sparkle → all frames; others → current only
@@ -8429,9 +8714,9 @@ function openSaveProjectModal(){
   if(note){
     const saveLimit=getMaxSavedProjects();
     const limitText=saveLimit===Infinity
-      ? 'Premium Features include unlimited saved creations.'
+      ? 'Plus includes unlimited saved creations.'
       : APP_STORE_IAP_ENABLED
-        ? `Free includes ${saveLimit} save slots. Premium Features unlock unlimited saves.`
+        ? `Free includes ${saveLimit} save slots. Plus adds unlimited saves.`
         : `This release supports ${saveLimit} save slots.`;
     note.textContent=hasCloudAccount()
       ? `Saved creations sync to your account. ${limitText} Public Gallery posting is free.`
@@ -8458,6 +8743,7 @@ async function confirmSaveProject(openGallery=false){
   document.getElementById('pname').textContent=finalName;
   const saved=upsertProject(makeProjectSnapshot(finalName,{category}),{reward:true});
   if(saved){
+    updateFirstVibeProgress('saved');
     let cloudSaveOk=!hasCloudAccount();
     if(hasCloudAccount()){
       const syncResult=await syncCloudProjects();
@@ -9032,12 +9318,14 @@ function refreshDailyVibe(){
   const title=document.getElementById('daily-vibe-title');
   const action=document.querySelector('#daily-vibe-card .daily-vibe-action');
   const reward=document.getElementById('daily-vibe-reward');
+  const progress=document.getElementById('daily-vibe-counter-value');
   const prompt=getDailyVibePrompt();
   const done=localStorage.getItem('pc2_daily_vibe_done')===dayStamp();
   const active=(ST.activeDailyVibeKey || localStorage.getItem('pc2_daily_vibe_active'))===dayStamp();
   if(title) title.textContent=prompt.title;
-  if(action) action.textContent=done?'Completed today':active?'Create & save':'Start prompt';
-  if(reward) reward.textContent=done?'New vibe drops tomorrow':'Save to reveal today’s Vibe Drop';
+  if(action) action.textContent=done?'Reward claimed':active?'Create + save':'Start now';
+  if(reward) reward.textContent=done?'A fresh drop lands tomorrow.':active?'Save this one to unlock today’s surprise.':'Save your art to unlock a little surprise.';
+  if(progress) progress.textContent=done?'1/1':'0/1';
 }
 
 function startDailyPrompt(){
@@ -9096,6 +9384,153 @@ function completeDailyVibeIfEligible(){
   };
 }
 
+function renderHeroShowcaseFrame(stepIndex=0){
+  const canvas=document.getElementById('hero-showcase-canvas');
+  if(!canvas) return;
+  const titleEl=document.getElementById('hero-showcase-title');
+  const subEl=document.getElementById('hero-showcase-sub');
+  const ctx=canvas.getContext('2d');
+  const step=HERO_SHOWCASE_STEPS[stepIndex % HERO_SHOWCASE_STEPS.length];
+  const drawer=DRAWERS[step.drawer] || DRAWERS.kawaii_bunny;
+  if(titleEl) titleEl.textContent=step.title;
+  if(subEl) subEl.textContent=step.sub;
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#f6f3ff';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='rgba(139,92,246,.06)';
+  for(let x=0;x<canvas.width;x+=8){
+    for(let y=0;y<canvas.height;y+=8){
+      if((x+y)%16===0) ctx.fillRect(x,y,4,4);
+    }
+  }
+
+  const tmp=document.createElement('canvas');
+  tmp.width=32;
+  tmp.height=32;
+  const tctx=tmp.getContext('2d');
+  tctx.clearRect(0,0,32,32);
+  drawer(tctx);
+  applyTemplateStylePass(tctx,32,32,step.style);
+
+  ctx.save();
+  ctx.globalAlpha=.16;
+  ctx.drawImage(tmp,0,0,32,32,10,10,76,76);
+  ctx.restore();
+
+  const revealWidth=Math.max(2,Math.floor(76*(step.reveal||1)));
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(10,10,revealWidth,76);
+  ctx.clip();
+  ctx.drawImage(tmp,0,0,32,32,10,10,76,76);
+  ctx.restore();
+
+  if(step.reveal>=1){
+    ctx.fillStyle='#ff8cc6';
+    ctx.fillRect(72,18,4,4);
+    ctx.fillStyle='#81e6ff';
+    ctx.fillRect(22,72,4,4);
+    ctx.fillStyle='#ffd66b';
+    ctx.fillRect(77,72,5,5);
+  }
+}
+
+function startHeroShowcaseLoop(){
+  renderHeroShowcaseFrame(HERO_SHOWCASE_INDEX);
+  if(HERO_SHOWCASE_TIMER) return;
+  HERO_SHOWCASE_TIMER=setInterval(()=>{
+    HERO_SHOWCASE_INDEX=(HERO_SHOWCASE_INDEX+1)%HERO_SHOWCASE_STEPS.length;
+    renderHeroShowcaseFrame(HERO_SHOWCASE_INDEX);
+  },1900);
+}
+
+function resetGalleryPreviewRegistry(){
+  GALLERY_PREVIEW_REGISTRY.length=0;
+}
+
+function registerGalleryPreview(canvas,project){
+  if(!canvas || !project) return;
+  const frames=project.frames||[];
+  if(frames.length<2) return;
+  GALLERY_PREVIEW_REGISTRY.push({
+    canvas,
+    project,
+    frame:getProjectPreviewFrameIndex(project),
+  });
+}
+
+function tickGalleryPreviewLoop(){
+  for(let i=GALLERY_PREVIEW_REGISTRY.length-1;i>=0;i--){
+    const entry=GALLERY_PREVIEW_REGISTRY[i];
+    if(!entry?.canvas || !document.body.contains(entry.canvas)){
+      GALLERY_PREVIEW_REGISTRY.splice(i,1);
+      continue;
+    }
+    const size=entry.project.size||16;
+    const frames=entry.project.frames||[];
+    if(frames.length<2) continue;
+    entry.frame=(entry.frame+1)%frames.length;
+    renderStoredFramePreview(entry.canvas.getContext('2d'),entry.project,entry.frame,0,0,size,size);
+  }
+}
+
+function startGalleryPreviewLoop(){
+  if(GALLERY_PREVIEW_TIMER) return;
+  GALLERY_PREVIEW_TIMER=setInterval(tickGalleryPreviewLoop,1100);
+}
+
+function buildPixelVerseFeatured(project,theme){
+  const wrap=document.getElementById('pixelverse-featured');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  if(!project){
+    wrap.hidden=true;
+    return;
+  }
+  const creator=sanitizeGameName(project.creator||'PixelCreator');
+  const art=document.createElement('div');
+  art.className='pixelverse-featured-art';
+  if(project.thumbnailUrl || project.previewUrl){
+    const img=document.createElement('img');
+    img.alt=project.name||'Featured PixelVerse creation';
+    img.loading='lazy';
+    img.src=project.thumbnailUrl||project.previewUrl;
+    art.appendChild(img);
+  }else{
+    const cvs=document.createElement('canvas');
+    const size=project.size||16;
+    cvs.width=size;
+    cvs.height=size;
+    renderStoredFramePreview(cvs.getContext('2d'),project,getProjectPreviewFrameIndex(project),0,0,size,size);
+    art.appendChild(cvs);
+    registerGalleryPreview(cvs,project);
+  }
+  const copy=document.createElement('div');
+  copy.className='pixelverse-featured-copy';
+  copy.innerHTML=`<div class="pixelverse-featured-kicker">Featured this week</div>
+    <div class="pixelverse-featured-title">${project.name||theme}</div>
+    <div class="pixelverse-featured-sub">By ${creator} in ${project.pixelVerseTheme||theme}. A standout piece from the feed to spark your next idea.</div>`;
+  const actions=document.createElement('div');
+  actions.className='pixelverse-featured-actions';
+  const remixBtn=document.createElement('button');
+  remixBtn.type='button';
+  remixBtn.className='pixelverse-featured-btn primary';
+  remixBtn.textContent='Remix this piece';
+  remixBtn.onclick=()=>loadPublicGalleryProject(project);
+  const wallBtn=document.createElement('button');
+  wallBtn.type='button';
+  wallBtn.className='pixelverse-featured-btn';
+  wallBtn.textContent='Open the feed';
+  wallBtn.onclick=()=>openPixelVerse();
+  actions.appendChild(remixBtn);
+  actions.appendChild(wallBtn);
+  copy.appendChild(actions);
+  wrap.appendChild(art);
+  wrap.appendChild(copy);
+  wrap.hidden=false;
+}
+
 function buildHomeGallery(){
   const wrap=document.getElementById('home-gallery-strip');
   const section=document.getElementById('home-gallery-section');
@@ -9128,16 +9563,16 @@ function buildHomeGallery(){
     lbl.textContent=proj.name||`Creation ${idx+1}`;
     const sub=document.createElement('div');
     sub.className='gallery-sub';
-    sub.textContent='Tap to preview, edit, save, or export';
+    sub.textContent='Tap to open, edit, save, or export';
     const status=document.createElement('div');
     status.className='gallery-visibility-card'+(isProjectPublic(proj)?' public':' private');
     status.innerHTML=isProjectPublic(proj)
-      ? '<div class="gallery-visibility-label">PixelVerse</div><div class="gallery-visibility-copy">Shared safely. Emoji reactions only.</div>'
-      : '<div class="gallery-visibility-label">Private</div><div class="gallery-visibility-copy">Only visible in your gallery.</div>';
+      ? '<div class="gallery-visibility-label">PixelVerse</div><div class="gallery-visibility-copy">Posted safely. Emoji reactions only.</div>'
+      : '<div class="gallery-visibility-label">Private</div><div class="gallery-visibility-copy">Only you can see it in your gallery.</div>';
     const toggle=document.createElement('button');
     toggle.type='button';
     toggle.className='gallery-publish-btn';
-    toggle.textContent=isProjectPublic(proj)?'Make Private':'Share to PixelVerse';
+    toggle.textContent=isProjectPublic(proj)?'Make private':'Post to PixelVerse';
     toggle.onclick=async(e)=>{
       e.stopPropagation();
       await toggleProjectPublishing(projectIndex);
@@ -9160,13 +9595,16 @@ function buildPublicGallery(){
   if(!wrap||!section) return;
   refreshPixelVerseUI();
   wrap.innerHTML='';
+  resetGalleryPreviewRegistry();
   const displayProjects=getPixelVerseDisplayProjects();
   if(!displayProjects.length){
+    buildPixelVerseFeatured(null,'');
     section.style.display='block';
     const empty=document.createElement('div');
     empty.className='gallery-empty';
-    empty.textContent='PixelVerse is ready. Share a creation to start filling this safe creative universe.';
+    empty.textContent='PixelVerse is waiting. Post something to start filling the feed.';
     wrap.appendChild(empty);
+    refreshFirstVibeUI();
     return;
   }
   section.style.display='block';
@@ -9176,6 +9614,7 @@ function buildPublicGallery(){
     const bk=(b.pixelVerseTheme===theme?0:1)+(ST.pixelVerseFollows?.[sanitizeGameName(b.creator||'')]?-0.25:0);
     return ak-bk || String(a.name).localeCompare(String(b.name));
   });
+  buildPixelVerseFeatured(ranked[0],theme);
   ranked.forEach((proj)=>{
     const idx=displayProjects.indexOf(proj);
     if(proj.pixelVerseSafe===false) return;
@@ -9194,7 +9633,7 @@ function buildPublicGallery(){
     };
     const chip=document.createElement('div');
     chip.className='gallery-chip community';
-    chip.textContent=proj.pixelVerseTheme===theme?'Weekly Theme':'New Creation';
+    chip.textContent=proj.pixelVerseTheme===theme?'Theme Pick':'Fresh Post';
     const safe=document.createElement('div');
     safe.className='pixelverse-safe-chip';
     safe.textContent='Safe Share';
@@ -9212,6 +9651,7 @@ function buildPublicGallery(){
       cvs.height=size;
       renderStoredFramePreview(cvs.getContext('2d'),proj,getProjectPreviewFrameIndex(proj),0,0,size,size);
       previewEl=cvs;
+      registerGalleryPreview(cvs,proj);
     }
     const lbl=document.createElement('div');
     lbl.className='gallery-label';
@@ -9219,6 +9659,11 @@ function buildPublicGallery(){
     const sub=document.createElement('div');
     sub.className='gallery-sub';
     sub.textContent=`by ${creator} · tap to remix`;
+    const remixBtn=document.createElement('button');
+    remixBtn.type='button';
+    remixBtn.className='gallery-publish-btn';
+    remixBtn.textContent='Remix it';
+    remixBtn.onclick=e=>{e.stopPropagation();loadPublicGalleryProject(proj);};
     const reactions=document.createElement('div');
     reactions.className='pixelverse-reactions';
     PIXELVERSE_REACTIONS.forEach(([key,emoji,label])=>{
@@ -9254,11 +9699,13 @@ function buildPublicGallery(){
     card.appendChild(previewEl);
     card.appendChild(lbl);
     card.appendChild(sub);
+    card.appendChild(remixBtn);
     card.appendChild(reactions);
     card.appendChild(follow);
     card.appendChild(safetyActions);
     wrap.appendChild(card);
   });
+  refreshFirstVibeUI();
 }
 
 async function getSignedProjectAssetUrls(paths=[]){
@@ -9373,6 +9820,7 @@ async function loadPublicGalleryProject(projectOrIndex){
     return;
   }
   ST.size=project.size||16;
+  updateFirstVibeProgress('picked');
   ST.frames=cloneFrames(project.frames||[]);
   ST.textFrames=cloneTextFrames(project.textFrames||ST.frames.map(()=>[]));
   ST.undoStacks=ST.frames.map(frame=>[cloneImageData(frame)]);
@@ -9419,8 +9867,8 @@ function updateXPNextUnlock(){
   if(!out) return;
   const next=nextProgressionUnlock();
   out.textContent=next
-    ? `Level ${next.level} unlock: ${next.name}`
-    : 'All level rewards unlocked. Keep creating to grow your streak.';
+    ? `Next sticker: ${next.name}`
+    : 'Your sticker shelf is full. Keep your streak glowing.';
   updateProgressionBadges();
 }
 
@@ -9441,7 +9889,7 @@ function applyReleaseVisibility(){
   const profileXpStat=document.getElementById('profile-xp-stat');
   const profileBadgesSection=document.getElementById('profile-badges-section');
 
-  if(challengeHome) challengeHome.hidden = !featureEnabled('challenges');
+  if(challengeHome) challengeHome.hidden = true;
   if(levelCard) levelCard.hidden = !featureEnabled('progression');
   if(proof) proof.hidden = !featureEnabled('socialProof');
   if(winsNav) winsNav.hidden = !featureEnabled('challenges');
@@ -9484,6 +9932,96 @@ function loadEngagementState(){
   if(Number.isFinite(savedStreak)&&savedStreak>0) ST.streak=savedStreak;
   refreshStreakUI();
   updateHomeNavState('home');
+}
+
+function loadFirstVibeState(){
+  try{
+    const raw = JSON.parse(localStorage.getItem('pc2_first_vibe') || 'null');
+    FIRST_VIBE = { ...FIRST_VIBE_DEFAULT, ...(raw || {}) };
+  }catch(e){
+    FIRST_VIBE = { ...FIRST_VIBE_DEFAULT };
+  }
+}
+
+function saveFirstVibeState(){
+  try{ localStorage.setItem('pc2_first_vibe', JSON.stringify(FIRST_VIBE)); }catch(e){}
+}
+
+function isFirstVibeComplete(){
+  return !!(FIRST_VIBE.picked && FIRST_VIBE.fx && FIRST_VIBE.saved);
+}
+
+function updateFirstVibeProgress(step, value = true){
+  if(!(step in FIRST_VIBE)) return;
+  FIRST_VIBE[step] = value;
+  if(step !== 'dismissed' && value) FIRST_VIBE.started = true;
+  if(isFirstVibeComplete()) FIRST_VIBE.dismissed = true;
+  saveFirstVibeState();
+  refreshFirstVibeUI();
+  refreshCanvasCoach();
+}
+
+function firstColoringTemplateId(){
+  return COLORING_TEMPLATES?.[0]?.id || 'color_bunny';
+}
+
+function startFirstVibe(mode='coloring'){
+  FIRST_VIBE.started = true;
+  FIRST_VIBE.dismissed = false;
+  saveFirstVibeState();
+  refreshFirstVibeUI();
+  if(mode === 'blank'){
+    startBlank(16);
+    return;
+  }
+  if(mode === 'remix'){
+    openPixelVerse();
+    toast('Tap a PixelVerse creation, then make it your own.');
+    return;
+  }
+  loadColoringTemplate(firstColoringTemplateId());
+}
+
+function homeFirstVibeStepsMarkup(){
+  const steps = [
+    ['picked','Pick art'],
+    ['fx','Try FX'],
+    ['saved','Save or share'],
+  ];
+  return steps.map((item, index) => {
+    const done = FIRST_VIBE[item[0]];
+    return `<span class="home-first-vibe-step${done?' done':''}"><span class="home-first-vibe-step-num">${done?'✓':index+1}</span>${item[1]}</span>`;
+  }).join('');
+}
+
+function refreshFirstVibeUI(){
+  const card = document.getElementById('home-first-vibe');
+  if(!card) return;
+  card.hidden = true;
+}
+
+function refreshCanvasCoach(){
+  const coach = document.getElementById('canvas-coach');
+  if(!coach) return;
+  coach.hidden = true;
+}
+
+function handleCanvasCoachPrimary(){
+  if(!FIRST_VIBE.picked){
+    setTool('fill');
+    toast('Tap inside a shape to color it.');
+    return;
+  }
+  if(!FIRST_VIBE.fx){
+    toggleFXMenu();
+    toast('Sparkles and Glow live in FX.');
+    return;
+  }
+  openSaveProjectModal();
+}
+
+function dismissCanvasCoach(){
+  updateFirstVibeProgress('dismissed', true);
 }
 function buildClosetCats(){
   const el=document.getElementById('closet-cats');
@@ -9709,7 +10247,7 @@ function applyTemplateStylePass(ctx,w,h,profile='default'){
 }
 
 // ── Shared helper: build a tmpl card with live pixel preview ──
-function makeTmplCard({cls='', badgeTag='', onclick, name, previewFn, frameCount, y2kStyle=false, coloringStyle=false}){
+function makeTmplCard({cls='', badgeTag='', onclick, name, previewFn, previewSrc='', frameCount, y2kStyle=false, coloringStyle=false, subtitle='', cta='', palette=[]}){
   const d = document.createElement('div');
   d.className = 'tmpl' + (cls ? ' '+cls : '');
   if(y2kStyle) d.style.cssText='border-color:rgba(246,165,192,0.4)';
@@ -9723,9 +10261,15 @@ function makeTmplCard({cls='', badgeTag='', onclick, name, previewFn, frameCount
   const prev = document.createElement('div');
   prev.className = 'tmpl-preview';
 
-  if(previewFn){
-    // Render into offscreen canvas at size 32, display via CSS scaling
-    const previewSize = 32;
+  if(previewSrc){
+    const img = document.createElement('img');
+    img.className = 'tmpl-preview-img';
+    img.alt = name;
+    img.loading = 'lazy';
+    img.src = previewSrc;
+    prev.appendChild(img);
+  }else if(previewFn){
+    const previewSize = coloringStyle ? 96 : 32;
     const cvs = document.createElement('canvas');
     cvs.width = previewSize; cvs.height = previewSize;
     const pctx = cvs.getContext('2d');
@@ -9757,6 +10301,35 @@ function makeTmplCard({cls='', badgeTag='', onclick, name, previewFn, frameCount
     info.appendChild(b);
   }
   d.appendChild(info);
+
+  if(subtitle || cta){
+    const detail = document.createElement('div');
+    detail.className = 'tmpl-detail';
+    if(subtitle){
+      const copy = document.createElement('div');
+      copy.className = 'tmpl-sub';
+      copy.textContent = subtitle;
+      detail.appendChild(copy);
+    }
+    if(cta){
+      const action = document.createElement('div');
+      action.className = 'tmpl-cta';
+      action.textContent = cta;
+      detail.appendChild(action);
+    }
+    d.appendChild(detail);
+  }
+
+  if(palette.length){
+    const dots = document.createElement('div');
+    dots.className = 'tmpl-palette';
+    palette.slice(0,5).forEach(color=>{
+      const dot = document.createElement('span');
+      dot.style.background = color;
+      dots.appendChild(dot);
+    });
+    d.appendChild(dots);
+  }
 
   d.onclick = onclick;
   return d;
@@ -9818,23 +10391,23 @@ function buildHomeTemplates(){
       <div class="blank-preview-canvas"></div>
     </div>
     <div class="tcard-bottom">
-      <div class="tcard-name">Blank Canvas</div>
-      <div class="tcard-sub">Start from scratch right away</div>
-      <span class="tcard-tag">✦ START</span>
+      <div class="tcard-name">Blank art board</div>
+      <div class="tcard-sub">Make anything from scratch</div>
+      <span class="tcard-tag">Start here</span>
     </div>`;
   blankCard.onclick=()=>startBlank(16);
   el.appendChild(blankCard);
   const subtitleMap={
     kawaii_bunny:'kawaii-bunny.px',
     alien:'alien.px',
-    heart:'Tap, recolor, remix',
-    star:'Fast sparkle starter',
-    frog:'Cute pet starter',
-    butterfly:'Decorate wings',
-    game_avatar:'Make a tiny profile icon',
-    flower:'Soft sticker starter',
-    emoji_face:'Make an emote',
-    sword:'Game item starter',
+    heart:'A sweet sticker starter',
+    star:'A quick sparkle starter',
+    frog:'A tiny friend starter',
+    butterfly:'Color the wings your way',
+    game_avatar:'Make a tiny hero icon',
+    flower:'A soft sticker starter',
+    emoji_face:'Make a silly emote',
+    sword:'Build a game treasure',
   };
   const allStarterTemplates=[
     ...TEMPLATES.chars.map(t=>({...t,cat:'chars'})),
@@ -9849,7 +10422,7 @@ function buildHomeTemplates(){
     d.className='tcard'+(t.cat==='challenge'?' challenge':'');
     if(t.id==='kawaii_bunny' || t.id==='premium_bunny') d.classList.add('bunny');
     if(t.id==='premium_bunny') d.classList.add('premium');
-    const tag=t.tag==='hot'?'<span class="tcard-tag">🔥 HOT</span>':t.tag==='new'?'<span class="tcard-tag">✦ NEW</span>':'';
+    const tag=t.tag==='hot'?'<span class="tcard-tag">Popular</span>':t.tag==='new'?'<span class="tcard-tag">New</span>':'';
     // Preview
     const prev=document.createElement('div');prev.className='tcard-preview';
     if(DRAWERS[t.id]){
@@ -9866,7 +10439,7 @@ function buildHomeTemplates(){
       prev.className='tcard-icon';prev.textContent=t.ico;
     }
     d.appendChild(prev);
-    const subtitle=subtitleMap[t.id]|| (t.cat==='chars' ? 'Starter Character' : t.cat==='items' ? 'Customize & Design' : 'Creative Tool');
+    const subtitle=subtitleMap[t.id]|| (t.cat==='chars' ? 'Make a tiny hero' : t.cat==='items' ? 'Decorate a treasure' : 'Build a little world');
     d.insertAdjacentHTML('beforeend',`<div class="tcard-bottom"><div class="tcard-name">${t.name}</div><div class="tcard-sub">${subtitle}</div>${tag}</div>`);
     d.onclick=()=>loadTemplate(t.id,t.name);el.appendChild(d);
   });
@@ -9884,6 +10457,7 @@ function loadTemplate(id,name){
     toast('This template is coming soon.');
     return;
   }
+  updateFirstVibeProgress('picked');
   // Clear any active coloring mode
   if(ST.coloringMode) clearColoringMode();
   ST.frames=[];ST.undoStacks=[];ST.undoIdx=[];showTab('create');
@@ -10837,7 +11411,7 @@ function upsertProject(proj,{reward=true,silent=false}={}){
   if(idx<0 && maxProjects!==Infinity && ST.projects.length>=maxProjects){
     if(APP_STORE_IAP_ENABLED) openProInfo('feature');
     toast(APP_STORE_IAP_ENABLED
-      ? `Free includes ${maxProjects} save slots. Upgrade to Premium Features for unlimited saves.`
+      ? `Free includes ${maxProjects} save slots. Plus adds unlimited saves.`
       : `This release supports ${maxProjects} save slots. Delete an older save to continue.`);
     return false;
   }
@@ -10961,6 +11535,10 @@ function selectChallengeStarter(asset, opts={}){
   if(!selected) return;
   ST.challengeStarterKey=challengeAssetKey(selected);
   buildChallenges();
+  if(opts.launch){
+    startChallenge();
+    return;
+  }
   if(!opts.silent) toast(`Starter selected: ${selected.name}`);
 }
 
@@ -10980,7 +11558,7 @@ function makeChallengeStarterCard(asset, isSelected){
   bottom.className='tcard-bottom';
   bottom.innerHTML=`<div class="tcard-name">${starter.name}</div><span class="tcard-tag">${isSelected?'Selected':'Tap to use'}</span>`;
   d.appendChild(bottom);
-  d.onclick=()=>selectChallengeStarter(starter);
+  d.onclick=()=>selectChallengeStarter(starter,{launch:true});
   return d;
 }
 
@@ -10988,8 +11566,8 @@ function buildChallengeLeaderboard(curr){
   const rankEl=document.getElementById('rank-row');
   if(!rankEl) return;
   rankEl.innerHTML='';
-  const names=['PixelKing','StarDust','NeonCat','YOU','CyberPup'];
-  const medals=[{cls:'g',ico:'🥇'},{cls:'s',ico:'🥈'},{cls:'b',ico:'🥉'},{cls:'you',ico:'✦'},{cls:'',ico:'5'}];
+  const names=['PixelKing','StarDust','YOU','NeonCat'];
+  const medals=[{cls:'g',ico:'🥇'},{cls:'s',ico:'🥈'},{cls:'you',ico:'✦'},{cls:'b',ico:'🥉'}];
   names.forEach((name,i)=>{
     const d=document.createElement('div');
     d.className='rank-item';
@@ -11008,7 +11586,7 @@ function buildChallengeStarters(curr, selected){
   const el=document.getElementById('challenge-starters');
   if(!el) return;
   el.innerHTML='';
-  curr.starters.forEach(asset=>{
+  curr.starters.slice(0,4).forEach(asset=>{
     el.appendChild(makeChallengeStarterCard(asset,challengeAssetKey(asset)===challengeAssetKey(selected)));
   });
 }
@@ -11017,7 +11595,7 @@ function buildUpcomingChallenges(){
   const ul=document.getElementById('upcoming-list');
   if(!ul) return;
   ul.innerHTML='';
-  UPCOMING.forEach(u=>{
+  UPCOMING.slice(0,2).forEach(u=>{
     const d=document.createElement('div');
     d.className='up-item';
     const thumb=document.createElement('canvas');
@@ -11043,7 +11621,7 @@ function buildChallengeFeed(curr, selected){
     })),
     ...curr.feed,
   ];
-  feedEntries.forEach((entry,idx)=>{
+  feedEntries.slice(0,4).forEach((entry,idx)=>{
     const item=normalizeChallengeAsset(entry);
     const isSelectable=item.kind!=='submission';
     const card=document.createElement('div');
@@ -11087,7 +11665,7 @@ function buildChallengeFeed(curr, selected){
         toast('Your submission is now featured in this challenge!');
         return;
       }
-      selectChallengeStarter(item,{silent:false});
+      selectChallengeStarter(item,{launch:true});
     };
     fg.appendChild(card);
   });
@@ -11114,14 +11692,28 @@ function buildChallenges(){
     hero.style.background=`linear-gradient(135deg,${curr.accent[0]} 0%,${curr.accent[1]} 100%)`;
   }
   document.getElementById('ch-name').textContent=curr.name;
-  document.getElementById('ch-sub').textContent=`${curr.desc} · ${entries} entries · +${curr.xp} XP${submissions.length?` · ${submissions.length} submitted by you`:''}`;
+  document.getElementById('ch-sub').textContent=curr.desc;
+  const statsEl=document.getElementById('ch-stats');
+  if(statsEl){
+    statsEl.innerHTML='';
+    [
+      `${entries} entries`,
+      `+${curr.xp} XP`,
+      submissions.length ? `${submissions.length} by you` : `${daysLeft} days left`,
+    ].forEach(text=>{
+      const chip=document.createElement('span');
+      chip.className='ch-stat';
+      chip.textContent=text;
+      statsEl.appendChild(chip);
+    });
+  }
   const timerEl=document.getElementById('ch-timer');
   if(timerEl) timerEl.textContent=`⏱ ${daysLeft} day${daysLeft===1?'':'s'} left`;
 
   const art=document.getElementById('ch-art');
   renderChallengeCanvas(art,selected||curr.starters[0],64);
   const artCaption=document.getElementById('ch-art-caption');
-  if(artCaption && selected) artCaption.textContent=`Starter: ${selected.name}`;
+  if(artCaption) artCaption.textContent=selected ? `Starter: ${selected.name}` : 'Picked starter';
 
   buildChallengeLeaderboard(curr);
   buildChallengeStarters(curr,selected);
@@ -11324,7 +11916,8 @@ function showTab(tab){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(TAB_MAP[tab]).classList.add('active');
   document.querySelectorAll('.nt').forEach(t=>t.classList.remove('on'));
-  const nb=document.getElementById('nav-'+tab);if(nb)nb.classList.add('on');
+  const navKey=tab==='create' ? 'studio' : tab;
+  const nb=document.getElementById('nav-'+navKey);if(nb)nb.classList.add('on');
   if(tab==='create'&&!ST.frames.length) setTimeout(()=>initCanvas(),50);
   if(tab==='closet') renderCloset();
   if(tab==='home'){
@@ -11332,16 +11925,24 @@ function showTab(tab){
     buildHomeProof();
     buildHomeGallery();
     buildPublicGallery();
+    refreshFirstVibeUI();
     loadPublicGalleryProjects().catch(err=>console.warn('[Supabase public gallery]', err));
     refreshStreakUI();
     updateXPNextUnlock();
   }
   if(tab==='challenges') buildChallenges();
-  if(tab==='create') setTimeout(()=>updateChallengeSubmitUI(),70);
+  if(tab==='create') setTimeout(()=>{updateChallengeSubmitUI();refreshCanvasCoach();},70);
   updateHomeNavState(tab);
   closeFXMenu();closeAnimMenu();
 }
 function openStudio(){showTab('studio');}
+function openDrawingBoard(){
+  if(ST.frames.length){
+    showTab('create');
+    return;
+  }
+  startBlank(16);
+}
 function openPixelVerse(){
   showTab('home');
   setTimeout(()=>{
@@ -11569,7 +12170,6 @@ function boot(){
   loadProfileName();
   loadLocalAccountTier();
   restoreAppReviewSession();
-  startFreeSessionClock();
   watchEntitlements();
   syncRestorePurchaseButtons();
   refreshEntitlements({silent:true});
@@ -11578,12 +12178,16 @@ function boot(){
   loadProjects();
   loadChallengeSubmissions();
   loadEngagementState();
+  loadFirstVibeState();
   loadPixelVerseState();
   buildHomeTemplates();
   refreshDailyVibe();
   buildHomeProof();
   buildHomeGallery();
   buildPublicGallery();
+  startHeroShowcaseLoop();
+  startGalleryPreviewLoop();
+  refreshFirstVibeUI();
   if(featureEnabled('templateChallenges')){
     buildTemplateGrid('tmpl-challenge',TEMPLATES.challenge);
   }else{
@@ -11610,6 +12214,7 @@ function boot(){
   updateToolChip();
   updatePlayButton();
   syncCanvasUnlockUI();
+  refreshCanvasCoach();
   buildLayerPanel();
   document.getElementById('sz-16').classList.add('on');
   document.getElementById('sz-32').classList.remove('on');

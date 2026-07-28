@@ -74,13 +74,13 @@
   <section class="birthday-card">
     <img class="birthday-logo" src="splash-logo.png" alt="Pixel Sprite Vibe logo" width="1536" height="1024">
     <h1 class="birthday-title">Build Your Pixel.</h1>
-    <p class="birthday-subtitle">Create. Customize. Share.</p>
+    <p class="birthday-subtitle">Make it cute. Make it yours. Show it off.</p>
     <button class="birthday-start-button" onclick="startCreating()">Start creating</button>
     <div class="birthday-auth-cta" id="splash-auth-cta">
-      <button class="birthday-auth-primary" id="splash-auth-primary" onclick="handleSplashAuthPrimary()">Create account</button>
-      <button class="birthday-auth-secondary" id="splash-auth-secondary" onclick="handleSplashAuthSecondary()">Sign in</button>
+      <button class="birthday-auth-primary" id="splash-auth-primary" onclick="handleSplashAuthPrimary()">Join free</button>
+      <button class="birthday-auth-secondary" id="splash-auth-secondary" onclick="handleSplashAuthSecondary()">Log in</button>
     </div>
-    <p class="birthday-policy-statement">By continuing, you agree to the <a class="birthday-policy-link" href="/privacy-policy.html">Privacy Policy Statement</a>.</p>
+    <p class="birthday-policy-statement">By continuing, you agree to the <a class="birthday-policy-link" href="./privacy-policy.html">Privacy Policy Statement</a>.</p>
   </section>
 </div>
 
@@ -89,28 +89,52 @@
 <!-- HOME -->
 <div id="home-screen" class="screen active">
   <div class="home-hero">
-    <div class="home-logo-badge">
-      <img class="home-logo" src="icon-512.png" alt="Pixel Sprite Vibe logo" width="84" height="84">
+    <div class="home-play-scene" aria-hidden="true">
+      <div class="home-logo-badge">
+        <img class="home-logo" src="icon-512.png" alt="Pixel Sprite Vibe logo" width="84" height="84">
+      </div>
+    </div>
+    <div class="hero-showcase" aria-label="Pixel art timelapse preview" hidden>
+      <div class="hero-showcase-frame">
+        <canvas id="hero-showcase-canvas" width="96" height="96"></canvas>
+      </div>
+      <div class="hero-showcase-copy">
+        <div class="hero-showcase-kicker">Watch the glow-up</div>
+        <div class="hero-showcase-title" id="hero-showcase-title">Sketch. Color. Sparkle. Share.</div>
+        <div class="hero-showcase-sub" id="hero-showcase-sub">A fast little timelapse of the vibe coming together.</div>
+      </div>
     </div>
     <div class="hero-eyebrow">Pixel Sprite Vibe</div>
-    <h1 class="hero-title">What would you like to do?</h1>
-    <p class="hero-sub">Start drawing, or pick something saved when you need it.</p>
+    <h1 class="hero-title">Create <span>amazing</span> pixel <span>art</span></h1>
+    <p class="hero-sub"></p>
     <div class="hero-cta">
       <button class="btn-primary" onclick="openStudio()">
-        <span class="action-title">Create</span>
-        <span class="action-copy">Open the studio</span>
+        <span class="action-title">Start creating</span>
       </button>
     </div>
-    <div class="home-quick-links" aria-label="Secondary home actions">
-      <button class="home-link-btn" type="button" onclick="showTab('closet')">Gallery</button>
+    <div class="home-quick-links" aria-label="Secondary home actions" hidden>
+      <button class="home-link-btn" type="button" onclick="showTab('closet')">My gallery</button>
       <button class="home-link-btn" type="button" onclick="openPixelVerse()">PixelVerse</button>
     </div>
     <div class="home-auth-cta" id="home-auth-cta">
-      <button class="home-auth-primary" id="home-auth-primary" onclick="handleHomeAuthPrimary()">Create account</button>
-      <button class="home-auth-secondary" id="home-auth-secondary" onclick="handleHomeAuthSecondary()">Sign in</button>
+      <button class="home-auth-primary" id="home-auth-primary" onclick="handleHomeAuthPrimary()">Join free</button>
+      <button class="home-auth-secondary" id="home-auth-secondary" onclick="handleHomeAuthSecondary()">Log in</button>
+    </div>
+    <div class="home-first-vibe" id="home-first-vibe" hidden>
+      <div class="home-first-vibe-copy">
+        <div class="home-first-vibe-kicker">30-second starter</div>
+        <div class="home-first-vibe-title" id="home-first-vibe-title">Pick a page, color it in, then add some sparkle.</div>
+        <div class="home-first-vibe-sub" id="home-first-vibe-sub">A super quick start so you never have to wonder what to make first.</div>
+      </div>
+      <div class="home-first-vibe-actions">
+        <button class="home-first-vibe-btn primary" type="button" onclick="startFirstVibe('coloring')">Start coloring</button>
+        <button class="home-first-vibe-btn" type="button" onclick="startFirstVibe('blank')">Start from scratch</button>
+        <button class="home-first-vibe-btn ghost" id="home-first-vibe-remix" type="button" onclick="startFirstVibe('remix')">Try a remix</button>
+      </div>
+      <div class="home-first-vibe-steps" id="home-first-vibe-steps"></div>
     </div>
   </div>
-  <div class="home-section" id="home-challenge-section">
+  <div class="home-section" id="home-challenge-section" hidden>
     <div class="sec-header"><span class="sec-title">Weekly drop</span></div>
     <div class="challenge-card" onclick="showTab('challenges')">
       <div class="cc-days" id="cc-days">3d left</div>
@@ -120,14 +144,26 @@
       <button class="cc-btn" onclick="event.stopPropagation();showTab('challenges')">Enter challenge ↗</button>
     </div>
   </div>
-  <div class="home-progress-strip" id="home-level-card">
+  <div class="home-meta-row">
+    <button class="daily-vibe-card" id="daily-vibe-card" type="button" onclick="startDailyPrompt()">
+      <div class="daily-vibe-kicker">Today’s drop</div>
+      <div class="daily-vibe-title" id="daily-vibe-title">Draw a magical pet</div>
+      <div class="daily-vibe-reward" id="daily-vibe-reward">Save your art to unlock a little surprise.</div>
+      <div class="daily-vibe-counter" aria-hidden="true">
+        <span class="daily-vibe-counter-label">Progress</span>
+        <span class="daily-vibe-counter-value" id="daily-vibe-counter-value">0/1</span>
+      </div>
+      <div class="daily-vibe-action">Start now</div>
+    </button>
+  </div>
+  <div class="home-progress-strip" id="home-level-card" aria-label="Creator progress">
     <div class="home-progress-main">
       <div class="xp-top">
-        <span class="xp-label">Level <span id="xp-lvl">1</span></span>
+        <span class="xp-label">Sparkle level <span id="xp-lvl">1</span></span>
         <span class="xp-val"><span id="xp-cur">0</span>/<span id="xp-max">600</span> XP</span>
       </div>
       <div class="xp-track"><div class="xp-fill" id="xp-fill" style="width:0%"></div></div>
-      <div class="xp-next" id="xp-next">Level 2 unlock: Pastel Palettes</div>
+      <div class="xp-next" id="xp-next">Next sticker: Pastel Palettes</div>
     </div>
     <div class="home-streak-mini">
       <span class="streak-fire">🔥</span>
@@ -136,13 +172,8 @@
       <button class="streak-claim" id="streak-claim" type="button" disabled>Auto daily</button>
     </div>
   </div>
-  <div class="home-meta-row">
-    <button class="daily-vibe-card" id="daily-vibe-card" type="button" onclick="startDailyPrompt()">
-      <div class="daily-vibe-kicker">Today’s vibe</div>
-      <div class="daily-vibe-title" id="daily-vibe-title">Draw a magical pet</div>
-      <div class="daily-vibe-reward" id="daily-vibe-reward">Save to reveal today’s Vibe Drop</div>
-      <div class="daily-vibe-action">Start prompt</div>
-    </button>
+  <div class="home-section" hidden>
+    <div class="proof-pill" id="home-proof">Kids are making rooms, heroes, stickers, and sparkly pixel art today.</div>
   </div>
   <div class="home-section" id="home-gallery-section" hidden>
     <div class="gallery-strip" id="home-gallery-strip"></div>
@@ -150,25 +181,26 @@
   <div class="home-section" id="public-gallery-section" hidden>
     <div class="sec-header">
       <span class="sec-title">PixelVerse</span>
-      <span class="sec-link-static">Create. Share. Inspire.</span>
+      <span class="sec-link-static">Post it. Remix it. Hype it.</span>
     </div>
     <div class="pixelverse-hero">
       <div>
         <div class="pixelverse-kicker">This week</div>
         <div class="pixelverse-theme" id="pixelverse-theme">Pixel Pets</div>
-        <div class="pixelverse-copy">A safe creative universe: emoji reactions only, no comments, no chat.</div>
+        <div class="pixelverse-copy">A creative feed with emoji-only reactions, so it stays chill and safe.</div>
       </div>
       <div class="pixelverse-actions">
-        <button class="pixelverse-join" type="button" onclick="openPixelVerseShare()">Share creation</button>
+        <button class="pixelverse-join" type="button" onclick="openPixelVerseShare()">Post your art</button>
         <button class="pixelverse-surprise" type="button" onclick="claimDailyPixelSurprise()">Daily surprise</button>
       </div>
     </div>
+    <div class="pixelverse-featured" id="pixelverse-featured" hidden></div>
     <div class="gallery-strip" id="public-gallery-strip"></div>
   </div>
   <div class="home-section">
     <div class="sec-header">
-      <span class="sec-title">Templates</span>
-      <button class="sec-link" onclick="showTab('studio')">See all →</button>
+      <span class="sec-title">Starter packs</span>
+      <button class="sec-link" onclick="showTab('studio')">See them all →</button>
     </div>
     <div class="templates-scroll" id="home-templates"></div>
   </div>
@@ -210,6 +242,17 @@
       <div class="challenge-submit-status" id="challenge-submit-status">Finish your art, then submit it to the feed.</div>
     </div>
     <button class="challenge-submit-btn" id="challenge-submit-btn" onclick="submitChallenge()">Submit entry</button>
+  </div>
+  <div class="canvas-coach" id="canvas-coach" hidden>
+    <div class="canvas-coach-copy">
+      <div class="canvas-coach-kicker" id="canvas-coach-kicker">Quick guide</div>
+      <div class="canvas-coach-title" id="canvas-coach-title"></div>
+      <div class="canvas-coach-sub" id="canvas-coach-sub"></div>
+    </div>
+    <div class="canvas-coach-actions">
+      <button class="canvas-coach-btn" id="canvas-coach-primary" type="button" onclick="handleCanvasCoachPrimary()">Try sparkle</button>
+      <button class="canvas-coach-btn ghost" id="canvas-coach-secondary" type="button" onclick="dismissCanvasCoach()">Hide</button>
+    </div>
   </div>
   <div id="fx-menu">
     <button class="fx-item" id="fx-glow" onclick="runFX('glow');closeFXMenu()"><span class="fx-icon">✨</span>Add glow</button>
@@ -357,15 +400,32 @@
 <!-- STUDIO -->
 <div id="studio-screen" class="screen">
   <div class="studio-hdr">
-    <div class="studio-title">Creative Studio</div>
-    <div class="studio-sub">Start blank or pick a template</div>
+    <div class="studio-title">Studio</div>
+    <div class="studio-sub">Pick a vibe and start making.</div>
+  </div>
+  <div class="studio-quickstart" id="studio-quickstart">
+    <button class="studio-quick-card" type="button" onclick="startFirstVibe('coloring')">
+      <span class="studio-quick-kicker">Step 1</span>
+      <span class="studio-quick-title">Color a page</span>
+      <span class="studio-quick-sub">The fastest way to make something fun.</span>
+    </button>
+    <button class="studio-quick-card" type="button" onclick="startFirstVibe('blank')">
+      <span class="studio-quick-kicker">Step 2</span>
+      <span class="studio-quick-title">Make your own</span>
+      <span class="studio-quick-sub">Blank canvas for stickers, pets, icons, and more.</span>
+    </button>
+    <button class="studio-quick-card" type="button" onclick="showTab('home');setTimeout(()=>openPixelVerse(),80)">
+      <span class="studio-quick-kicker">Step 3</span>
+      <span class="studio-quick-title">Remix PixelVerse</span>
+      <span class="studio-quick-sub">Take inspo from the feed and make it your own.</span>
+    </button>
   </div>
 
   <!-- Blank canvas card -->
   <div class="blank-card" id="blank-card-area">
     <div class="blank-card-icon">✦</div>
     <div class="blank-card-text">
-      <div class="blank-card-title">Blank Canvas</div>
+      <div class="blank-card-title">Blank canvas</div>
       <div class="blank-card-sub">Start from scratch. Pick your size:</div>
       <div class="blank-size-row">
         <button class="blank-size-btn" onclick="startBlank(16);event.stopPropagation()">16×16</button>
@@ -375,8 +435,8 @@
     </div>
   </div>
   <div class="studio-section" id="studio-coloring-section">
-    <div class="ss-title">🎨 Color-In Templates</div>
-    <div class="coloring-section-sub">Outline locked · Fill the regions · Complete for XP</div>
+    <div class="ss-title coloring-title">Coloring pages</div>
+    <div class="coloring-section-sub">Tap a page, then fill it your way.</div>
     <div class="tmpl-grid" id="tmpl-coloring"></div>
   </div>
   <div class="studio-section" id="studio-challenge-templates"><div class="ss-title">🏆 Challenge Templates</div><div class="tmpl-grid" id="tmpl-challenge"></div></div>
@@ -399,7 +459,7 @@
 <div id="closet-screen" class="screen" style="position:relative">
   <div class="closet-hdr">
     <div style="font-family:var(--ff-display);font-size:22px">My Gallery</div>
-    <div style="font-size:12px;color:var(--text2);margin-top:3px">All your saved creations</div>
+    <div style="font-size:12px;color:var(--text2);margin-top:3px">All your saved art in one spot</div>
     <div class="closet-storage" id="closet-storage">Storage ready</div>
   </div>
   <div class="cat-row" id="closet-cats"></div>
@@ -412,42 +472,52 @@
   <div class="chal-hero">
     <div class="chal-hero-main">
       <div class="chal-copy">
-        <div class="ch-eyebrow">This week's drop</div>
+        <div class="ch-eyebrow"></div>
         <div class="ch-name" id="ch-name">Cyber Sneaker</div>
         <div class="ch-sub" id="ch-sub">581 entries · +150 XP · Ends in 3 days</div>
+        <div class="ch-stats" id="ch-stats"></div>
         <div class="ch-actions">
-          <button class="ch-go" onclick="startChallenge()">Start creating ↗</button>
+          <button class="ch-go" onclick="startChallenge()">Jump in</button>
           <span class="ch-timer" id="ch-timer">⏱ 3 days left</span>
         </div>
       </div>
       <div class="ch-art-shell">
         <canvas class="ch-art" id="ch-art" width="96" height="96" aria-label="Challenge preview image"></canvas>
-        <div class="ch-art-caption" id="ch-art-caption">Featured starter</div>
+        <div class="ch-art-caption" id="ch-art-caption">Picked starter</div>
       </div>
     </div>
   </div>
   <div class="rank-card">
-    <div class="rank-title">🏅 This week's leaderboard</div>
+    <div class="rank-title">Top this week</div>
     <div class="rank-row" id="rank-row"></div>
   </div>
-  <div class="challenge-section-label">Challenge starters</div>
-  <div class="challenge-starters" id="challenge-starters"></div>
-  <div class="challenge-section-label">Upcoming challenges</div>
-  <div class="up-list" id="upcoming-list"></div>
-  <div class="challenge-section-label challenge-section-label-spaced">Featured entries</div>
-  <div class="chal-feed-grid" id="feed-grid"></div>
+  <div class="challenge-panel">
+    <div class="challenge-section-label">Pick a starter</div>
+    <div class="challenge-section-sub">Choose one and jump straight into drawing.</div>
+    <div class="challenge-starters" id="challenge-starters"></div>
+  </div>
+  <div class="challenge-panel">
+    <div class="challenge-section-label">Featured entries</div>
+    <div class="challenge-section-sub">Swipe through a few standout creations from this challenge.</div>
+    <div class="chal-feed-grid" id="feed-grid"></div>
+  </div>
+  <div class="challenge-panel challenge-panel-last">
+    <div class="challenge-section-label">Coming next</div>
+    <div class="challenge-section-sub">A quick peek at what is dropping after this one.</div>
+    <div class="up-list" id="upcoming-list"></div>
+  </div>
 </div>
 
 <!-- PROFILE -->
 <div id="profile-screen" class="screen">
   <div class="prof-hero">
-    <img class="prof-av prof-logo-main" id="prof-av" src="logo.png" alt="Pixel Sprite Vibe logo" width="76" height="76">
+    <img class="prof-av prof-logo-main" id="prof-av" src="icon-512.png" alt="Pixel Sprite Vibe logo" width="76" height="76">
     <div class="prof-name" id="prof-name">PixelCreator</div>
     <div class="prof-handle" id="prof-handle">@creator_001</div>
     <div class="prof-handle" id="prof-join-date">Joined PixelVerse today</div>
     <div class="prof-plan-badge" id="prof-plan-badge">Free Creator</div>
     <button class="prof-edit" onclick="openProfileNameModal()">Edit gamename</button>
-    <div class="prof-storage-note" id="profile-storage-note">Profile, streak, and challenge saves stay on this device.</div>
+    <div class="prof-storage-note" id="profile-storage-note">Your profile, streak, and challenge saves stay on this device.</div>
   </div>
   <div class="prof-stats">
     <div class="pstat"><div class="pstat-n" id="ps-creations">0</div><div class="pstat-l">Creations</div></div>
@@ -465,8 +535,8 @@
   <div class="prof-section" id="profile-auth-section">
     <div class="prof-sec-title">Account</div>
     <div class="auth-card">
-      <div class="auth-status-title" id="auth-status-title">Save with email</div>
-      <div class="auth-status-copy" id="auth-status-copy">Create an account to sync your gamename, streak, and settings across devices.</div>
+      <div class="auth-status-title" id="auth-status-title">Save your vibe</div>
+      <div class="auth-status-copy" id="auth-status-copy">Make an account to sync your gamename, streak, and settings across devices.</div>
       <div class="account-plan-row">
         <span class="account-plan-label">Plan</span>
         <span class="account-plan-pill" id="account-plan-pill">Free</span>
@@ -474,7 +544,7 @@
       <div class="auth-email" id="auth-email" hidden></div>
       <div class="auth-actions">
         <button class="auth-btn auth-btn-primary" id="auth-primary-btn" onclick="handlePrimaryAuthAction()">Sign up</button>
-        <button class="auth-btn auth-btn-secondary" id="auth-secondary-btn" onclick="handleSecondaryAuthAction()">Sign in</button>
+        <button class="auth-btn auth-btn-secondary" id="auth-secondary-btn" onclick="handleSecondaryAuthAction()">Log in</button>
       </div>
       <button class="auth-link-btn" id="auth-reset-btn" onclick="sendPasswordResetEmail()" hidden>Send password reset email</button>
     </div>
@@ -484,7 +554,7 @@
     <div class="pro-card">
       <div class="pro-card-main">
         <div class="pro-card-title">Pixel Sprite Vibe Plus</div>
-        <div class="pro-card-copy">Unlock unlimited update hours, saves, animation frames, and watermark-free exports.</div>
+        <div class="pro-card-copy">Free includes full drawing, templates, 10 saves, 3-frame animation, exports, challenges, XP, badges, and posting. Plus adds more room and removes animation watermarks.</div>
       </div>
       <button class="pro-card-btn" onclick="openProInfo()">Premium Info</button>
     </div>
@@ -495,11 +565,11 @@
 </div><!-- #app -->
 
 <nav id="nav">
-  <button class="nt nt-home on" id="nav-home" onclick="showTab('home')"><span class="icon">🏠<span class="nt-dot" id="home-dot"></span></span><span class="nt-label" id="home-label">Home</span></button>
-  <button class="nt" id="nav-studio" onclick="showTab('studio')"><span class="icon">🎨</span>Studio</button>
-  <button class="nt" id="nav-closet" onclick="showTab('closet')"><span class="icon">📁</span>Gallery</button>
-  <button class="nt" id="nav-challenges" onclick="showTab('challenges')"><span class="icon">🏆</span>Wins</button>
-  <button class="nt" id="nav-profile" onclick="showTab('profile')"><span class="icon">👾</span>Me</button>
+  <button class="nt nt-home on" id="nav-home" onclick="showTab('home')"><span class="icon nav-glyph nav-glyph-home">⌂<span class="nt-dot" id="home-dot"></span></span><span class="nt-label" id="home-label">Home</span></button>
+  <button class="nt" id="nav-studio" onclick="openDrawingBoard()"><span class="icon nav-glyph">✎</span>Studio</button>
+  <button class="nt" id="nav-closet" onclick="showTab('closet')"><span class="icon nav-glyph">▦</span>Gallery</button>
+  <button class="nt" id="nav-challenges" onclick="showTab('challenges')"><span class="icon nav-glyph">★</span>Wins</button>
+  <button class="nt" id="nav-profile" onclick="showTab('profile')"><span class="icon nav-glyph">◉</span>Me</button>
 </nav>
 
 
@@ -687,7 +757,7 @@
   <div class="name-modal-card pro-modal-card">
     <div class="name-modal-badge" id="pro-info-badge">Free app with one upgrade</div>
     <div class="name-modal-title" id="pro-info-title">Pixel Sprite Vibe Plus</div>
-    <p class="name-modal-copy" id="pro-info-copy">Download and draw for free. Upgrade only if you want unlimited projects, bigger animations, and watermark-free exports.</p>
+    <p class="name-modal-copy" id="pro-info-copy">Draw for free with blank canvases, templates, exports, challenges, XP, badges, and public gallery posting. Upgrade only when you want unlimited saves, bigger animations, and no animation watermark.</p>
     <div class="club-price-row" id="club-price-row" aria-label="Pixel Sprite Vibe Plus Monthly App Store product">
       <div class="club-price-card featured">
         <span class="club-price-kicker">Only upgrade option</span>
@@ -697,9 +767,9 @@
     </div>
     <div class="club-plan-grid">
       <div class="club-plan-card">
-        <div class="club-plan-title">Free to Download</div>
+        <div class="club-plan-title">Free to play and create</div>
         <ul>
-          <li>Full drawing experience</li>
+          <li>Full drawing experience with blank canvases and templates</li>
           <li>10 save slots</li>
           <li>3-frame animation</li>
           <li>PNG and JPG exports</li>
@@ -714,9 +784,7 @@
           <li>Unlimited saves</li>
           <li>Unlimited animation frames</li>
           <li>Watermark-free animations</li>
-          <li>Cutout art and sticker creation</li>
-          <li>Premium templates and palettes</li>
-          <li>Glow and particle effects</li>
+          <li>More templates, palettes, and seasonal packs</li>
           <li>Priority updates, seasonal packs, sprite sheets, exclusive badges, and early access</li>
         </ul>
       </div>
@@ -731,9 +799,9 @@
         purchase.
       </p>
       <p class="club-terms-links">
-        <a href="privacy-policy.html">Privacy Policy</a>
+        <a href="./privacy-policy.html">Privacy Policy</a>
         <span aria-hidden="true">&middot;</span>
-        <a href="terms.html">Terms of Use</a>
+        <a href="./terms.html">Terms of Use</a>
       </p>
     </div>
     <div class="name-modal-actions">
