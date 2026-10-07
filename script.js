@@ -1,4 +1,40 @@
 async function exportTransparentPNG() {
+let applePurchaseBusy = false;
+
+function getApplePurchasePlugin(){
+  const capacitor=window.Capacitor;
+  if(capacitor?.getPlatform?.()!=='ios') return null;
+  return capacitor.registerPlugin?.('InAppPurchase') || capacitor.Plugins?.InAppPurchase || null;
+}
+
+function applyAppleEntitlements(result){
+  if(result?.verified!==true) return false;
+  const active=result.active===true;
+  saveLocalAccountTier(active?'pro':'free');
+  syncAuthUI();
+  buildProfile();
+  return active;
+}
+
+async function refreshApplePurchases(){
+  const plugin=getApplePurchasePlugin();
+  if(!plugin) return;
+  try{ applyAppleEntitlements(await plugin.getEntitlements()); }
+  catch(error){ console.warn('[Apple purchases]',error); }
+}
+
+async function restoreApplePurchases(){
+  const plugin=getApplePurchasePlugin();
+  if(!plugin){ toast('Restore purchases in the iPhone or iPad app.'); return; }
+  if(applePurchaseBusy) return;
+  applePurchaseBusy=true;
+  try{
+    const active=applyAppleEntitlements(await plugin.restorePurchases());
+    toast(active?'Your Apple subscription is restored.':'No active Apple subscription was found.');
+  }catch(error){ toast(error?.message || 'Could not restore Apple purchases.'); }
+  finally{ applePurchaseBusy=false; }
+}
+
   if(!requireClubFeature('transparent specialty exports')) return;
   const source=captureExportSource();
   const scale = 8;
@@ -25,8 +61,28 @@ async function exportTransparentPNG() {
     }).catch(err=>({ok:false,error:err}));
     toast(upload?.ok?'Your cutout art is ready and backed up. Ideas: stickers, videos, creative projects.':'Your cutout art is ready. Ideas: stickers, videos, creative projects.');
     trackExport('transparent-png',6);
-  }
+  }finally{ applePurchaseBusy=false; }
 }
+
+async function initializeApplePurchases(){
+  const plugin=getApplePurchasePlugin();
+  if(!plugin) return;
+  try{
+    await plugin.addListener('entitlementsChanged',applyAppleEntitlements);
+    await refreshApplePurchases();
+    const result=await plugin.getProducts();
+    const product=result.products?.find(p=>p.id===IAP_PRODUCTS.monthly.id);
+    if(product){
+      IAP_PRODUCTS.monthly.price=product.displayPrice;
+      const price=document.querySelector('.club-price-card strong');
+      if(price) price.textContent=product.displayPrice;
+    }
+  }catch(error){ console.warn('[Apple purchase initialization]',error); }
+}
+window.addEventListener('load',initializeApplePurchases);
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible') refreshApplePurchases();
+});
 
 function startCreating(){
   const splash = document.getElementById('birthday-splash');
@@ -710,7 +766,6 @@ const FREE_SESSION_LIMIT_MS = 90 * 60 * 1000;
 
 const APP_REVIEW_PRO_ACCOUNT = {
   email: 'appreview@pixelspirite.com',
-  password: 'PixelSpritePro2026!',
   gamename: 'AppReviewer',
 };
 
@@ -861,9 +916,9 @@ function getSupabaseClient(){
   return AUTH_STATE.client;
 }
 
-function isAppReviewCredential(email, password){
-  return String(email||'').trim().toLowerCase()===APP_REVIEW_PRO_ACCOUNT.email
-    && String(password||'')===APP_REVIEW_PRO_ACCOUNT.password;
+function isAppReviewCredential(){
+  // Reviewers must authenticate through Supabase; never ship a password in client code.
+  return false;
 }
 
 function isAppReviewSession(){
@@ -1191,20 +1246,24 @@ function showClubComingSoon(plan='monthly'){
 }
 
 async function startIAPPurchase(plan='monthly'){
-  const product=IAP_PRODUCTS[plan] || IAP_PRODUCTS.monthly;
-  const plugins=window.Capacitor?.Plugins || {};
-  const purchasePlugin=plugins.InAppPurchase || plugins.InAppPurchases || plugins.StoreKit || plugins.Purchases;
-  if(!purchasePlugin){
-    toast(`${product.label} (${product.price}) is submitted in App Store Connect. App Store purchasing is unavailable in this preview build.`);
-    return {ok:false,reason:'iap-plugin-missing',product};
+  const product=IAP_PRODUCTS[plan];
+  if(!product) return {ok:false,reason:'unknown-product'};
+  const plugin=getApplePurchasePlugin();
+  if(!plugin){
+    toast('Apple purchases are available only in the native iPhone or iPad app.');
+    return {ok:false,reason:'ios-required',product};
   }
+  if(applePurchaseBusy) return {ok:false,reason:'busy'};
+  applePurchaseBusy=true;
   try{
-    const purchaseFn=purchasePlugin.purchaseProduct || purchasePlugin.purchase || purchasePlugin.buy || purchasePlugin.order;
-    if(typeof purchaseFn!=='function') throw new Error('The App Store purchase bridge is unavailable.');
-    const result=await purchaseFn.call(purchasePlugin,{ productId:product.id, id:product.id });
-    saveLocalAccountTier('pro', new Date().toISOString());
-    syncAuthUI();
-    buildProfile();
+    const result=await plugin.purchaseProduct({productId:product.id});
+    if(result.status==='cancelled') return {ok:false,reason:'cancelled'};
+    if(result.status==='pending'){
+      toast('Your purchase is awaiting Apple approval. Plus will unlock after approval.');
+      return {ok:false,reason:'pending'};
+    }
+    if(!applyAppleEntitlements(result)) throw new Error('Apple has not confirmed an active subscription. Try Restore Purchases.');
+    closeProInfo();
     toast(`${product.label} unlocked.`);
     return {ok:true,result,product};
   }catch(error){
@@ -1295,7 +1354,7 @@ function saveLocalAccountTier(tier=ST.accountTier, proSince=ST.proSince){
 
 function loadLocalAccountTier(){
   try{
-    ST.accountTier=normalizeAccountTier(localStorage.getItem('pc2_account_tier')||'free');
+    ST.accountTier=getApplePurchasePlugin()?'free':normalizeAccountTier(localStorage.getItem('pc2_account_tier')||'free');
     ST.proSince=localStorage.getItem('pc2_pro_since')||null;
   }catch(e){
     ST.accountTier='free';
@@ -1449,7 +1508,8 @@ function applyRemoteProfile(profile){
   if(Number.isFinite(profile.creator_level) && profile.creator_level>0) ST.level=profile.creator_level;
   if(Number.isFinite(profile.xp) && profile.xp>=0) ST.xp=profile.xp;
   if(Number.isFinite(profile.xp_max) && profile.xp_max>0) ST.xpMax=profile.xp_max;
-  saveLocalAccountTier(profile.account_tier || (profile.is_pro ? 'pro' : 'free'), profile.pro_since || null);
+  if(getApplePurchasePlugin()) refreshApplePurchases();
+  else saveLocalAccountTier(profile.account_tier || (profile.is_pro ? 'pro' : 'free'), profile.pro_since || null);
   updateProfileIdentity();
   refreshProfileStats();
   refreshHomeStatusBadge();
