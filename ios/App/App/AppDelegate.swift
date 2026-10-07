@@ -55,3 +55,111 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
 }
+
+// Local StoreKit 2 bridge, compiled in the existing App target.
+import StoreKit
+
+@objc(PixelSpriteViewController)
+class PixelSpriteViewController: CAPBridgeViewController {
+    override func capacitorDidLoad() {
+        bridge?.registerPluginInstance(PixelSpritePurchasePlugin())
+    }
+}
+
+@objc(PixelSpritePurchasePlugin)
+public class PixelSpritePurchasePlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "PixelSpritePurchasePlugin"
+    public let jsName = "InAppPurchase"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "purchaseProduct", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getEntitlements", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "restorePurchases", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getProducts", returnType: CAPPluginReturnPromise)
+    ]
+    private let productID = "Monthly"
+    private var updatesTask: Task<Void, Never>?
+
+    public override func load() {
+        updatesTask = Task { [weak self] in
+            for await update in StoreKit.Transaction.updates {
+                guard let self else { return }
+                guard case .verified(let transaction) = update,
+                      transaction.productID == self.productID else { continue }
+                let state = await self.entitlements()
+                self.notifyListeners("entitlementsChanged", data: state, retainUntilConsumed: true)
+                await transaction.finish()
+            }
+        }
+    }
+
+    deinit { updatesTask?.cancel() }
+
+    private func entitlements() async -> [String: Any] {
+        for await result in StoreKit.Transaction.currentEntitlements {
+            guard case .verified(let transaction) = result,
+                  transaction.productID == productID,
+                  transaction.revocationDate == nil,
+                  !transaction.isUpgraded,
+                  transaction.expirationDate.map({ $0 > Date() }) ?? true else { continue }
+            return ["active": true, "verified": true, "productId": productID,
+                    "transactionId": String(transaction.id)]
+        }
+        return ["active": false, "verified": true]
+    }
+
+    @objc func getEntitlements(_ call: CAPPluginCall) {
+        Task { call.resolve(await entitlements()) }
+    }
+
+    @objc func getProducts(_ call: CAPPluginCall) {
+        Task {
+            do {
+                let products = try await Product.products(for: [productID])
+                call.resolve(["products": products.map {
+                    ["id": $0.id, "displayPrice": $0.displayPrice, "displayName": $0.displayName]
+                }])
+            } catch { call.reject(error.localizedDescription, "PRODUCT_LOOKUP_FAILED") }
+        }
+    }
+
+    @objc func restorePurchases(_ call: CAPPluginCall) {
+        Task {
+            do {
+                try await AppStore.sync()
+                call.resolve(await entitlements())
+            } catch { call.reject(error.localizedDescription, "RESTORE_FAILED") }
+        }
+    }
+
+    @objc func purchaseProduct(_ call: CAPPluginCall) {
+        guard call.getString("productId") == productID else {
+            call.reject("Unknown App Store product.", "INVALID_PRODUCT")
+            return
+        }
+        Task { @MainActor in
+            do {
+                guard let product = try await Product.products(for: [productID]).first else {
+                    call.reject("Monthly is unavailable from Apple. Check the product ID, subscription status, storefront availability, and Paid Apps agreement in App Store Connect.", "PRODUCT_UNAVAILABLE")
+                    return
+                }
+                switch try await product.purchase() {
+                case .success(let verification):
+                    guard case .verified(let transaction) = verification else {
+                        call.reject("Apple could not verify this purchase.", "UNVERIFIED_TRANSACTION")
+                        return
+                    }
+                    var state = await entitlements()
+                    state["status"] = "purchased"
+                    call.resolve(state)
+                    await transaction.finish()
+                case .userCancelled:
+                    call.resolve(["status": "cancelled"])
+                case .pending:
+                    call.resolve(["status": "pending"])
+                @unknown default:
+                    call.reject("Unexpected Apple purchase result.", "UNKNOWN_RESULT")
+                }
+            } catch { call.reject(error.localizedDescription, "PURCHASE_FAILED") }
+        }
+    }
+}

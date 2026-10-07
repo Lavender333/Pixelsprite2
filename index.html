@@ -682,7 +682,7 @@
       <button class="club-price-card featured" type="button" onclick="startIAPPurchase('monthly')">
         <span class="club-price-kicker">Monthly</span>
         <strong>$1.99</strong>
-        <span>Submitted App Store subscription</span>
+        <span>Monthly subscription · renews automatically</span>
       </button>
     </div>
     <div class="club-plan-grid">
@@ -714,6 +714,7 @@
     </div>
     <div class="name-modal-actions">
       <button class="name-modal-save" id="pro-info-primary" onclick="startIAPPurchase('monthly')">Upgrade</button>
+      <button class="name-modal-skip" onclick="restoreApplePurchases()">Restore Purchases</button>
       <button class="name-modal-skip" onclick="closeProInfo()">Maybe later</button>
     </div>
   </div>
