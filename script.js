@@ -1,40 +1,4 @@
 async function exportTransparentPNG() {
-let applePurchaseBusy = false;
-
-function getApplePurchasePlugin(){
-  const capacitor=window.Capacitor;
-  if(capacitor?.getPlatform?.()!=='ios') return null;
-  return capacitor.registerPlugin?.('InAppPurchase') || capacitor.Plugins?.InAppPurchase || null;
-}
-
-function applyAppleEntitlements(result){
-  if(result?.verified!==true) return false;
-  const active=result.active===true;
-  saveLocalAccountTier(active?'pro':'free');
-  syncAuthUI();
-  buildProfile();
-  return active;
-}
-
-async function refreshApplePurchases(){
-  const plugin=getApplePurchasePlugin();
-  if(!plugin) return;
-  try{ applyAppleEntitlements(await plugin.getEntitlements()); }
-  catch(error){ console.warn('[Apple purchases]',error); }
-}
-
-async function restoreApplePurchases(){
-  const plugin=getApplePurchasePlugin();
-  if(!plugin){ toast('Restore purchases in the iPhone or iPad app.'); return; }
-  if(applePurchaseBusy) return;
-  applePurchaseBusy=true;
-  try{
-    const active=applyAppleEntitlements(await plugin.restorePurchases());
-    toast(active?'Your Apple subscription is restored.':'No active Apple subscription was found.');
-  }catch(error){ toast(error?.message || 'Could not restore Apple purchases.'); }
-  finally{ applePurchaseBusy=false; }
-}
-
   if(!requireClubFeature('transparent specialty exports')) return;
   const source=captureExportSource();
   const scale = 8;
@@ -61,28 +25,8 @@ async function restoreApplePurchases(){
     }).catch(err=>({ok:false,error:err}));
     toast(upload?.ok?'Your cutout art is ready and backed up. Ideas: stickers, videos, creative projects.':'Your cutout art is ready. Ideas: stickers, videos, creative projects.');
     trackExport('transparent-png',6);
-  }finally{ applePurchaseBusy=false; }
+  }
 }
-
-async function initializeApplePurchases(){
-  const plugin=getApplePurchasePlugin();
-  if(!plugin) return;
-  try{
-    await plugin.addListener('entitlementsChanged',applyAppleEntitlements);
-    await refreshApplePurchases();
-    const result=await plugin.getProducts();
-    const product=result.products?.find(p=>p.id===IAP_PRODUCTS.monthly.id);
-    if(product){
-      IAP_PRODUCTS.monthly.price=product.displayPrice;
-      const price=document.querySelector('.club-price-card strong');
-      if(price) price.textContent=product.displayPrice;
-    }
-  }catch(error){ console.warn('[Apple purchase initialization]',error); }
-}
-window.addEventListener('load',initializeApplePurchases);
-document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='visible') refreshApplePurchases();
-});
 
 function startCreating(){
   const splash = document.getElementById('birthday-splash');
@@ -1245,6 +1189,42 @@ function showClubComingSoon(plan='monthly'){
   startIAPPurchase(plan);
 }
 
+let applePurchaseBusy = false;
+
+function getApplePurchasePlugin(){
+  const capacitor=window.Capacitor;
+  if(capacitor?.getPlatform?.()!=='ios') return null;
+  return capacitor.registerPlugin?.('InAppPurchase') || capacitor.Plugins?.InAppPurchase || null;
+}
+
+function applyAppleEntitlements(result){
+  if(result?.verified!==true) return false;
+  const active=result.active===true;
+  saveLocalAccountTier(active?'pro':'free');
+  syncAuthUI();
+  buildProfile();
+  return active;
+}
+
+async function refreshApplePurchases(){
+  const plugin=getApplePurchasePlugin();
+  if(!plugin) return;
+  try{ applyAppleEntitlements(await plugin.getEntitlements()); }
+  catch(error){ console.warn('[Apple purchases]',error); }
+}
+
+async function restoreApplePurchases(){
+  const plugin=getApplePurchasePlugin();
+  if(!plugin){ toast('Restore purchases in the iPhone or iPad app.'); return; }
+  if(applePurchaseBusy) return;
+  applePurchaseBusy=true;
+  try{
+    const active=applyAppleEntitlements(await plugin.restorePurchases());
+    toast(active?'Your Apple subscription is restored.':'No active Apple subscription was found.');
+  }catch(error){ toast(error?.message || 'Could not restore Apple purchases.'); }
+  finally{ applePurchaseBusy=false; }
+}
+
 async function startIAPPurchase(plan='monthly'){
   const product=IAP_PRODUCTS[plan];
   if(!product) return {ok:false,reason:'unknown-product'};
@@ -1269,8 +1249,28 @@ async function startIAPPurchase(plan='monthly'){
   }catch(error){
     toast(error?.message || `Could not start purchase for ${product.label}.`);
     return {ok:false,error,product};
-  }
+  }finally{ applePurchaseBusy=false; }
 }
+
+async function initializeApplePurchases(){
+  const plugin=getApplePurchasePlugin();
+  if(!plugin) return;
+  try{
+    await plugin.addListener('entitlementsChanged',applyAppleEntitlements);
+    await refreshApplePurchases();
+    const result=await plugin.getProducts();
+    const product=result.products?.find(p=>p.id===IAP_PRODUCTS.monthly.id);
+    if(product){
+      IAP_PRODUCTS.monthly.price=product.displayPrice;
+      const price=document.querySelector('.club-price-card strong');
+      if(price) price.textContent=product.displayPrice;
+    }
+  }catch(error){ console.warn('[Apple purchase initialization]',error); }
+}
+window.addEventListener('load',initializeApplePurchases);
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible') refreshApplePurchases();
+});
 
 function requireClubFeature(feature='this feature'){
   if(isClubAccount()) return true;

@@ -407,7 +407,294 @@
       <span>💎 Pink Y2K Glitter Pack</span>
       <span style="background:linear-gradient(90deg,#F6A5C0,#CE93D8);color:#fff;font-size:8px;font-weight:900;padding:2px 6px;border-radius:10px;letter-spacing:.06em">PREMIUM</span>
     </div>
-    <div style="font-size:9px;color:var(--text3);margin-bottom:10px;line-height:1.5">Cohesive 32×32 pack · Dark rose outlines · 3-tone cel shading · Y2K glam…4572 tokens truncated…ily challenges</li>
+    <div style="font-size:9px;color:var(--text3);margin-bottom:10px;line-height:1.5">Cohesive 32×32 pack · Dark rose outlines · 3-tone cel shading · Y2K glam palette</div>
+    <div class="tmpl-grid" id="tmpl-y2k"></div>
+  </div>
+  <div class="studio-section"><div class="ss-title">👟 Items &amp; Gear</div><div class="tmpl-grid" id="tmpl-items"></div></div>
+  <div class="studio-section"><div class="ss-title">🐾 Characters &amp; Pets</div><div class="coloring-section-sub">Cute profile sprites, pets, avatars, and creature starters</div><div class="tmpl-grid" id="tmpl-chars"></div></div>
+  <div class="studio-section"><div class="ss-title">🏠 Scenes &amp; Rooms</div><div class="coloring-section-sub">Cozy spaces, game rooms, outdoors, and tiny world backgrounds</div><div class="tmpl-grid" id="tmpl-scenes"></div></div>
+  <div class="studio-section" style="padding-bottom:80px"><div class="ss-title">⚡ Smart Effects</div><div class="fx-grid" id="fx-grid"></div></div>
+</div>
+
+<!-- GALLERY -->
+<div id="closet-screen" class="screen" style="position:relative">
+  <div class="closet-hdr">
+    <div style="font-family:var(--ff-display);font-size:22px">My Gallery</div>
+    <div style="font-size:12px;color:var(--text2);margin-top:3px">All your saved creations</div>
+    <div class="closet-storage" id="closet-storage">Storage ready</div>
+  </div>
+  <div class="cat-row" id="closet-cats"></div>
+  <div class="cg" id="closet-grid"></div>
+  <button class="fab" onclick="openStudio()">+</button>
+</div>
+
+<!-- CHALLENGES -->
+<div id="chal-screen" class="screen">
+  <div class="chal-hero">
+    <div class="chal-hero-main">
+      <div class="chal-copy">
+        <div class="ch-eyebrow">This Week's Drop</div>
+        <div class="ch-name" id="ch-name">Cyber Sneaker</div>
+        <div class="ch-sub" id="ch-sub">581 entries · +150 XP · Ends in 3 days</div>
+        <div class="ch-actions">
+          <button class="ch-go" onclick="startChallenge()">Start Creating ↗</button>
+          <span class="ch-timer" id="ch-timer">⏱ 3 days left</span>
+        </div>
+      </div>
+      <div class="ch-art-shell">
+        <canvas class="ch-art" id="ch-art" width="96" height="96" aria-label="Challenge preview image"></canvas>
+        <div class="ch-art-caption" id="ch-art-caption">Featured starter</div>
+      </div>
+    </div>
+  </div>
+  <div class="rank-card">
+    <div class="rank-title">🏅 This Week's Leaderboard</div>
+    <div class="rank-row" id="rank-row"></div>
+  </div>
+  <div style="padding:0 16px 8px;font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.1em">Challenge Starters</div>
+  <div class="challenge-starters" id="challenge-starters"></div>
+  <div style="padding:0 16px 8px;font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.1em">Upcoming Challenges</div>
+  <div class="up-list" id="upcoming-list"></div>
+  <div style="padding:0 16px 8px;font-size:9px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-top:8px">Featured Entries</div>
+  <div class="chal-feed-grid" id="feed-grid"></div>
+</div>
+
+<!-- PROFILE -->
+<div id="profile-screen" class="screen">
+  <div class="prof-hero">
+    <img class="prof-av prof-logo-main" id="prof-av" src="logo.png" alt="Pixel Sprite Vibe logo" width="76" height="76">
+    <div class="prof-name" id="prof-name">PixelCreator</div>
+    <div class="prof-handle" id="prof-handle">@creator_001</div>
+    <div class="prof-handle" id="prof-join-date">Joined PixelVerse today</div>
+    <div class="prof-plan-badge" id="prof-plan-badge">Free Creator</div>
+    <button class="prof-edit" onclick="openProfileNameModal()">Edit gamename</button>
+    <div class="prof-storage-note" id="profile-storage-note">Profile, streak, and challenge saves stay on this device.</div>
+  </div>
+  <div class="prof-stats">
+    <div class="pstat"><div class="pstat-n" id="ps-creations">0</div><div class="pstat-l">Creations</div></div>
+    <div class="pstat"><div class="pstat-n" id="ps-featured">0</div><div class="pstat-l">Featured</div></div>
+    <div class="pstat"><div class="pstat-n" id="ps-streak">0</div><div class="pstat-l">Streak 🔥</div></div>
+    <div class="pstat" id="profile-xp-stat"><div class="pstat-n" id="ps-xp">0</div><div class="pstat-l">XP</div></div>
+  </div>
+  <div class="prof-section" id="profile-badges-section">
+    <div class="prof-sec-title">Badges</div>
+    <div class="pbadges">
+      <div class="pbadge">🎨</div><div class="pbadge">⚡</div><div class="pbadge">🔥</div>
+      <div class="pbadge locked">👑</div><div class="pbadge locked">💎</div><div class="pbadge locked">🌈</div>
+    </div>
+  </div>
+  <div class="prof-section" id="profile-auth-section">
+    <div class="prof-sec-title">Account</div>
+    <div class="auth-card">
+      <div class="auth-status-title" id="auth-status-title">Save with email</div>
+      <div class="auth-status-copy" id="auth-status-copy">Create an account to sync your gamename, streak, and settings across devices.</div>
+      <div class="account-plan-row">
+        <span class="account-plan-label">Plan</span>
+        <span class="account-plan-pill" id="account-plan-pill">Free</span>
+      </div>
+      <div class="auth-email" id="auth-email" hidden></div>
+      <div class="auth-actions">
+        <button class="auth-btn auth-btn-primary" id="auth-primary-btn" onclick="handlePrimaryAuthAction()">Sign up</button>
+        <button class="auth-btn auth-btn-secondary" id="auth-secondary-btn" onclick="handleSecondaryAuthAction()">Sign in</button>
+      </div>
+      <button class="auth-link-btn" id="auth-reset-btn" onclick="sendPasswordResetEmail()" hidden>Send password reset email</button>
+    </div>
+  </div>
+  <div class="prof-section" id="profile-pro-section">
+    <div class="prof-sec-title">Pixel Sprite Vibe Plus Monthly</div>
+    <div class="pro-card">
+      <div class="pro-card-main">
+        <div class="pro-card-title">Free to create. Upgrade for more magic.</div>
+        <div class="pro-card-copy">Unlimited update hours, saves, animation frames, watermark-free animations, premium packs, and advanced creation tools.</div>
+      </div>
+      <button class="pro-card-btn" onclick="openProInfo()">View Plus</button>
+    </div>
+  </div>
+  <div class="ptoggle-list" id="ptog-list"></div>
+</div>
+
+</div><!-- #app -->
+
+<nav id="nav">
+  <button class="nt nt-home on" id="nav-home" onclick="showTab('home')"><span class="icon">🏠<span class="nt-dot" id="home-dot"></span></span><span class="nt-label" id="home-label">Home</span></button>
+  <button class="nt" id="nav-studio" onclick="showTab('studio')"><span class="icon">🎨</span>Studio</button>
+  <button class="nt" id="nav-closet" onclick="showTab('closet')"><span class="icon">📁</span>Gallery</button>
+  <button class="nt" id="nav-challenges" onclick="showTab('challenges')"><span class="icon">🏆</span>Wins</button>
+  <button class="nt" id="nav-profile" onclick="showTab('profile')"><span class="icon">👾</span>Me</button>
+</nav>
+
+
+<div id="profile-name-modal" class="modal-bg centered" style="display:none">
+  <div class="name-modal-card">
+    <div class="name-modal-badge">Profile Name</div>
+    <h2 class="name-modal-title">Edit your gamename</h2>
+    <p class="name-modal-copy">Choose the public name shown on your Me page and challenge submissions.</p>
+    <input id="profile-name-input" class="name-modal-input" type="text" maxlength="18" placeholder="Enter gamename" autocomplete="nickname" spellcheck="false">
+    <div class="name-modal-help" id="profile-name-help">This name shows on your Me page and challenge submissions.</div>
+    <div class="name-modal-actions">
+      <button class="name-modal-skip" id="profile-name-cancel" onclick="closeProfileNameModal()">Later</button>
+      <button class="name-modal-save" onclick="saveProfileNameFromModal()">Save gamename</button>
+    </div>
+  </div>
+</div>
+
+<div id="auth-modal" class="modal-bg centered" style="display:none">
+  <div class="name-modal-card auth-modal-card">
+    <div class="name-modal-badge" id="auth-modal-badge">Account</div>
+    <h2 class="name-modal-title" id="auth-modal-title">Save Your PixelVerse</h2>
+    <p class="name-modal-copy" id="auth-modal-copy">Create an account to sync your username, streaks, badges, and creations across devices.</p>
+    <div class="auth-provider-stack">
+      <button class="auth-provider apple" type="button" onclick="continueWithApple()" hidden>Continue with Apple</button>
+      <button class="auth-provider google" type="button" onclick="continueWithGoogle()" hidden>Continue with Google</button>
+      <button class="auth-provider email" type="button" onclick="showEmailAuthFields()">Continue with Email</button>
+    </div>
+    <div id="email-auth-fields" class="email-auth-fields" hidden>
+    <div id="auth-gamename-wrap" hidden>
+      <input id="auth-gamename-input" class="name-modal-input" type="text" maxlength="18" placeholder="Choose public gamename" autocomplete="nickname" spellcheck="false">
+    </div>
+    <input id="auth-email-input" class="name-modal-input" type="email" placeholder="Email address" autocomplete="email" spellcheck="false">
+    <input id="auth-password-input" class="name-modal-input" type="password" placeholder="Password" autocomplete="current-password" spellcheck="false">
+    <div class="name-modal-help" id="auth-modal-help">Passwords are handled by Supabase Auth and are never stored in this app.</div>
+    <div class="name-modal-actions">
+      <button class="name-modal-skip" onclick="closeAuthModal()">Cancel</button>
+      <button class="name-modal-save" id="auth-submit-btn" onclick="submitAuthForm()">Sign in</button>
+    </div>
+    <button class="auth-link-btn modal-auth-switch" id="auth-switch-btn" onclick="toggleAuthMode()">Need an account? Sign up</button>
+    <button class="auth-link-btn modal-auth-reset" onclick="sendPasswordResetEmail()">Forgot password?</button>
+    </div>
+  </div>
+</div>
+
+<div id="account-settings-modal" class="modal-bg centered" style="display:none">
+  <div class="name-modal-card auth-modal-card">
+    <div class="name-modal-badge">Account Settings</div>
+    <h2 class="name-modal-title">Your PixelVerse Account</h2>
+    <p class="name-modal-copy" id="account-settings-copy">Manage the account connected to this device.</p>
+    <div class="auth-email" id="account-settings-email"></div>
+    <div class="name-modal-actions">
+      <button class="name-modal-save" type="button" onclick="updateCloudEmail()">Change email</button>
+      <button class="name-modal-skip" type="button" onclick="signOutCloudAccount()">Sign out</button>
+    </div>
+    <button class="auth-link-btn modal-auth-reset" type="button" onclick="sendPasswordResetEmail()">Send password reset email</button>
+    <button class="auth-link-btn" type="button" onclick="closeAccountSettings()">Close</button>
+  </div>
+</div>
+
+<div id="text-modal" class="modal-bg centered" style="display:none">
+  <div class="name-modal-card auth-modal-card">
+    <div class="name-modal-badge">Pixel Text</div>
+    <h2 class="name-modal-title" id="text-modal-title">Add text</h2>
+    <p class="name-modal-copy">Text stays pixelated, can be dragged around, and can be re-edited later.</p>
+    <input id="text-input" class="name-modal-input" type="text" maxlength="24" placeholder="Type text" autocomplete="off" spellcheck="false">
+    <div class="text-scale-wrap">
+      <label class="text-scale-label" for="text-scale">Pixel size</label>
+      <div class="text-scale-row">
+        <input id="text-scale" class="text-scale-slider" type="range" min="1" max="4" value="1" oninput="updateTextScaleValue(this.value)">
+        <span class="text-scale-value" id="text-scale-value">1×</span>
+      </div>
+      <label class="text-scale-label text-color-label" for="text-color">Text color</label>
+      <div class="text-color-inline">
+        <input id="text-color" class="text-color-input" type="color" value="#6C63FF" oninput="updateTextModalColor(this.value)">
+        <button class="text-mini-btn" type="button" onclick="setTextModalColorToCurrent()">Use Current</button>
+      </div>
+      <div class="text-color-note" id="text-modal-note">Use your current selected color or choose a new one here.</div>
+    </div>
+    <div class="name-modal-actions">
+      <button class="name-modal-skip" onclick="closeTextModal()">Cancel</button>
+      <button class="name-modal-save" id="text-save-btn" onclick="saveTextFromModal()">Save This Frame</button>
+    </div>
+    <div class="text-edit-actions text-modal-edit-actions" id="text-modal-edit-actions" style="display:none">
+      <button class="text-mini-btn" type="button" onclick="saveTextFromModal(true)">Save All Frames</button>
+      <button class="text-mini-btn danger" type="button" onclick="deleteSelectedText()">Delete This Frame</button>
+      <button class="text-mini-btn danger" type="button" onclick="deleteSelectedText(true)">Delete All Frames</button>
+    </div>
+  </div>
+</div>
+
+<div id="save-project-modal" class="modal-bg centered" style="display:none">
+  <div class="name-modal-card auth-modal-card">
+    <div class="name-modal-badge">Save Creation</div>
+    <h2 class="name-modal-title">Save to Gallery</h2>
+    <p class="name-modal-copy">Choose a name and where this creation belongs in your gallery.</p>
+    <input id="save-project-name" class="name-modal-input" type="text" maxlength="32" placeholder="Project name" autocomplete="off" spellcheck="false">
+    <div class="text-scale-wrap">
+      <label class="text-scale-label" for="save-project-visibility">Sharing</label>
+      <select id="save-project-visibility" class="ptog-select">
+        <option value="private">Private</option>
+        <option value="public">Public Gallery</option>
+      </select>
+      <div class="text-color-note">Public creations may appear in PixelVerse after a safety check. You can make them private anytime.</div>
+    </div>
+    <div class="text-scale-wrap">
+      <label class="text-scale-label" for="save-project-category">Gallery section</label>
+      <select id="save-project-category" class="ptog-select">
+        <option value="Avatar">Avatar</option>
+        <option value="Items">Items</option>
+        <option value="Rooms">Rooms</option>
+        <option value="Closet">Closet</option>
+      </select>
+      <div class="text-color-note">You can filter saved creations by this section later.</div>
+    </div>
+    <div class="text-color-note" id="save-project-note">Saved creations stay in My Gallery. Sign in to sync them and publish publicly.</div>
+    <div class="name-modal-actions">
+      <button class="name-modal-skip" onclick="closeSaveProjectModal()">Cancel</button>
+      <button class="name-modal-save" onclick="confirmSaveProject(true)">Keep & Open Gallery</button>
+    </div>
+  </div>
+</div>
+<!-- COLOR MODAL -->
+<div id="color-modal" class="modal-bg" style="display:none">
+  <div class="msheet">
+    <div class="mhandle"></div>
+    <button class="mclose" onclick="closeColorModal()">✕</button>
+    <div class="mtitle">Color Picker</div>
+    <input type="color" class="cprev" id="color-native" value="#6C63FF" oninput="nativeCC(this.value)">
+    <input type="text" id="hex-in" placeholder="#6C63FF" oninput="hexCC(this.value)" maxlength="7">
+
+    <div class="cm-section-title">🕐 Recent</div>
+    <div id="cm-recent" class="cm-hrow"></div>
+
+    <div class="cm-section-title">⬜ Black → White</div>
+    <div class="cm-hrow" id="cm-bw"></div>
+
+    <div class="cm-section-title">🌈 Spectrum</div>
+    <div class="cm-hrow" id="cm-spectrum"></div>
+
+    <div class="cm-section-title">🍬 Pastels</div>
+    <div class="cm-hrow" id="cm-pastels"></div>
+
+    <div class="cm-section-title">✨ Neons</div>
+    <div class="cm-hrow" id="cm-neons"></div>
+
+    <div class="cm-section-title">🎨 Curated Palettes</div>
+    <div class="pp-grid" id="pp-grid"></div>
+
+    <button class="mbtn" onclick="addColorToPal()">＋ Add to My Palette</button>
+  </div>
+</div>
+
+<div id="pro-info-modal" class="modal-bg centered" style="display:none">
+  <div class="name-modal-card pro-modal-card">
+    <div class="name-modal-badge" id="pro-info-badge">Pixel Sprite Vibe Plus Monthly</div>
+    <div class="name-modal-title" id="pro-info-title">More magic. More animation. More fun.</div>
+    <p class="name-modal-copy" id="pro-info-copy">Choose one of the App Store products submitted with this build.</p>
+    <div class="club-price-row" aria-label="Pixel Sprite Vibe Plus Monthly App Store product">
+      <button class="club-price-card featured" type="button" onclick="startIAPPurchase('monthly')">
+        <span class="club-price-kicker">Monthly</span>
+        <strong>$1.99</strong>
+        <span>Monthly subscription · renews automatically</span>
+      </button>
+    </div>
+    <div class="club-plan-grid">
+      <div class="club-plan-card">
+        <div class="club-plan-title">Free</div>
+        <ul>
+          <li>Full drawing experience</li>
+          <li>10 save slots</li>
+          <li>3-frame animation</li>
+          <li>Basic artwork image</li>
+          <li>Watermarked animated sticker</li>
+          <li>Daily challenges</li>
           <li>XP, badges, and public gallery posting</li>
         </ul>
       </div>
