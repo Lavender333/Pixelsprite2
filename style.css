@@ -1301,3 +1301,10 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .birthday-policy-link:hover {
   color: #fff7ed;
 }
+
+
+.selection-export-panel{margin:16px 0;padding:16px;border:1px solid rgba(160,145,210,.4);border-radius:16px;background:rgba(140,120,200,.08);display:grid;gap:10px}
+.selection-export-panel h3,.selection-export-panel p{margin:0}
+.selection-export-panel select{width:100%;padding:12px;border-radius:10px;background:var(--surface,#242434);color:inherit;border:1px solid rgba(160,145,210,.5)}
+.selection-export-panel canvas{display:block;margin:auto;max-width:100%;max-height:200px;width:auto;height:auto;image-rendering:pixelated;border-radius:8px;background:repeating-conic-gradient(#d7d7dd 0% 25%,#fff 0% 50%) 0 0 / 20px 20px}
+.selection-export-panel button:disabled{opacity:.5;cursor:not-allowed}

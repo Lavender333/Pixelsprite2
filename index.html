@@ -727,6 +727,15 @@
     <div class="mtitle">✨ Use Your Creation</div>
     <div class="use-subtitle">Create once. Use everywhere.</div>
     <div class="exp-info" id="exp-info">Your artwork is ready.</div>
+<section class="selection-export-panel">
+<h3>Export PNG</h3>
+<label for="export-scope">Export area</label>
+<select id="export-scope" onchange="refreshSelectionExportPreview()"><option value="selection" selected>Selection only</option><option value="canvas">Entire canvas</option></select>
+<p>PNG · Transparent background</p>
+<canvas id="export-selection-preview" width="128" height="128" aria-label="PNG export preview"></canvas>
+<p id="export-selection-status" role="status"></p>
+<button type="button" class="btn-primary" onclick="exportSelectedPNG()">Download PNG</button>
+</section>
     <div class="use-destination-grid" aria-label="Creative destination ideas">
       <button class="use-destination-card" type="button" onclick="useCreationForGames()">
         <span class="use-destination-icon">🎮</span>
