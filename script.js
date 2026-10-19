@@ -7344,7 +7344,10 @@ function openExportModal(source={type:'current'}){
     // Ensure no stale inline style hides an export option.
     card.style.display='flex';
   });
+  const scopeEl=document.getElementById('export-scope');
+  if(scopeEl)scopeEl.value='selection';
   const activeSource=getExportSource();
+  requestAnimationFrame(refreshSelectionExportPreview);
   const sz = exportSourceSize(activeSource);
   const scale = 8;
   const dim = sz * scale;
@@ -7362,6 +7365,61 @@ function openExportModal(source={type:'current'}){
   if(gifDim) gifDim.textContent = `${fc} frame${fc!==1?'s':''} · ${fps} FPS`;
 }
 function closeExportModal(){document.getElementById('export-modal').style.display='none';}
+
+function buildSelectionExportCanvas(){
+  const source=captureExportSource();
+  const full=createExportSourceCanvas(source);
+  const mode=document.getElementById('export-scope')?.value||'selection';
+  let x=0,y=0,w=full.width,h=full.height;
+  if(mode==='selection'){
+    if(source.type!=='current'||!SEL.active) return null;
+    const rect=selRect();
+    x=Math.max(0,Math.floor(rect.x));y=Math.max(0,Math.floor(rect.y));
+    w=Math.min(full.width-x,Math.ceil(rect.w));h=Math.min(full.height-y,Math.ceil(rect.h));
+    if(w<=0||h<=0) return null;
+  }
+  const out=document.createElement('canvas');
+  out.width=w*8;out.height=h*8;
+  const ctx=out.getContext('2d');
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(full,x,y,w,h,0,0,out.width,out.height);
+  return out;
+}
+
+function refreshSelectionExportPreview(){
+  const preview=document.getElementById('export-selection-preview');
+  if(!preview)return;
+  const source=buildSelectionExportCanvas();
+  const status=document.getElementById('export-selection-status');
+  const button=document.querySelector('.selection-export-panel button');
+  if(!source){
+    preview.width=128;preview.height=128;
+    preview.getContext('2d').clearRect(0,0,128,128);
+    if(status)status.textContent='Select an area in the editor, or choose Entire canvas.';
+    if(button)button.disabled=true;
+    return;
+  }
+  preview.width=source.width;preview.height=source.height;
+  const ctx=preview.getContext('2d');ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(source,0,0);
+  if(status)status.textContent=source.width+' × '+source.height+' px · Preview matches PNG';
+  if(button)button.disabled=false;
+}
+
+async function exportSelectedPNG(){
+  const canvas=buildSelectionExportCanvas();
+  if(!canvas){toast('Select artwork first or choose Entire canvas.');return;}
+  try{
+    const blob=await canvasToBlob(canvas,'image/png');
+    const mode=document.getElementById('export-scope')?.value||'selection';
+    const filename=exportSourceName()+(mode==='selection'?'-selection':'')+'.png';
+    if(downloadBlobFile(blob,filename)===false)return;
+    closeExportModal();
+    toast('PNG downloaded.');
+    trackExport('png',5);
+  }catch(err){console.warn('[Selection PNG export]',err);toast('PNG export failed. Please try again.');}
+}
+
 
 function toggleUseIdeas(){
   const panel=document.getElementById('use-ideas-panel');
