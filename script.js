@@ -7616,32 +7616,101 @@ function exportJPEG(){
 
 // ── EXPORT: ANIMATED GIF ──────────────────────────────
 // Pure JS GIF encoder — no libraries, no network
+let closeMobileExport=null;
+
+function showMobileExport(blob,filename){
+  if(closeMobileExport) closeMobileExport();
+  const url=URL.createObjectURL(blob);
+  const previousFocus=document.activeElement;
+  const dialog=document.createElement('dialog');
+  dialog.className='export-ready';
+  dialog.setAttribute('aria-labelledby','export-ready-title');
+  const title=document.createElement('h2');
+  title.id='export-ready-title';
+  title.textContent='Your file is ready';
+  const name=document.createElement('p');
+  name.textContent=filename;
+  const help=document.createElement('p');
+  help.textContent='Tap Share to save to Files or send to another app, or tap Download to save a copy.';
+  const status=document.createElement('p');
+  status.setAttribute('role','status');
+  const download=document.createElement('a');
+  download.className='mbtn export-ready-action';
+  download.href=url;
+  download.download=filename;
+  download.target='_blank';
+  download.rel='noopener';
+  download.textContent='Download file';
+  const close=document.createElement('button');
+  close.className='mbtn export-ready-action';
+  close.textContent='Done';
+  close.type='button';
+  close.onclick=()=>dialog.close();
+  dialog.append(title,name,help,status);
+  let file;
+  try{
+    file=new File([blob],filename,{type:blob.type||'application/octet-stream'});
+    if(!navigator.canShare?.({files:[file]})) file=null;
+  }catch(error){ file=null; }
+  if(file && navigator.share){
+    const share=document.createElement('button');
+    share.className='mbtn export-ready-action';
+    share.type='button';
+    share.textContent='Share / Save to Files';
+    share.onclick=async()=>{
+      share.disabled=true;
+      try{
+        // Invoke directly from this tap, after all file preparation is finished.
+        await navigator.share({files:[file]});
+        status.textContent='Share sheet closed. You can save another copy or tap Done.';
+      }catch(error){
+        status.textContent=error?.name==='AbortError'
+          ? 'Sharing cancelled. Your file is still ready.'
+          : 'Sharing is unavailable. Tap Download file to save a copy.';
+      }finally{ share.disabled=false; }
+    };
+    dialog.appendChild(share);
+  }else{
+    help.textContent='Tap Download file to save a copy. If your browser opens a preview, use its Share menu to save it.';
+  }
+  download.onclick=()=>{status.textContent='Download requested. Check your downloads or the preview tab, then tap Done.';};
+  dialog.append(download,close);
+  const cleanup=()=>{
+    dialog.remove();
+    // Keep the URL alive long enough for a newly opened preview to read it.
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
+    if(closeMobileExport===dismiss) closeMobileExport=null;
+    previousFocus?.focus?.();
+  };
+  const dismiss=()=>dialog.close();
+  closeMobileExport=dismiss;
+  dialog.addEventListener('close',cleanup,{once:true});
+  document.body.appendChild(dialog);
+  dialog.showModal();
+  return true;
+}
+
 function downloadBlobFile(blob, filename){
   if(!blob){
     toast('Export could not create a file. Try again.');
     return false;
   }
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.rel = 'noopener';
-  a.style.display = 'none';
+  const mobile=/Android|iPad|iPhone|iPod/i.test(navigator.userAgent)
+    || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  if(mobile) return showMobileExport(blob,filename);
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=filename;
+  a.rel='noopener';
+  a.style.display='none';
   document.body.appendChild(a);
-  // Safari/iOS may ignore download attr for blob URLs; fallback to opening the blob.
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
-  try {
-    if (!('download' in HTMLAnchorElement.prototype) || isIOS || isSafari) {
-      const opened=window.open(url, '_blank');
-      if(!opened) location.href=url;
-    } else {
-      a.click();
-    }
+  try{
+    a.click();
     return true;
-  } finally {
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }finally{
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);
   }
 }
 
@@ -10731,7 +10800,18 @@ function openPixelVerse(){
 }
 
 // ── HELPERS ───────────────────────────────────────────
-function toast(msg,dur=2200){document.querySelectorAll('.toast').forEach(t=>t.remove());const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.style.opacity='0',dur-300);setTimeout(()=>t.remove(),dur);}
+function toast(msg,dur=2200){
+  document.querySelectorAll('.toast').forEach(t=>t.remove());
+  const t=document.createElement('div');
+  t.className='toast';
+  t.setAttribute('role','status');
+  t.setAttribute('aria-live','polite');
+  t.textContent=msg;
+  document.body.appendChild(t);
+  const duration=Math.max(dur,Math.min(10000,1500+String(msg).length*45));
+  setTimeout(()=>t.style.opacity='0',duration-300);
+  setTimeout(()=>t.remove(),duration);
+}
 function confetti(){const cols=['#6C63FF','#FF6B6B','#3DDC97','#FFD166','#4FC3F7','#CE93D8'];for(let i=0;i<55;i++){const px=document.createElement('div');const w=Math.random()>.5?4:6;px.className='cp';px.style.cssText=`width:${w}px;height:${w}px;background:${cols[Math.floor(Math.random()*cols.length)]};left:${Math.random()*100}%;top:0;animation-delay:${Math.random()*.7}s;animation-duration:${.8+Math.random()*1}s`;document.body.appendChild(px);setTimeout(()=>px.remove(),2200);}}
 function onKey(e){
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.contentEditable==='true') return;

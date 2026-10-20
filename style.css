@@ -1279,7 +1279,7 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .gif-pct{font-family:var(--ff-mono);font-size:12px;color:var(--text2);margin-top:8px}
 
 /* TOAST & CONFETTI */
-.toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%);background:var(--s2);border:1px solid var(--border2);padding:9px 16px;border-radius:22px;font-size:12px;font-weight:700;z-index:9999;white-space:nowrap;pointer-events:none;animation:tin .25s cubic-bezier(.22,1,.36,1)}
+.toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%);background:var(--s2);border:1px solid var(--border2);padding:9px 16px;border-radius:22px;font-size:12px;font-weight:700;z-index:9999;box-sizing:border-box;width:max-content;max-width:calc(100% - 32px - var(--safe-left) - var(--safe-right));white-space:normal;overflow-wrap:anywhere;text-align:center;line-height:1.5;bottom:calc(76px + var(--safe-bottom));box-shadow:0 8px 28px rgba(0,0,0,.35);transition:opacity .3s;pointer-events:none;animation:tin .25s cubic-bezier(.22,1,.36,1)}
 @keyframes tin{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 .cp{position:fixed;border-radius:2px;z-index:9998;pointer-events:none;animation:cfall linear forwards}
 @keyframes cfall{0%{transform:translateY(-10px) rotate(0deg);opacity:1}100%{transform:translateY(105vh) rotate(720deg);opacity:0}}
@@ -1308,3 +1308,13 @@ button{font-family:var(--ff-body);cursor:pointer;user-select:none}
 .selection-export-panel select{width:100%;padding:12px;border-radius:10px;background:var(--surface,#242434);color:inherit;border:1px solid rgba(160,145,210,.5)}
 .selection-export-panel canvas{display:block;margin:auto;max-width:100%;max-height:200px;width:auto;height:auto;image-rendering:pixelated;border-radius:8px;background:repeating-conic-gradient(#d7d7dd 0% 25%,#fff 0% 50%) 0 0 / 20px 20px}
 .selection-export-panel button:disabled{opacity:.5;cursor:not-allowed}
+/* Keep export controls within the mobile viewport and above browser chrome. */
+#export-modal .msheet{max-height:calc(100dvh - 16px - var(--safe-top));overscroll-behavior:contain}
+#export-modal .mclose{width:44px;height:44px;top:8px;right:8px}
+#export-modal .mtitle{padding-right:36px}
+.export-ready{box-sizing:border-box;width:min(440px,calc(100% - 32px));max-height:calc(100dvh - 32px - var(--safe-top) - var(--safe-bottom));overflow:auto;padding:24px;border:1px solid var(--border2);border-radius:22px;background:var(--s1);color:var(--text);font-family:var(--ff-body)}
+.export-ready::backdrop{background:rgba(0,0,0,.78)}
+.export-ready h2{font-size:20px;margin:0 0 12px}
+.export-ready p{font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.export-ready-action{display:block;box-sizing:border-box;text-align:center;text-decoration:none;min-height:48px}
+.export-ready-action:disabled{opacity:.6}
