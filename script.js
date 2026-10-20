@@ -672,8 +672,6 @@ const ST = {
   publicGallery: [],
   pixelVerseReactions: {},
   pixelVerseFollows: {},
-  freeSessionUsedMs: 0,
-  freeSessionLastTick: null,
 };
 
 const APP_SETTINGS = {
@@ -706,7 +704,6 @@ const DAILY_PIXEL_SURPRISES=[
   {type:'Template',label:'Tiny Pet Starter'},
 ];
 
-const FREE_SESSION_LIMIT_MS = 90 * 60 * 1000;
 
 const APP_REVIEW_PRO_ACCOUNT = {
   email: 'appreview@pixelspirite.com',
@@ -1220,66 +1217,14 @@ function requireClubFeature(feature='this feature'){
   return false;
 }
 
-function formatFreeSessionTime(ms){
-  const totalMinutes=Math.max(0,Math.ceil(ms/60000));
-  const hours=Math.floor(totalMinutes/60);
-  const minutes=totalMinutes%60;
-  if(hours && minutes) return `${hours}h ${minutes}m`;
-  if(hours) return `${hours}h`;
-  return `${minutes}m`;
-}
-
-function persistFreeSessionTime(){
-  try{localStorage.setItem('pc2_free_session_used_ms',String(Math.max(0,Math.floor(ST.freeSessionUsedMs||0))));}catch(e){}
-}
-
-function loadFreeSessionTime(){
-  try{
-    const used=Number(localStorage.getItem('pc2_free_session_used_ms')||0);
-    ST.freeSessionUsedMs=Number.isFinite(used) ? Math.max(0,used) : 0;
-  }catch(e){
-    ST.freeSessionUsedMs=0;
-  }
-  ST.freeSessionLastTick=Date.now();
-}
-
-function tickFreeSessionTime(){
-  const now=Date.now();
-  if(ST.freeSessionLastTick===null) ST.freeSessionLastTick=now;
-  if(!isClubAccount() && document.visibilityState!=='hidden'){
-    const delta=Math.max(0,Math.min(now-ST.freeSessionLastTick,60000));
-    ST.freeSessionUsedMs=Math.min(FREE_SESSION_LIMIT_MS,ST.freeSessionUsedMs+delta);
-    persistFreeSessionTime();
-  }
-  ST.freeSessionLastTick=now;
-}
-
-function startFreeSessionClock(){
-  loadFreeSessionTime();
-  document.addEventListener('visibilitychange',()=>tickFreeSessionTime());
-  setInterval(tickFreeSessionTime,15000);
-}
-
-function freeSessionLimitReached(){
-  tickFreeSessionTime();
-  return !isClubAccount() && (ST.freeSessionUsedMs||0)>=FREE_SESSION_LIMIT_MS;
-}
-
+// Creating and saving artwork never triggers a timed subscription offer.
+// Paid features and the explicit Upgrade button remain available.
 function canStartCreativeSession(){
-  if(!freeSessionLimitReached()) return true;
-  openProInfo('limit');
-  return false;
+  return true;
 }
 
 function maybeShowSuccessUpgradePrompt(reason='success'){
-  if(isClubAccount() || freeSessionLimitReached()) return;
-  if((ST.freeSessionUsedMs||0)<5*60*1000) return;
-  try{
-    const key='pc2_plus_success_prompt_day';
-    if(localStorage.getItem(key)===dayStamp()) return;
-    localStorage.setItem(key,dayStamp());
-  }catch(e){}
-  setTimeout(()=>openProInfo(reason),850);
+  return;
 }
 
 function saveLocalAccountTier(tier=ST.accountTier, proSince=ST.proSince){
@@ -1334,11 +1279,11 @@ function openProInfo(reason='default'){
   if(title && copy){
     if(reason==='limit'){
       title.textContent='You’re on a roll!';
-      copy.textContent='Upgrade to Pixel Sprite Vibe Plus Monthly to unlock unlimited update hours and keep going. Free time is up, so new sessions pause here without Plus benefits like extended time, watermark-free animations, premium packs, and priority updates.';
-      if(primary) primary.textContent='Keep Going';
+      copy.textContent='Keep creating for free with no time limit. Plus adds unlimited saves, more animation frames, watermark-free animations, and specialty exports.';
+      if(primary) primary.textContent='Explore Plus';
     }else if(reason==='success'){
       title.textContent='Nice work. Want to supercharge the next session?';
-      copy.textContent='Enjoying the speed? Unlock Pixel Sprite Vibe Plus Monthly for deeper creative insights, more update time, unlimited saves, and premium tools for your next creation.';
+      copy.textContent='Creating is free with no time limit. Explore Plus when you want unlimited saves, more animation frames, and premium tools.';
       if(primary) primary.textContent='Unlock Plus';
     }else{
       title.textContent='More magic. More animation. More fun.';
@@ -11026,7 +10971,6 @@ function boot(){
   loadProfileName();
   loadLocalAccountTier();
   restoreAppReviewSession();
-  startFreeSessionClock();
   loadDailyVibeState();
   loadAppSettings();
   loadProjects();

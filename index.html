@@ -43,7 +43,7 @@
 
 <!-- Service Worker registration -->
 
-<link rel="stylesheet" href="style.css?v=21">
+<link rel="stylesheet" href="style.css?v=22">
 
 <script>
   const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
@@ -59,7 +59,7 @@
 
   if (canUseSW) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js?v=21').catch(() => {});
+      navigator.serviceWorker.register('/sw.js?v=22').catch(() => {});
     });
   }
 </script>
@@ -505,7 +505,7 @@
     <div class="pro-card">
       <div class="pro-card-main">
         <div class="pro-card-title">Free to create. Upgrade for more magic.</div>
-        <div class="pro-card-copy">Unlimited update hours, saves, animation frames, watermark-free animations, premium packs, and advanced creation tools.</div>
+        <div class="pro-card-copy">Create for free with no time limit. Plus adds unlimited saves, animation frames, watermark-free animations, premium packs, and advanced creation tools.</div>
       </div>
       <button class="pro-card-btn" onclick="openProInfo()">View Plus</button>
     </div>
@@ -689,7 +689,7 @@
       <div class="club-plan-card">
         <div class="club-plan-title">Free</div>
         <ul>
-          <li>Full drawing experience</li>
+          <li>Full drawing experience, with no time limit</li>
           <li>10 save slots</li>
           <li>3-frame animation</li>
           <li>Basic artwork image</li>
@@ -701,7 +701,6 @@
       <div class="club-plan-card club">
         <div class="club-plan-title">Pixel Sprite Vibe Plus Monthly</div>
         <ul>
-          <li>Unlimited update hours</li>
           <li>Unlimited saves</li>
           <li>Unlimited animation frames</li>
           <li>Watermark-free animations</li>
@@ -714,7 +713,7 @@
     </div>
     <div class="name-modal-actions">
       <button class="name-modal-save" id="pro-info-primary" onclick="startIAPPurchase('monthly')">Upgrade</button>
-      <button class="name-modal-skip" onclick="closeProInfo()">Maybe later</button>
+      <button class="name-modal-skip" onclick="closeProInfo()">Keep creating for free</button>
     </div>
   </div>
 </div>
@@ -884,6 +883,6 @@
 <!-- Antiwash Palette Upgrade System -->
 <script src="antiwash-upgrade-extended.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="script.js?v=21"></script>
+<script src="script.js?v=22"></script>
 </body>
 </html>

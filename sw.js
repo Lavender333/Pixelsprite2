@@ -2,14 +2,14 @@
 // Strategy: cache-first for app shell, network-first for dynamic content
 // Bump CACHE_VERSION to force all clients to update
 
-const CACHE_VERSION = 'pixel-sprite-vibe-v21';
+const CACHE_VERSION = 'pixel-sprite-vibe-v22';
 const APP_SHELL = [
   '/',
   '/index.html',
   '/style.css',
-  '/style.css?v=21',
+  '/style.css?v=22',
   '/script.js',
-  '/script.js?v=21',
+  '/script.js?v=22',
   '/manifest.json',
   '/icon-32.png',
   '/icon-180.png',
